@@ -1,0 +1,7 @@
+ffprobe
+pydub
+openai-whisper
+soundfile
+sentence-transformers
+sqlite-vss
+SpeechRecognition~=3.10.1

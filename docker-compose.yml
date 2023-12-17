@@ -1,0 +1,11 @@
+version: "3.7"
+services:
+  captains_log:
+    image: captains_log
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./.db:/app/memory
+      - ./app:/app
+      - ~/personal_logs/:/personal_logs
