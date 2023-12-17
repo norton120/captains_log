@@ -1,22 +1,32 @@
-import sqlite3
-import sqlite_vss
+from pydantic_settings import BaseSettings
+from sqlalchemy import create_engine, Table, Column, Integer, String, Text, DateTime, MetaData
+from pgvector.sqlalchemy import Vector
 
+class Settings(BaseSettings):
+    db_user:str
+    db_password:str
+    db_name:str
+    db_host:str
+    db_port:int
 
-def create_db():
-    """Create database"""
-    db = sqlite3.connect("/app/memory.db")
-    db.execute("""\
-    CREATE TABLE memory using vss0(
-        audio_file VARCHAR(255),
-        markdown_file VARCHAR(255),
-        text TEXT,
-        start_time TEXT,
-        embeddings TEXT);
-               """)
-    db.commit()
-    db.execute("""\
-    CREATE VIRTUAL TABLE IF NOT EXISTS
-        vss_memory using vss0(embeddings(512));
-               """)
-    db.commit()
-    db.close()
+def get_db_engine():
+    settings = Settings()
+    engine = create_engine((
+        "postgresql+psycopg2://"
+        f"{settings.db_user}:{settings.db_password}@"
+        f"{settings.db_host}:{settings.db_port}"
+        ))
+    return engine
+
+def create_database():
+    meta = MetaData()
+    Table(
+        "memory", meta,
+        Column("id", Integer, primary_key=True),
+        Column("audio_file", String(255)),
+        Column("markdown_file", String(255)),
+        Column("text", Text),
+        Column("start_time", DateTime),
+        Column("embeddings", Vector(512)),
+        )
+    meta.create_all(get_db_engine())

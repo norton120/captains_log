@@ -3,5 +3,9 @@ pydub
 openai-whisper
 soundfile
 sentence-transformers
-sqlite-vss
+psycopg2-binary
+sqlalchemy
 SpeechRecognition~=3.10.1
+pydantic
+pydantic_settings
+pgvector

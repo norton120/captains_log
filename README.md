@@ -13,3 +13,4 @@ Enter Captain's log.
 with the original audio file and timestamps
 
 Now you can do a similarity search using `captains-log search "I think I drink too much"` and the top _k_ similar audio logs will open up in browser windows, right to the related point in the log. So this might open up the part of your New Year's log where you talk about dry January, or the log last September when you decided you needed to switch back to only wine.
+`captains-log summary week` gives you a summary of your last week. also accepts `day`, `month`, `quarter`

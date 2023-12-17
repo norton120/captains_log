@@ -1,10 +1,23 @@
 version: "3.7"
 services:
+  captains_log_db:
+    image: ankane/pgvector
+    environment:
+      POSTGRES_USER: captainslog
+      POSTGRES_PASSWORD: captainslog
+      POSTGRES_DB: captainslog
+    volumes:
+      - ./.db:/var/lib/postgresql/data
   captains_log:
     image: captains_log
     build:
       context: .
       dockerfile: Dockerfile
+    environment:
+      DATABASE_NAME: captainslog
+      DATABASE_USER: captainslog
+      DATABASE_PASSWORD: captainslog
+      DATABASE_HOST: 5432
     volumes:
       - ./.db:/app/memory
       - ./app:/app

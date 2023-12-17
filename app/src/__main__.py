@@ -1,6 +1,4 @@
 import sys
-import sqlite3
-import sqlite_vss
 import datetime
 from pathlib import Path
 from pydub import AudioSegment
@@ -8,6 +6,8 @@ from sentence_transformers import SentenceTransformer
 import speech_recognition as sr
 
 import logging
+
+from .db import get_db_engine
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,7 +17,6 @@ class Transcriber:
     audio_files = Path("/personal_logs/audio_files")
     markdown_files = Path("/personal_logs/markdown_files")
     embedder = SentenceTransformer("all-mpnet-base-v2")
-    db = sqlite3.connect("/app/memory.db")
 
     def stampname(self, path:Path) -> str:
         stamp = path.lstat().st_mtime
@@ -66,12 +65,7 @@ class Transcriber:
                           ) -> None:
         for part in transcribed_parts:
             part["embeddings"] = self.embedder.encode(part["text"])
-            self.db.execute("""\
-            INSERT INTO memory (audio_file,
-                                    markdown_file,
-                                    text,
-                                    start_time,
-                                    embeddings) VALUES (?, ?, ?, ?, ?)""",
+
                             (audio_file, markdown_file, part["start"], part["text"], part["embeddings"]))
 
 transcriber = Transcriber()
