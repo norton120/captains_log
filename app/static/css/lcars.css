@@ -45,7 +45,7 @@ body {
 .lcars-top-left {
     grid-area: top-left;
     background: linear-gradient(45deg, var(--lcars-orange), var(--lcars-red));
-    border-radius: 0 0 80px 0;
+    border-radius: 80px 0 20px 0;
     position: relative;
 }
 
@@ -60,7 +60,7 @@ body {
 .lcars-top-right {
     grid-area: top-right;
     background: linear-gradient(135deg, var(--lcars-red), var(--lcars-purple));
-    border-radius: 0 0 0 80px;
+    border-radius: 0 80px 0 20px;
 }
 
 /* Side Bars */
@@ -84,7 +84,7 @@ body {
 .lcars-bottom-left {
     grid-area: bottom-left;
     background: linear-gradient(315deg, var(--lcars-orange), var(--lcars-blue));
-    border-radius: 80px 0 0 0;
+    border-radius: 20px 0 0 80px;
 }
 
 .lcars-bottom-bar {
@@ -98,7 +98,7 @@ body {
 .lcars-bottom-right {
     grid-area: bottom-right;
     background: linear-gradient(225deg, var(--lcars-blue), var(--lcars-purple));
-    border-radius: 0 80px 0 0;
+    border-radius: 0 20px 80px 0;
 }
 
 /* Content Area */
@@ -107,6 +107,7 @@ body {
     background-color: var(--lcars-bg);
     padding: 20px;
     overflow-y: auto;
+    border-radius: 20px;
 }
 
 /* LCARS Elements */
