@@ -1,6 +1,7 @@
 """Test configuration and fixtures."""
 import asyncio
 import os
+import sys
 import tempfile
 from pathlib import Path
 from typing import AsyncGenerator, Generator
@@ -14,6 +15,11 @@ from fastapi.testclient import TestClient
 import vcr
 from moto import mock_aws
 import boto3
+
+# Add the parent directory to the Python path for Docker environment
+current_dir = Path(__file__).parent.parent
+if str(current_dir) not in sys.path:
+    sys.path.insert(0, str(current_dir))
 
 from app.config import Settings
 from app.models.log_entry import Base, LogEntry, ProcessingStatus
@@ -102,6 +108,27 @@ def mock_openai_client():
     mock_completion = MagicMock()
     mock_completion.choices = [MagicMock(message=MagicMock(content="Test summary"))]
     mock_client.chat.completions.create.return_value = mock_completion
+    
+    return mock_client
+
+
+@pytest.fixture(scope="function")
+def mock_async_openai_client():
+    """Mock async OpenAI client for testing."""
+    mock_client = AsyncMock()
+    
+    # Mock embedding response
+    mock_embedding = MagicMock()
+    mock_embedding.data = [MagicMock(embedding=[0.1] * 1536)]
+    mock_client.embeddings.create.return_value = mock_embedding
+    
+    # Mock chat completion response  
+    mock_completion = MagicMock()
+    mock_completion.choices = [MagicMock(message=MagicMock(content="Test summary"))]
+    mock_client.chat.completions.create.return_value = mock_completion
+    
+    # Mock models list for health check
+    mock_client.models.list.return_value = MagicMock()
     
     return mock_client
 

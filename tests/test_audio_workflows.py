@@ -20,11 +20,22 @@ from app.models.log_entry import LogEntry, ProcessingStatus
 @pytest.fixture
 def audio_workflow(test_settings, async_db_session, mock_s3_service, mock_openai_client):
     """Create audio processing workflow for testing."""
+    # Create mock services with async methods
+    s3_mock = MagicMock()
+    s3_mock.upload_audio = AsyncMock()
+    s3_mock.get_audio_url = AsyncMock()
+    s3_mock.delete_audio = AsyncMock()
+    
+    openai_mock = MagicMock()
+    openai_mock.transcribe_audio = AsyncMock()
+    openai_mock.generate_embedding = AsyncMock()
+    openai_mock.generate_summary = AsyncMock()
+    
     workflow = AudioProcessingWorkflow(
         settings=test_settings,
         db_session=async_db_session,
-        s3_service=MagicMock(),
-        openai_service=MagicMock()
+        s3_service=s3_mock,
+        openai_service=openai_mock
     )
     return workflow
 
@@ -100,21 +111,45 @@ class TestTranscribeAudioStep:
         # Assert
         assert result["transcription"] == "Test transcription"
         assert result["success"] is True
-        audio_workflow.openai_service.transcribe_audio.assert_called_once_with(sample_audio_file)
+        audio_workflow.openai_service.transcribe_audio.assert_called_once_with(
+            sample_audio_file,
+            prompt="Captain's log entry from sailing vessel"
+        )
     
     @m.context("When transcribing from S3 URL")
     @m.it("downloads from S3 URL and transcribes")
     @pytest.mark.unit
     @pytest.mark.workflow
-    async def test_transcribe_audio_step_s3_url(self, audio_workflow):
+    async def test_transcribe_audio_step_s3_url(self, audio_workflow, sample_audio_file):
         """Should download audio from S3 URL and transcribe."""
         # Arrange
         step = TranscribeAudioStep(audio_workflow)
         s3_key = "audio/test-123.wav"
         audio_workflow.openai_service.transcribe_audio.return_value = "Test transcription"
+        audio_workflow.s3_service.get_audio_url.return_value = "https://s3.example.com/test.wav"
         
-        # Act
-        result = await step.execute(s3_key=s3_key)
+        # Mock the download process
+        with patch('aiohttp.ClientSession') as MockClientSession:
+            # Setup mock response
+            mock_response = MagicMock()
+            mock_response.status = 200
+            mock_response.content.iter_chunked = AsyncMock(return_value=iter([b'test data']))
+            
+            # Setup mock session as async context manager
+            mock_session = MagicMock()
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock()
+            
+            # Setup mock get method as async context manager
+            mock_get_cm = MagicMock()
+            mock_get_cm.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_get_cm.__aexit__ = AsyncMock()
+            mock_session.get.return_value = mock_get_cm
+            
+            MockClientSession.return_value = mock_session
+            
+            # Act
+            result = await step.execute(s3_key=s3_key)
         
         # Assert
         assert result["transcription"] == "Test transcription"
@@ -207,7 +242,10 @@ class TestGenerateSummaryStep:
         # Assert
         assert result["summary"] == "Brief summary"
         assert result["success"] is True
-        audio_workflow.openai_service.generate_summary.assert_called_once_with(transcription)
+        audio_workflow.openai_service.generate_summary.assert_called_once_with(
+            transcription,
+            instructions="Focus on key events, weather conditions, and important decisions."
+        )
     
     @m.context("When summary step receives short transcription")
     @m.it("handles short transcriptions appropriately")
@@ -363,6 +401,7 @@ class TestAudioProcessingWorkflow:
     
     @m.context("When workflow updates status")
     @m.it("updates status at each processing step")
+    @pytest.mark.asyncio
     @pytest.mark.integration
     @pytest.mark.workflow
     @pytest.mark.db
@@ -376,6 +415,8 @@ class TestAudioProcessingWorkflow:
         # Mock services to track status updates
         audio_workflow.s3_service.upload_audio.return_value = "audio/test-123.wav"
         audio_workflow.openai_service.transcribe_audio.return_value = "Test transcription"
+        audio_workflow.openai_service.generate_embedding.return_value = [0.1] * 1536
+        audio_workflow.openai_service.generate_summary.return_value = "Test summary"
         
         # Act
         await audio_workflow.process_audio(
@@ -388,6 +429,7 @@ class TestAudioProcessingWorkflow:
     
     @m.context("When workflow encounters transient failures")
     @m.it("retries transient failures automatically")
+    @pytest.mark.asyncio
     @pytest.mark.integration
     @pytest.mark.workflow
     async def test_workflow_retry_logic(
@@ -408,6 +450,8 @@ class TestAudioProcessingWorkflow:
         
         audio_workflow.s3_service.upload_audio.return_value = "audio/test-123.wav"
         audio_workflow.openai_service.transcribe_audio.side_effect = failing_transcribe
+        audio_workflow.openai_service.generate_embedding.return_value = [0.1] * 1536
+        audio_workflow.openai_service.generate_summary.return_value = "Test summary"
         
         # Act
         result = await audio_workflow.process_audio(
@@ -421,6 +465,7 @@ class TestAudioProcessingWorkflow:
     
     @m.context("When running multiple workflows concurrently")
     @m.it("handles multiple workflows simultaneously")
+    @pytest.mark.asyncio
     @pytest.mark.integration
     @pytest.mark.workflow
     async def test_concurrent_workflows(

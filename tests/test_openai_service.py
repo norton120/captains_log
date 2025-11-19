@@ -13,10 +13,11 @@ from app.services.openai_client import (
 
 
 @pytest.fixture
-def openai_service(test_settings, mock_openai_client):
+def openai_service(test_settings, mock_openai_client, mock_async_openai_client):
     """Create OpenAI service instance for testing."""
     service = OpenAIService(test_settings)
     service.client = mock_openai_client
+    service.async_client = mock_async_openai_client
     return service
 
 
@@ -125,7 +126,7 @@ class TestOpenAIEmbeddings:
         # Assert
         assert len(embedding) == 1536  # text-embedding-3-small dimension
         assert all(isinstance(x, float) for x in embedding)
-        openai_service.client.embeddings.create.assert_called_once()
+        openai_service.async_client.embeddings.create.assert_called_once()
     
     @m.context("When generating embeddings for empty text")
     @m.it("handles empty input text")
@@ -159,7 +160,7 @@ class TestOpenAIEmbeddings:
     async def test_generate_embedding_api_error(self, openai_service):
         """Should handle OpenAI embedding API errors."""
         # Arrange
-        openai_service.client.embeddings.create.side_effect = Exception("API Error")
+        openai_service.async_client.embeddings.create.side_effect = Exception("API Error")
         
         # Act & Assert
         with pytest.raises(EmbeddingError, match="Embedding generation failed"):
@@ -177,14 +178,14 @@ class TestOpenAISummary:
     async def test_generate_summary_success(self, openai_service):
         """Should successfully generate summary for transcription."""
         # Arrange
-        transcription = "This is a long transcription that needs to be summarized into key points."
+        transcription = "This is a much longer transcription that contains many detailed observations about the sailing conditions, weather patterns, navigation decisions, crew activities, and various incidents that occurred during this particular voyage that definitely needs to be summarized into key points."
         
         # Act
         summary = await openai_service.generate_summary(transcription)
         
         # Assert
         assert summary == "Test summary"
-        openai_service.client.chat.completions.create.assert_called_once()
+        openai_service.async_client.chat.completions.create.assert_called_once()
     
     @m.context("When summarizing short text")
     @m.it("handles text too short to summarize")
@@ -198,8 +199,8 @@ class TestOpenAISummary:
         # Act
         summary = await openai_service.generate_summary(short_text)
         
-        # Assert - should return original text or a meaningful response
-        assert summary == "Test summary"  # Mock returns this regardless
+        # Assert - should return original text for short transcriptions
+        assert summary == short_text
     
     @m.context("When using custom summary instructions")
     @m.it("accepts custom summary instructions")
@@ -208,14 +209,14 @@ class TestOpenAISummary:
     async def test_generate_summary_custom_instructions(self, openai_service):
         """Should accept and use custom summary instructions."""
         # Arrange
-        transcription = "Long transcription text..."
+        transcription = "This is a much longer transcription that contains many detailed observations about the sailing conditions, weather patterns, navigation decisions, crew activities, and various incidents that occurred during this particular voyage that definitely needs to be summarized into key points for the captain's log."
         instructions = "Focus on technical details and action items."
         
         # Act
         await openai_service.generate_summary(transcription, instructions=instructions)
         
         # Assert
-        call_kwargs = openai_service.client.chat.completions.create.call_args.kwargs
+        call_kwargs = openai_service.async_client.chat.completions.create.call_args.kwargs
         messages = call_kwargs["messages"]
         assert any(instructions in msg["content"] for msg in messages if msg["role"] == "system")
     
@@ -226,11 +227,11 @@ class TestOpenAISummary:
     async def test_generate_summary_api_error(self, openai_service):
         """Should handle OpenAI chat API errors."""
         # Arrange
-        openai_service.client.chat.completions.create.side_effect = Exception("API Error")
+        openai_service.async_client.chat.completions.create.side_effect = Exception("API Error")
         
         # Act & Assert
         with pytest.raises(SummaryError, match="Summary generation failed"):
-            await openai_service.generate_summary("test transcription")
+            await openai_service.generate_summary("This is a much longer test transcription that contains enough words to trigger the actual API call and test the error handling functionality properly for the summary generation process.")
     
     @m.context("When summary response is empty")
     @m.it("handles empty summary responses")
@@ -239,11 +240,11 @@ class TestOpenAISummary:
     async def test_generate_summary_empty_response(self, openai_service):
         """Should handle empty summary responses."""
         # Arrange
-        openai_service.client.chat.completions.create.return_value.choices[0].message.content = ""
+        openai_service.async_client.chat.completions.create.return_value.choices[0].message.content = ""
         
         # Act & Assert
         with pytest.raises(SummaryError, match="Empty summary"):
-            await openai_service.generate_summary("test transcription")
+            await openai_service.generate_summary("This is a much longer test transcription that contains enough words to trigger the actual API call and test the empty response handling functionality properly for the summary generation process.")
 
 
 @m.describe("OpenAI Rate Limiting")

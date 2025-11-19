@@ -70,7 +70,7 @@ class TestS3ServiceUpload:
             )
             
             # Act & Assert
-            with pytest.raises(AudioUploadError, match="S3 upload failed"):
+            with pytest.raises(AudioUploadError, match="S3 bucket not found"):
                 await s3_service.upload_audio(sample_audio_file)
     
     @m.context("When attempting to upload a nonexistent file")

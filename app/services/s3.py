@@ -2,6 +2,7 @@
 import asyncio
 import os
 from datetime import datetime, timedelta
+import datetime as dt
 from pathlib import Path
 from typing import Optional
 from uuid import uuid4
@@ -49,7 +50,7 @@ class S3Service:
     
     def _generate_s3_key(self, file_path: Path) -> str:
         """Generate a unique S3 key for the audio file."""
-        timestamp = datetime.utcnow().strftime("%Y/%m/%d")
+        timestamp = datetime.now(dt.timezone.utc).strftime("%Y/%m/%d")
         unique_id = str(uuid4())[:8]
         file_extension = file_path.suffix.lower()
         

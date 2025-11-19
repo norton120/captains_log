@@ -71,12 +71,13 @@ class OpenAIService:
         if not audio_file.exists():
             raise TranscriptionError(f"Audio file not found: {audio_file}")
         
-        # Check file size (OpenAI limit is 25MB)
+        # Check file size (use configured max size, default OpenAI limit is 25MB)
         file_size = audio_file.stat().st_size
-        max_size = 25 * 1024 * 1024  # 25MB
+        max_size = min(self.settings.max_audio_file_size, 25 * 1024 * 1024)  # Use settings or 25MB limit
         if file_size > max_size:
             size_mb = file_size / (1024 * 1024)
-            raise TranscriptionError(f"File too large: {size_mb:.1f}MB > 25MB")
+            max_mb = max_size / (1024 * 1024)
+            raise TranscriptionError(f"File too large: {size_mb:.1f}MB > {max_mb:.1f}MB")
         
         # Check file format
         allowed_extensions = {'.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm'}
@@ -149,7 +150,7 @@ class OpenAIService:
             # Handle specific OpenAI errors
             if "rate limit" in error_msg.lower():
                 raise TranscriptionError(f"Rate limit exceeded: {error_msg}")
-            elif "authentication" in error_msg.lower():
+            elif "authentication" in error_msg.lower() or "invalid api key" in error_msg.lower():
                 raise TranscriptionError(f"Authentication failed: {error_msg}")
             elif "invalid" in error_msg.lower() and "file" in error_msg.lower():
                 raise TranscriptionError(f"Invalid audio file: {error_msg}")
@@ -168,7 +169,13 @@ class OpenAIService:
         """Synchronous transcription call."""
         try:
             response = self.client.audio.transcriptions.create(**params)
-            return response.text if hasattr(response, 'text') else str(response)
+            # Handle both text response and object response
+            if isinstance(response, str):
+                return response
+            elif hasattr(response, 'text'):
+                return response.text
+            else:
+                return str(response)
         finally:
             # Ensure file is closed
             if 'file' in params:

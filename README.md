@@ -6,10 +6,10 @@ Voice-based ship's log for SV Defiant with automatic transcription, semantic sea
 
 ```bash
 # Run the application
-docker-compose up
+docker compose  up
 
 # Run tests
-docker-compose run test
+docker compose  run test
 
 # Access at http://captains-log.localhost
 ```
@@ -28,16 +28,16 @@ This project follows **Test-Driven Development (TDD)**:
 
 ```bash
 # Run tests during development
-docker-compose run test
+docker compose  run test
 
 # Run specific tests
-docker-compose run test pytest tests/test_specific.py -v
+docker compose  run test pytest tests/test_specific.py -v
 
 # Run tests with coverage
-docker-compose run test pytest --cov=app tests/
+docker compose  run test pytest --cov=app tests/
 
 # Live reload development
-docker-compose up app  # Auto-reloads on file changes
+docker compose  up app  # Auto-reloads on file changes
 ```
 
 ## Required Environment Variables
@@ -63,7 +63,7 @@ AWS_REGION=us-east-2
 ```
 app/
 ├── api/           # FastAPI routes
-├── models/        # Database models  
+├── models/        # Database models
 ├── workflows/     # DBOS background tasks
 ├── static/        # CSS/JS assets
 └── templates/     # HTML templates
