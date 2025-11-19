@@ -201,41 +201,51 @@
     
     .log-metadata {
         display: flex;
-        gap: 20px;
+        gap: 30px;
         font-size: 0.9em;
-        color: var(--lcars-blue);
-        margin-top: 15px;
-        padding-top: 15px;
-        border-top: 1px solid rgba(153, 153, 204, 0.3);
+        color: var(--lcars-gray);
+        margin: 15px 0;
     }
     
     .log-actions {
         display: flex;
         gap: 10px;
-        margin-top: 15px;
+        margin-top: 20px;
     }
     
     .action-button {
         padding: 8px 15px;
-        background: var(--lcars-blue);
-        border: none;
-        color: var(--lcars-white);
-        border-radius: 12px;
+        background: rgba(153, 153, 204, 0.2);
+        border: 2px solid var(--lcars-blue);
+        color: var(--lcars-blue);
+        border-radius: 20px;
         font-family: inherit;
         font-size: 0.9em;
-        text-transform: uppercase;
         cursor: pointer;
         transition: all 0.3s ease;
+        text-transform: uppercase;
+        font-weight: bold;
     }
     
-    .action-button:hover {
-        background: var(--lcars-purple);
-        box-shadow: 0 0 10px rgba(204, 153, 204, 0.5);
+    .action-button:hover:not(:disabled) {
+        background: var(--lcars-blue);
+        color: var(--lcars-black);
     }
     
     .action-button.secondary {
-        background: rgba(153, 153, 204, 0.2);
-        border: 2px solid var(--lcars-blue);
+        background: rgba(255, 153, 0, 0.1);
+        border-color: var(--lcars-orange);
+        color: var(--lcars-orange);
+    }
+    
+    .action-button.secondary:hover:not(:disabled) {
+        background: var(--lcars-orange);
+        color: var(--lcars-black);
+    }
+    
+    .action-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
     }
     
     .load-more {
@@ -244,7 +254,7 @@
     }
     
     .load-more-button {
-        padding: 15px 30px;
+        padding: 15px 40px;
         background: linear-gradient(135deg, var(--lcars-orange), var(--lcars-red));
         border: none;
         color: var(--lcars-black);
@@ -306,110 +316,69 @@
             <input 
                 type="text" 
                 class="search-input" 
+                id="search-input"
                 placeholder="Search log entries..."
-                hx-get="/api/logs/search"
-                hx-trigger="input changed delay:500ms"
+                hx-get="/api/logs?page=1"
                 hx-target="#log-list"
+                hx-swap="innerHTML"
+                hx-trigger="input changed delay:500ms"
                 hx-indicator="#search-indicator"
+                name="search"
             >
             <div id="search-indicator" class="htmx-indicator">Searching...</div>
         </div>
         
         <div class="filter-controls">
-            <button class="filter-button active" onclick="filterByStatus('all')">ALL</button>
-            <button class="filter-button" onclick="filterByStatus('completed')">READY</button>
-            <button class="filter-button" onclick="filterByStatus('processing')">PROCESSING</button>
-            <button class="filter-button" onclick="filterByStatus('failed')">FAILED</button>
+            <button class="filter-button active" 
+                    hx-get="/api/logs?page=1" 
+                    hx-target="#log-list" 
+                    hx-swap="innerHTML"
+                    hx-indicator="#initial-loader"
+                    onclick="updateFilterButtons(this)">ALL</button>
+            <button class="filter-button" 
+                    hx-get="/api/logs?page=1&status=completed" 
+                    hx-target="#log-list" 
+                    hx-swap="innerHTML"
+                    hx-indicator="#initial-loader"
+                    onclick="updateFilterButtons(this)">READY</button>
+            <button class="filter-button" 
+                    hx-get="/api/logs?page=1&status=transcribing" 
+                    hx-target="#log-list" 
+                    hx-swap="innerHTML"
+                    hx-indicator="#initial-loader"
+                    onclick="updateFilterButtons(this)">PROCESSING</button>
+            <button class="filter-button" 
+                    hx-get="/api/logs?page=1&status=failed" 
+                    hx-target="#log-list" 
+                    hx-swap="innerHTML"
+                    hx-indicator="#initial-loader"
+                    onclick="updateFilterButtons(this)">FAILED</button>
         </div>
     </div>
 
     <!-- Log List -->
-    <div id="log-list" hx-get="/api/logs?page=1" hx-trigger="load" hx-swap="innerHTML">
+    <div id="log-list" 
+         hx-get="/api/logs?page=1" 
+         hx-trigger="load" 
+         hx-indicator="#initial-loader">
         <!-- Loading indicator -->
-        <div class="htmx-indicator htmx-request">
+        <div class="htmx-indicator" id="initial-loader">
             <div style="font-size: 1.2em;">ACCESSING PERSONAL LOG DATABASE...</div>
             <div style="margin-top: 10px; color: var(--lcars-blue);">Please stand by</div>
         </div>
     </div>
-
-    <!-- Load More Button -->
-    <div class="load-more" id="load-more-container" style="display: none;">
-        <button 
-            class="load-more-button" 
-            hx-get="/api/logs" 
-            hx-vals="js:{page: getNextPage()}"
-            hx-target="#log-list" 
-            hx-swap="beforeend"
-            hx-indicator="#load-indicator"
-        >
-            LOAD MORE ENTRIES
-        </button>
-        <div id="load-indicator" class="htmx-indicator">Loading...</div>
-    </div>
 </div>
 
-<!-- Log Entry Template (for HTMX responses) -->
-<template id="log-entry-template">
-    <div class="log-entry" data-log-id="{log_id}" onclick="viewLog('{log_id}')">
-        <div class="log-header">
-            <div class="log-timestamp">{timestamp}</div>
-            <div class="log-status {status}">{status_text}</div>
-        </div>
-        
-        <div class="log-summary {summary_class}">
-            {summary_text}
-        </div>
-        
-        <div class="log-metadata">
-            <span><strong>Duration:</strong> {duration}</span>
-            <span><strong>Size:</strong> {file_size}</span>
-            <span><strong>Created:</strong> {created_date}</span>
-        </div>
-        
-        <div class="log-actions" onclick="event.stopPropagation();">
-            <button class="action-button" onclick="playAudio('{log_id}')">
-                🔊 PLAY
-            </button>
-            <button class="action-button secondary" onclick="viewTranscript('{log_id}')">
-                📝 TRANSCRIPT
-            </button>
-            <button class="action-button secondary" onclick="downloadLog('{log_id}')">
-                💾 DOWNLOAD
-            </button>
-        </div>
-    </div>
-</template>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    let currentPage = 1;
-    let currentFilter = 'all';
-    let hasNextPage = true;
-    
-    function getNextPage() {
-        return currentPage + 1;
-    }
-    
-    function filterByStatus(status) {
-        // Update filter buttons
+    // Update filter buttons when clicked
+    function updateFilterButtons(clickedButton) {
         document.querySelectorAll('.filter-button').forEach(btn => {
             btn.classList.remove('active');
         });
-        event.target.classList.add('active');
-        
-        currentFilter = status;
-        currentPage = 1;
-        
-        // Fetch filtered results
-        const url = status === 'all' 
-            ? '/api/logs?page=1' 
-            : `/api/logs?page=1&status=${status}`;
-            
-        htmx.ajax('GET', url, {
-            target: '#log-list',
-            swap: 'innerHTML'
-        });
+        clickedButton.classList.add('active');
     }
     
     function viewLog(logId) {
@@ -441,7 +410,7 @@
         fetch(`/api/logs/${logId}/audio`)
             .then(response => response.json())
             .then(data => {
-                audio.src = data.url;
+                audio.src = data.audio_url;
                 audio.play();
                 document.body.appendChild(audio);
                 
@@ -486,211 +455,41 @@
             setTimeout(() => notification.remove(), 300);
         }, 5000);
     }
-    
-    // Handle HTMX responses
-    document.addEventListener('htmx:afterRequest', function(event) {
-        if (event.detail.xhr.status === 200) {
-            const response = JSON.parse(event.detail.xhr.responseText);
-            
-            if (response.logs) {
-                renderLogEntries(response.logs, response.pagination);
-            }
-        }
-    });
-    
-    function renderLogEntries(logs, pagination) {
-        const container = document.getElementById('log-list');
-        
-        if (logs.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <h3>NO LOG ENTRIES FOUND</h3>
-                    <p>No personal log entries match your current filter criteria.</p>
-                    <a href="/record" class="lcars-button">RECORD FIRST ENTRY</a>
-                </div>
-            `;
-            document.getElementById('load-more-container').style.display = 'none';
-            return;
-        }
-        
-        // Group logs by date
-        const groupedLogs = groupLogsByDate(logs);
-        let html = '';
-        
-        for (const [date, entries] of Object.entries(groupedLogs)) {
-            html += `
-                <div class="date-group">
-                    <div class="date-header">
-                        <span>${formatDate(date)}</span>
-                        <span class="date-count">${entries.length} entries</span>
-                    </div>
-                    <div class="log-entries">
-                        ${entries.map(log => renderLogEntry(log)).join('')}
-                    </div>
-                </div>
-            `;
-        }
-        
-        if (pagination.page === 1) {
-            container.innerHTML = html;
-        } else {
-            container.insertAdjacentHTML('beforeend', html);
-        }
-        
-        // Update pagination state
-        currentPage = pagination.page;
-        hasNextPage = pagination.has_next;
-        
-        // Show/hide load more button
-        const loadMoreContainer = document.getElementById('load-more-container');
-        if (hasNextPage) {
-            loadMoreContainer.style.display = 'block';
-        } else {
-            loadMoreContainer.style.display = 'none';
-        }
-    }
-    
-    function groupLogsByDate(logs) {
-        const grouped = {};
-        
-        logs.forEach(log => {
-            const date = log.created_at.split('T')[0]; // Get date part
-            if (!grouped[date]) {
-                grouped[date] = [];
-            }
-            grouped[date].push(log);
-        });
-        
-        return grouped;
-    }
-    
-    function renderLogEntry(log) {
-        const statusText = log.processing_status.replace('_', ' ').toUpperCase();
-        const summaryText = log.summary || 'Processing in progress...';
-        const summaryClass = log.summary ? '' : 'placeholder';
-        const duration = formatDuration(log.duration || 0);
-        const fileSize = formatFileSize(log.file_size || 0);
-        const timestamp = formatTimestamp(log.created_at);
-        
-        return `
-            <div class="log-entry" data-log-id="${log.id}" onclick="viewLog('${log.id}')">
-                <div class="log-header">
-                    <div class="log-timestamp">${timestamp}</div>
-                    <div class="log-status ${log.processing_status}">${statusText}</div>
-                </div>
-                
-                <div class="log-summary ${summaryClass}">
-                    ${summaryText}
-                </div>
-                
-                <div class="log-metadata">
-                    <span><strong>Duration:</strong> ${duration}</span>
-                    <span><strong>Size:</strong> ${fileSize}</span>
-                    <span><strong>Entry:</strong> #${log.entry_number || 'Unknown'}</span>
-                    ${log.location_name || (log.latitude && log.longitude) 
-                        ? `<span><strong>Location:</strong> ${formatLocation(log)}</span>` 
-                        : ''
-                    }
-                </div>
-                
-                <div class="log-actions" onclick="event.stopPropagation();">
-                    <button class="action-button" onclick="playAudio('${log.id}')" ${!log.audio_s3_key ? 'disabled' : ''}>
-                        🔊 PLAY
-                    </button>
-                    <button class="action-button secondary" onclick="viewTranscript('${log.id}')" ${!log.transcription ? 'disabled' : ''}>
-                        📝 TRANSCRIPT
-                    </button>
-                    <button class="action-button secondary" onclick="downloadLog('${log.id}')" ${!log.audio_s3_key ? 'disabled' : ''}>
-                        💾 DOWNLOAD
-                    </button>
-                </div>
-            </div>
-        `;
-    }
-    
-    function formatDate(dateString) {
-        const date = new Date(dateString);
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        
-        if (date.toDateString() === today.toDateString()) {
-            return 'TODAY';
-        } else if (date.toDateString() === yesterday.toDateString()) {
-            return 'YESTERDAY';
-        } else {
-            return date.toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-            }).toUpperCase();
-        }
-    }
-    
-    function formatTimestamp(timestamp) {
-        const date = new Date(timestamp);
-        return date.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-        });
-    }
-    
-    function formatDuration(seconds) {
-        if (!seconds || seconds === 0) return 'Unknown';
-        
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const remainingSeconds = Math.floor(seconds % 60);
-        
-        if (hours > 0) {
-            return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-        } else {
-            return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-        }
-    }
-    
-    function formatFileSize(bytes) {
-        if (!bytes || bytes === 0) return 'Unknown';
-        
-        const units = ['B', 'KB', 'MB', 'GB'];
-        let size = bytes;
-        let unitIndex = 0;
-        
-        while (size >= 1024 && unitIndex < units.length - 1) {
-            size /= 1024;
-            unitIndex++;
-        }
-        
-        return `${size.toFixed(1)} ${units[unitIndex]}`;
-    }
-    
-    function formatLocation(log) {
-        if (log.location_name) {
-            return log.location_name;
-        } else if (log.latitude && log.longitude) {
-            return `${log.latitude.toFixed(4)}, ${log.longitude.toFixed(4)}`;
-        }
-        return 'Unknown';
-    }
-    
-    // Auto-refresh for processing entries
+
+    // Auto-refresh for processing entries using HTMX
     setInterval(() => {
-        const processingEntries = document.querySelectorAll('.log-status.transcribing, .log-status.vectorizing, .log-status.summarizing');
+        const processingEntries = document.querySelectorAll('.log-status.transcribing, .log-status.vectorizing, .log-status.summarizing, .log-status.pending');
         if (processingEntries.length > 0) {
-            // Refresh current view
-            const url = currentFilter === 'all' 
-                ? `/api/logs?page=1` 
-                : `/api/logs?page=1&status=${currentFilter}`;
+            // Get current search value and active filter
+            const searchValue = document.getElementById('search-input')?.value;
+            const activeFilter = document.querySelector('.filter-button.active');
+            
+            if (activeFilter) {
+                let url = '/api/logs?page=1';
                 
-            htmx.ajax('GET', url, {
-                target: '#log-list',
-                swap: 'innerHTML'
-            });
+                // Add status if not 'all'
+                const filterText = activeFilter.textContent.trim();
+                if (filterText !== 'ALL') {
+                    const statusMap = {
+                        'READY': 'completed',
+                        'PROCESSING': 'transcribing',
+                        'FAILED': 'failed'
+                    };
+                    const status = statusMap[filterText];
+                    if (status) url += `&status=${status}`;
+                }
+                
+                // Add search if present
+                if (searchValue) {
+                    url += `&search=${encodeURIComponent(searchValue)}`;
+                }
+                
+                // Use HTMX to refresh
+                htmx.ajax('GET', url, {target: '#log-list', swap: 'innerHTML'});
+            }
         }
     }, 10000); // Check every 10 seconds
-    
+
     // Keyboard shortcuts
     document.addEventListener('keydown', function(event) {
         if (event.ctrlKey && event.key === 'r') {

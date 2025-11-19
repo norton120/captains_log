@@ -1,0 +1,65 @@
+{% if logs|length == 0 %}
+    <div class="empty-state">
+        <h3>NO LOG ENTRIES FOUND</h3>
+        <p>No personal log entries match your current filter criteria.</p>
+        <a href="/record" class="lcars-button">RECORD FIRST ENTRY</a>
+    </div>
+{% else %}
+    {% for date, entries in grouped_logs.items() %}
+        <div class="date-group">
+            <div class="date-header">
+                <span>{{ format_display_date(date) }}</span>
+                <span class="date-count">{{ entries|length }} entries</span>
+            </div>
+            <div class="log-entries">
+                {% for log in entries %}
+                    <div class="log-entry" data-log-id="{{ log.id }}" onclick="viewLog('{{ log.id }}')">
+                        <div class="log-header">
+                            <div class="log-timestamp">{{ format_timestamp(log.created_at) }}</div>
+                            <div class="log-status {{ log.processing_status.value }}">{{ format_status(log.processing_status) }}</div>
+                        </div>
+                        
+                        <div class="log-summary {% if not log.summary %}placeholder{% endif %}">
+                            {{ log.summary or 'Processing in progress...' }}
+                        </div>
+                        
+                        <div class="log-metadata">
+                            <span><strong>Created:</strong> {{ format_date(log.created_at) }}</span>
+                            {% if log.location_name or (log.latitude and log.longitude) %}
+                                <span><strong>Location:</strong> {{ format_location(log) }}</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="log-actions" onclick="event.stopPropagation();">
+                            <button class="action-button" onclick="playAudio('{{ log.id }}')" {% if not log.audio_s3_key %}disabled{% endif %}>
+                                🔊 PLAY
+                            </button>
+                            <button class="action-button secondary" onclick="viewTranscript('{{ log.id }}')" {% if not log.transcription %}disabled{% endif %}>
+                                📝 TRANSCRIPT
+                            </button>
+                            <button class="action-button secondary" onclick="downloadLog('{{ log.id }}')" {% if not log.audio_s3_key %}disabled{% endif %}>
+                                💾 DOWNLOAD
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Load more button (if applicable) -->
+{% if has_next %}
+<div id="load-more-container" style="text-align: center; margin: 30px 0;">
+    <button class="lcars-button" 
+            hx-get="/api/logs?page={{ page + 1 }}{% if status %}&status={{ status }}{% endif %}{% if search %}&search={{ search }}{% endif %}"
+            hx-target="#log-list"
+            hx-swap="beforeend"
+            hx-indicator="#load-indicator">
+        LOAD MORE ENTRIES
+    </button>
+    <div class="htmx-indicator" id="load-indicator" style="margin-top: 10px;">
+        <span>LOADING MORE LOG ENTRIES...</span>
+    </div>
+</div>
+{% endif %}

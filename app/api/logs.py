@@ -14,9 +14,12 @@ from fastapi import (
     Form,
     HTTPException, 
     Query,
+    Request,
     UploadFile,
     status
 )
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
@@ -25,6 +28,7 @@ from app.dependencies import get_db_session, get_s3_service, get_openai_service,
 from app.models.log_entry import LogEntry, ProcessingStatus
 from app.services.s3 import S3Service
 from app.services.openai_client import OpenAIService
+from app.services.geocoding import GeocodingService
 from app.workflows.audio_processor import AudioProcessingWorkflow
 from app.config import Settings
 
@@ -32,6 +36,9 @@ logger = logging.getLogger(__name__)
 
 # Create router
 router = APIRouter(prefix="/api/logs", tags=["logs"])
+
+# Initialize templates
+templates = Jinja2Templates(directory="app/templates")
 
 
 
@@ -48,6 +55,11 @@ class LogEntryResponse(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     location_name: Optional[str] = None
+    location_city: Optional[str] = None
+    location_state: Optional[str] = None
+    location_country: Optional[str] = None
+    body_of_water: Optional[str] = None
+    nearest_port: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -239,13 +251,39 @@ async def upload_audio_file(
         # Save temporary file
         temp_file_path = await save_uploaded_file(file)
         
+        # Enhance location data with geocoding if coordinates are provided
+        location_city = None
+        location_state = None
+        location_country = None
+        body_of_water = None
+        nearest_port = None
+        
+        if latitude and longitude:
+            try:
+                async with GeocodingService() as geocoding_service:
+                    location_info = await geocoding_service.reverse_geocode(latitude, longitude)
+                    if location_info:
+                        location_city = location_info.city
+                        location_state = location_info.state
+                        location_country = location_info.country
+                        body_of_water = location_info.body_of_water
+                        nearest_port = location_info.nearest_port
+                        logger.info(f"Geocoded location: {location_info.formatted_address}")
+            except Exception as geocoding_error:
+                logger.warning(f"Geocoding failed: {geocoding_error}, continuing without enhanced location")
+        
         # Create log entry (S3 upload will be handled by the workflow)
         log_entry = LogEntry(
             audio_s3_key="",  # Will be set by workflow after upload
             processing_status=ProcessingStatus.PENDING,
             latitude=latitude,
             longitude=longitude,
-            location_name=location_name
+            location_name=location_name,
+            location_city=location_city,
+            location_state=location_state,
+            location_country=location_country,
+            body_of_water=body_of_water,
+            nearest_port=nearest_port
         )
         
         db_session.add(log_entry)
@@ -281,25 +319,32 @@ async def upload_audio_file(
         ) from e
 
 
-@router.get("", response_model=LogEntryListResponse)
+@router.get("")
 async def list_log_entries(
+    request: Request,
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Items per page"),
     status_filter: Optional[ProcessingStatus] = Query(None, alias="status", description="Filter by processing status"),
+    search: Optional[str] = Query(None, description="Search query"),
     start_date: Optional[datetime] = Query(None, description="Start date filter"),
     end_date: Optional[datetime] = Query(None, description="End date filter"),
     db_session: AsyncSession = Depends(get_db_session)
-) -> LogEntryListResponse:
+):
     """
     List log entries with pagination and filtering.
+    Returns HTML for HTMX requests, JSON for API requests.
     
     - **page**: Page number (1-based)
     - **size**: Items per page (max 100)
     - **status**: Filter by processing status
+    - **search**: Search query
     - **start_date**: Filter logs after this date
     - **end_date**: Filter logs before this date
     """
     try:
+        # Check if this is an HTMX request
+        is_htmx = request.headers.get("HX-Request") == "true"
+        
         # Build query
         query = select(LogEntry).order_by(desc(LogEntry.created_at))
         count_query = select(func.count(LogEntry.id))
@@ -329,7 +374,94 @@ async def list_log_entries(
         result = await db_session.execute(query)
         log_entries = result.scalars().all()
         
-        # Convert to response format
+        # For HTMX requests, return HTML
+        if is_htmx:
+            # Group logs by date
+            from collections import defaultdict
+            grouped_logs = defaultdict(list)
+            
+            for entry in log_entries:
+                date_key = entry.created_at.date().isoformat()
+                grouped_logs[date_key].append(entry)
+            
+            # Convert to regular dict for template
+            grouped_logs = dict(grouped_logs)
+            
+            # Helper functions for template
+            def format_timestamp(dt):
+                return dt.strftime("%H:%M")
+            
+            def format_date(dt):
+                return dt.strftime("%Y-%m-%d")
+            
+            def format_display_date(date_str):
+                from datetime import date as dt_date
+                date_obj = dt_date.fromisoformat(date_str)
+                today = dt_date.today()
+                yesterday = today - timedelta(days=1)
+                
+                if date_obj == today:
+                    return "TODAY"
+                elif date_obj == yesterday:
+                    return "YESTERDAY"
+                else:
+                    return date_obj.strftime("%A, %B %d, %Y").upper()
+            
+            def format_location(log):
+                from app.services.geocoding import format_location_simple
+                
+                if log.location_name:
+                    # If there's a custom location name, use it but enhance with coordinates if available
+                    if log.latitude and log.longitude:
+                        return f"{log.latitude:.4f}°, {log.longitude:.4f}° | {log.location_name}"
+                    return log.location_name
+                elif log.latitude and log.longitude:
+                    # Use enhanced formatting if geocoded data is available
+                    return format_location_simple(
+                        log.latitude, 
+                        log.longitude,
+                        log.location_city,
+                        log.location_state,
+                        log.location_country
+                    )
+                return "Unknown"
+            
+            def format_status(status):
+                return status.value.replace('_', ' ').upper()
+            
+            def format_uuid_short(uuid_obj):
+                return str(uuid_obj)[:8]
+            
+            # Render template to string instead of using TemplateResponse
+            from jinja2 import Environment, FileSystemLoader
+            import os
+            
+            # Get the template directory path
+            template_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
+            env = Environment(loader=FileSystemLoader(template_dir))
+            template = env.get_template("fragments/log_entries.html")
+            
+            html_content = template.render(
+                request=request,
+                logs=log_entries,
+                grouped_logs=grouped_logs,
+                page=page,
+                has_next=offset + size < total,
+                has_prev=page > 1,
+                status=status_filter.value if status_filter else None,
+                search=search,
+                format_timestamp=format_timestamp,
+                format_date=format_date,
+                format_display_date=format_display_date,
+                format_location=format_location,
+                format_status=format_status,
+                format_uuid_short=format_uuid_short
+            )
+            
+            from fastapi.responses import HTMLResponse
+            return HTMLResponse(content=html_content)
+        
+        # For JSON API requests, return JSON
         items = [
             LogEntryResponse(
                 id=str(entry.id),
@@ -341,7 +473,12 @@ async def list_log_entries(
                 processing_error=entry.processing_error,
                 latitude=entry.latitude,
                 longitude=entry.longitude,
-                location_name=entry.location_name
+                location_name=entry.location_name,
+                location_city=entry.location_city,
+                location_state=entry.location_state,
+                location_country=entry.location_country,
+                body_of_water=entry.body_of_water,
+                nearest_port=entry.nearest_port
             )
             for entry in log_entries
         ]
@@ -393,7 +530,12 @@ async def get_log_entry(
             processing_error=log_entry.processing_error,
             latitude=log_entry.latitude,
             longitude=log_entry.longitude,
-            location_name=log_entry.location_name
+            location_name=log_entry.location_name,
+            location_city=log_entry.location_city,
+            location_state=log_entry.location_state,
+            location_country=log_entry.location_country,
+            body_of_water=log_entry.body_of_water,
+            nearest_port=log_entry.nearest_port
         )
         
     except HTTPException:

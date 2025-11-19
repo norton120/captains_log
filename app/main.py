@@ -104,6 +104,13 @@ async def log_detail_page(log_id: str, request: Request, db: Session = Depends(g
         # This would normally call your S3 service to get a presigned URL
         audio_url = f"/api/logs/{log_id}/audio"
     
+    # Helper functions for template
+    def format_status(status):
+        return status.value.replace('_', ' ').upper()
+    
+    def format_uuid_short(uuid_obj):
+        return str(uuid_obj)[:8]
+    
     return templates.TemplateResponse(
         "detail.html",
         {
@@ -113,7 +120,9 @@ async def log_detail_page(log_id: str, request: Request, db: Session = Depends(g
             "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
             "version": "1.0.0",
             "format_duration": format_duration,
-            "format_file_size": format_file_size
+            "format_file_size": format_file_size,
+            "format_status": format_status,
+            "format_uuid_short": format_uuid_short
         }
     )
 

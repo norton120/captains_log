@@ -2,7 +2,7 @@
 
 {% block title %}Log Entry {{ log.id }} - Captain's Log{% endblock %}
 
-{% block page_title %}PERSONAL LOG ENTRY {{ log.entry_number or log.id[:8] }}{% endblock %}
+{% block page_title %}PERSONAL LOG ENTRY {{ log.entry_number or log.id|string|truncate(8, end='') }}{% endblock %}
 
 {% block head %}
 <style>
@@ -449,7 +449,7 @@
             <div class="audio-header">
                 <div class="audio-title">Audio Playback</div>
                 <div class="lcars-status {{ log.processing_status }}" id="audio-status">
-                    {{ log.processing_status.replace('_', ' ').upper() }}
+                    {{ format_status(log.processing_status) }}
                 </div>
             </div>
             
@@ -555,7 +555,7 @@
             <div class="panel-title">Log Information</div>
             <div class="info-item">
                 <span class="info-label">Entry ID</span>
-                <span class="info-value">{{ log.id[:8] }}...</span>
+                <span class="info-value">{{ format_uuid_short(log.id) }}...</span>
             </div>
             <div class="info-item">
                 <span class="info-label">Entry Number</span>
@@ -609,10 +609,10 @@
                 </div>
             </div>
             <div class="status-indicator">
-                <div class="status-icon {{ 'completed' if log.embedding else 'processing' if log.processing_status in ['vectorizing', 'summarizing'] else 'failed' if log.processing_status == 'failed' else 'pending' }}"></div>
+                <div class="status-icon {{ 'completed' if log.embedding is not none else 'processing' if log.processing_status in ['vectorizing', 'summarizing'] else 'failed' if log.processing_status == 'failed' else 'pending' }}"></div>
                 <div class="status-text">
                     <div class="status-label">Vectorization</div>
-                    <div>{{ 'Complete' if log.embedding else 'Failed' if log.processing_status == 'failed' else 'In Progress...' if log.processing_status in ['vectorizing', 'summarizing'] else 'Pending' }}</div>
+                    <div>{{ 'Complete' if log.embedding is not none else 'Failed' if log.processing_status == 'failed' else 'In Progress...' if log.processing_status in ['vectorizing', 'summarizing'] else 'Pending' }}</div>
                 </div>
             </div>
             <div class="status-indicator">
@@ -766,7 +766,7 @@
         
         const a = document.createElement('a');
         a.href = url;
-        a.download = `log-{{ log.id[:8] }}-transcription.txt`;
+        a.download = `log-{{ format_uuid_short(log.id) }}-transcription.txt`;
         a.click();
         
         window.URL.revokeObjectURL(url);

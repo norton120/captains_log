@@ -37,6 +37,11 @@ class LogEntry(Base):
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     location_name = Column(String, nullable=True)
+    location_city = Column(String, nullable=True)
+    location_state = Column(String, nullable=True)
+    location_country = Column(String, nullable=True)
+    body_of_water = Column(String, nullable=True)
+    nearest_port = Column(String, nullable=True)
     
     def __repr__(self):
         return f"<LogEntry(id={self.id}, created_at={self.created_at}, status={self.processing_status.value})>"

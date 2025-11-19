@@ -1,0 +1,62 @@
+# Captain's Log - Claude Context
+
+Voice-based ship's log for SV Defiant with automatic transcription, semantic search, and AI summaries.
+
+## Quick Commands
+
+```bash
+# Run the application
+docker compose up
+
+# Run tests
+docker compose run --rm test
+
+# Run specific tests
+docker compose run --rm test pytest tests/test_specific.py -v
+
+# Run tests with coverage
+docker compose run --rm test pytest --cov=app tests/
+
+# Access at http://captains-log.localhost
+```
+
+## Development Approach
+
+This project follows **Test-Driven Development (TDD)**.
+
+## Required Environment Variables
+
+Create `.env` file:
+```bash
+OPENAI_API_KEY=your_openai_key
+AWS_ACCESS_KEY_ID=your_aws_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret
+AWS_REGION=us-east-2
+```
+
+## Tech Stack
+
+- **FastAPI** + SQLAlchemy + PostgreSQL with pgvector
+- **HTMX** + Jinja2 templates with LCARS styling
+- **DBOS** for async audio processing workflows
+- **OpenAI** Whisper API + embeddings
+- **AWS S3** for audio storage
+
+## Project Structure
+
+```
+app/
+├── api/           # FastAPI routes
+├── models/        # Database models
+├── workflows/     # DBOS background tasks
+├── static/        # CSS/JS assets
+└── templates/     # HTML templates
+tests/             # Test suite
+```
+
+## Core Features
+
+- Voice log recording with automatic transcription using OpenAI Whisper
+- Vectorized semantic search with pgvector
+- AI-powered summaries
+- Audio playback capability
