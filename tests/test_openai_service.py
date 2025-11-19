@@ -1,0 +1,310 @@
+"""Tests for OpenAI service functionality."""
+import pytest
+from unittest.mock import patch, MagicMock, AsyncMock
+from openai import OpenAI
+from pytest import mark as m
+
+from app.services.openai_client import (
+    OpenAIService, 
+    TranscriptionError, 
+    EmbeddingError, 
+    SummaryError
+)
+
+
+@pytest.fixture
+def openai_service(test_settings, mock_openai_client):
+    """Create OpenAI service instance for testing."""
+    service = OpenAIService(test_settings)
+    service.client = mock_openai_client
+    return service
+
+
+@m.describe("OpenAI Transcription")
+class TestOpenAITranscription:
+    """Test OpenAI audio transcription functionality."""
+    
+    @m.context("When transcribing a valid audio file")
+    @m.it("transcribes audio file and returns text")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_transcribe_audio_success(self, openai_service, sample_audio_file):
+        """Should successfully transcribe a valid audio file."""
+        # Act
+        transcription = await openai_service.transcribe_audio(sample_audio_file)
+        
+        # Assert
+        assert transcription == "This is a test transcription of the audio file."
+        openai_service.client.audio.transcriptions.create.assert_called_once()
+    
+    @m.context("When using custom transcription settings")
+    @m.it("passes custom parameters to OpenAI API")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_transcribe_audio_custom_params(self, openai_service, sample_audio_file):
+        """Should pass custom parameters to the transcription API."""
+        # Act
+        await openai_service.transcribe_audio(
+            sample_audio_file,
+            language="en",
+            prompt="Captain's log entry"
+        )
+        
+        # Assert
+        call_kwargs = openai_service.client.audio.transcriptions.create.call_args.kwargs
+        assert call_kwargs["language"] == "en"
+        assert call_kwargs["prompt"] == "Captain's log entry"
+    
+    @m.context("When transcribing unsupported audio format")
+    @m.it("handles unsupported audio formats gracefully")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_transcribe_audio_invalid_format(self, openai_service, tmp_path):
+        """Should handle unsupported audio formats."""
+        # Arrange
+        invalid_file = tmp_path / "test.txt"
+        invalid_file.write_text("not an audio file")
+        
+        # Act & Assert
+        with pytest.raises(TranscriptionError, match="Unsupported audio format"):
+            await openai_service.transcribe_audio(invalid_file)
+    
+    @m.context("When OpenAI API returns an error")
+    @m.it("handles OpenAI API failures gracefully")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_transcribe_audio_api_error(self, openai_service, sample_audio_file):
+        """Should handle OpenAI API errors gracefully."""
+        # Arrange
+        openai_service.client.audio.transcriptions.create.side_effect = Exception("API Error")
+        
+        # Act & Assert
+        with pytest.raises(TranscriptionError, match="Transcription failed"):
+            await openai_service.transcribe_audio(sample_audio_file)
+    
+    @m.context("When transcription result is empty")
+    @m.it("handles empty transcription results")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_transcribe_audio_empty_result(self, openai_service, sample_audio_file):
+        """Should handle empty transcription results."""
+        # Arrange
+        openai_service.client.audio.transcriptions.create.return_value.text = ""
+        
+        # Act & Assert
+        with pytest.raises(TranscriptionError, match="Empty transcription"):
+            await openai_service.transcribe_audio(sample_audio_file)
+    
+    @m.context("When transcribing large audio files")
+    @m.it("handles large audio files appropriately")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_transcribe_large_audio_file(self, openai_service, large_audio_file):
+        """Should handle large audio files appropriately."""
+        # Act & Assert
+        with pytest.raises(TranscriptionError, match="File too large"):
+            await openai_service.transcribe_audio(large_audio_file)
+
+
+@m.describe("OpenAI Embeddings")
+class TestOpenAIEmbeddings:
+    """Test OpenAI embedding generation functionality."""
+    
+    @m.context("When generating embeddings for valid text")
+    @m.it("generates embeddings for input text")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_generate_embedding_success(self, openai_service):
+        """Should successfully generate embeddings for input text."""
+        # Arrange
+        text = "This is a test transcription for embedding generation."
+        
+        # Act
+        embedding = await openai_service.generate_embedding(text)
+        
+        # Assert
+        assert len(embedding) == 1536  # text-embedding-3-small dimension
+        assert all(isinstance(x, float) for x in embedding)
+        openai_service.client.embeddings.create.assert_called_once()
+    
+    @m.context("When generating embeddings for empty text")
+    @m.it("handles empty input text")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_generate_embedding_empty_text(self, openai_service):
+        """Should handle empty input text appropriately."""
+        # Act & Assert
+        with pytest.raises(EmbeddingError, match="Empty text"):
+            await openai_service.generate_embedding("")
+    
+    @m.context("When generating embeddings for long text")
+    @m.it("handles text exceeding token limits")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_generate_embedding_long_text(self, openai_service):
+        """Should handle text that exceeds token limits."""
+        # Arrange
+        long_text = "word " * 10000  # Very long text
+        
+        # Act
+        embedding = await openai_service.generate_embedding(long_text)
+        
+        # Assert - should truncate and still work
+        assert len(embedding) == 1536
+    
+    @m.context("When embedding API encounters error")
+    @m.it("handles OpenAI embedding API failures")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_generate_embedding_api_error(self, openai_service):
+        """Should handle OpenAI embedding API errors."""
+        # Arrange
+        openai_service.client.embeddings.create.side_effect = Exception("API Error")
+        
+        # Act & Assert
+        with pytest.raises(EmbeddingError, match="Embedding generation failed"):
+            await openai_service.generate_embedding("test text")
+
+
+@m.describe("OpenAI Summary")
+class TestOpenAISummary:
+    """Test OpenAI summary generation functionality."""
+    
+    @m.context("When generating summary for transcription")
+    @m.it("generates summary for transcription")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_generate_summary_success(self, openai_service):
+        """Should successfully generate summary for transcription."""
+        # Arrange
+        transcription = "This is a long transcription that needs to be summarized into key points."
+        
+        # Act
+        summary = await openai_service.generate_summary(transcription)
+        
+        # Assert
+        assert summary == "Test summary"
+        openai_service.client.chat.completions.create.assert_called_once()
+    
+    @m.context("When summarizing short text")
+    @m.it("handles text too short to summarize")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_generate_summary_short_text(self, openai_service):
+        """Should handle text that's too short to meaningfully summarize."""
+        # Arrange
+        short_text = "Hi."
+        
+        # Act
+        summary = await openai_service.generate_summary(short_text)
+        
+        # Assert - should return original text or a meaningful response
+        assert summary == "Test summary"  # Mock returns this regardless
+    
+    @m.context("When using custom summary instructions")
+    @m.it("accepts custom summary instructions")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_generate_summary_custom_instructions(self, openai_service):
+        """Should accept and use custom summary instructions."""
+        # Arrange
+        transcription = "Long transcription text..."
+        instructions = "Focus on technical details and action items."
+        
+        # Act
+        await openai_service.generate_summary(transcription, instructions=instructions)
+        
+        # Assert
+        call_kwargs = openai_service.client.chat.completions.create.call_args.kwargs
+        messages = call_kwargs["messages"]
+        assert any(instructions in msg["content"] for msg in messages if msg["role"] == "system")
+    
+    @m.context("When summary API encounters error")
+    @m.it("handles OpenAI chat API failures")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_generate_summary_api_error(self, openai_service):
+        """Should handle OpenAI chat API errors."""
+        # Arrange
+        openai_service.client.chat.completions.create.side_effect = Exception("API Error")
+        
+        # Act & Assert
+        with pytest.raises(SummaryError, match="Summary generation failed"):
+            await openai_service.generate_summary("test transcription")
+    
+    @m.context("When summary response is empty")
+    @m.it("handles empty summary responses")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_generate_summary_empty_response(self, openai_service):
+        """Should handle empty summary responses."""
+        # Arrange
+        openai_service.client.chat.completions.create.return_value.choices[0].message.content = ""
+        
+        # Act & Assert
+        with pytest.raises(SummaryError, match="Empty summary"):
+            await openai_service.generate_summary("test transcription")
+
+
+@m.describe("OpenAI Rate Limiting")
+class TestOpenAIServiceRateLimit:
+    """Test OpenAI service rate limiting and retry logic."""
+    
+    @m.context("When API rate limit is exceeded")
+    @m.it("handles API rate limits gracefully")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_openai_rate_limiting(self, openai_service, sample_audio_file):
+        """Should handle OpenAI API rate limits with appropriate backoff."""
+        # Arrange
+        from openai import RateLimitError
+        openai_service.client.audio.transcriptions.create.side_effect = RateLimitError(
+            "Rate limit exceeded", response=MagicMock(), body=None
+        )
+        
+        # Act & Assert
+        with pytest.raises(TranscriptionError, match="Rate limit"):
+            await openai_service.transcribe_audio(sample_audio_file)
+    
+    @m.context("When API key is invalid")
+    @m.it("handles invalid API keys gracefully")
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_openai_authentication_error(self, openai_service, sample_audio_file):
+        """Should handle OpenAI authentication errors."""
+        # Arrange
+        from openai import AuthenticationError
+        openai_service.client.audio.transcriptions.create.side_effect = AuthenticationError(
+            "Invalid API key", response=MagicMock(), body=None
+        )
+        
+        # Act & Assert
+        with pytest.raises(TranscriptionError, match="Authentication"):
+            await openai_service.transcribe_audio(sample_audio_file)
+
+
+@m.describe("OpenAI Integration")
+class TestOpenAIServiceIntegration:
+    """Integration tests for OpenAI service with real API calls."""
+    
+    @m.context("When verifying transcription quality")
+    @m.it("verifies transcription accuracy with known audio")
+    @pytest.mark.integration
+    @pytest.mark.openai
+    @pytest.mark.skip(reason="Requires real OpenAI API key")
+    async def test_transcription_quality(self, openai_service):
+        """Should verify transcription accuracy with known audio samples."""
+        # This test would use real API calls with VCR cassettes
+        # Skip by default to avoid API charges
+        pass
+    
+    @m.context("When verifying embedding similarity")
+    @m.it("verifies similar text produces similar embeddings")
+    @pytest.mark.integration
+    @pytest.mark.openai
+    @pytest.mark.skip(reason="Requires real OpenAI API key")
+    async def test_embedding_similarity(self, openai_service):
+        """Should verify that similar texts produce similar embeddings."""
+        # This test would verify embedding similarity using cosine similarity
+        # Skip by default to avoid API charges
+        pass
