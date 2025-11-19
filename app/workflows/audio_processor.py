@@ -344,6 +344,12 @@ class AudioProcessingWorkflow:
             results.update(upload_result)
             results["steps_completed"].append("upload")
             
+            # Update log entry with S3 key
+            await self.update_step.execute(
+                log_entry_id,
+                audio_s3_key=upload_result["s3_key"]
+            )
+            
             # Step 3: Transcribe audio
             transcribe_result = await self._retry_step(
                 "transcribe",

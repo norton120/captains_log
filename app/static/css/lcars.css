@@ -1,0 +1,369 @@
+/* LCARS Inspired CSS for Captain's Log */
+
+/* LCARS Color Variables */
+:root {
+    --lcars-orange: #ff9900;
+    --lcars-red: #cc6666;
+    --lcars-blue: #9999cc;
+    --lcars-yellow: #ffff99;
+    --lcars-purple: #cc99cc;
+    --lcars-green: #99cc99;
+    --lcars-gray: #999999;
+    --lcars-black: #000000;
+    --lcars-white: #ffffff;
+    --lcars-bg: #000000;
+    --lcars-text: #ff9900;
+}
+
+/* Base Styles */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Courier New', monospace;
+    background-color: var(--lcars-bg);
+    color: var(--lcars-text);
+    margin: 0;
+    padding: 0;
+    line-height: 1.4;
+}
+
+/* LCARS Frame Structure */
+.lcars-frame {
+    min-height: 100vh;
+    display: grid;
+    grid-template-areas: 
+        "top-left top-bar top-right"
+        "left-bar content right-bar"
+        "bottom-left bottom-bar bottom-right";
+    grid-template-columns: 120px 1fr 120px;
+    grid-template-rows: 80px 1fr 80px;
+}
+
+/* Top Elements */
+.lcars-top-left {
+    grid-area: top-left;
+    background: linear-gradient(45deg, var(--lcars-orange), var(--lcars-red));
+    border-radius: 0 0 80px 0;
+    position: relative;
+}
+
+.lcars-top-bar {
+    grid-area: top-bar;
+    background-color: var(--lcars-orange);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+}
+
+.lcars-top-right {
+    grid-area: top-right;
+    background: linear-gradient(135deg, var(--lcars-red), var(--lcars-purple));
+    border-radius: 0 0 0 80px;
+}
+
+/* Side Bars */
+.lcars-left-bar {
+    grid-area: left-bar;
+    background-color: var(--lcars-orange);
+    display: flex;
+    flex-direction: column;
+    padding: 10px 0;
+}
+
+.lcars-right-bar {
+    grid-area: right-bar;
+    background-color: var(--lcars-red);
+    display: flex;
+    flex-direction: column;
+    padding: 10px 0;
+}
+
+/* Bottom Elements */
+.lcars-bottom-left {
+    grid-area: bottom-left;
+    background: linear-gradient(315deg, var(--lcars-orange), var(--lcars-blue));
+    border-radius: 80px 0 0 0;
+}
+
+.lcars-bottom-bar {
+    grid-area: bottom-bar;
+    background-color: var(--lcars-blue);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+}
+
+.lcars-bottom-right {
+    grid-area: bottom-right;
+    background: linear-gradient(225deg, var(--lcars-blue), var(--lcars-purple));
+    border-radius: 0 80px 0 0;
+}
+
+/* Content Area */
+.lcars-content {
+    grid-area: content;
+    background-color: var(--lcars-bg);
+    padding: 20px;
+    overflow-y: auto;
+}
+
+/* LCARS Elements */
+.lcars-button {
+    background: linear-gradient(135deg, var(--lcars-orange), var(--lcars-red));
+    border: none;
+    color: var(--lcars-black);
+    padding: 10px 20px;
+    margin: 5px;
+    border-radius: 20px;
+    font-family: inherit;
+    font-weight: bold;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.lcars-button:hover {
+    background: linear-gradient(135deg, var(--lcars-red), var(--lcars-purple));
+    box-shadow: 0 0 10px var(--lcars-orange);
+}
+
+.lcars-button:active {
+    transform: scale(0.95);
+}
+
+.lcars-button.secondary {
+    background: linear-gradient(135deg, var(--lcars-blue), var(--lcars-purple));
+}
+
+.lcars-button.danger {
+    background: linear-gradient(135deg, var(--lcars-red), #aa4444);
+}
+
+/* Text Styling */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--lcars-orange);
+    text-transform: uppercase;
+    font-weight: normal;
+    margin: 10px 0;
+}
+
+h1 {
+    font-size: 2.5em;
+    border-left: 5px solid var(--lcars-orange);
+    padding-left: 15px;
+}
+
+h2 {
+    font-size: 1.8em;
+    color: var(--lcars-blue);
+}
+
+/* Panel Styling */
+.lcars-panel {
+    background-color: rgba(153, 153, 204, 0.1);
+    border: 2px solid var(--lcars-blue);
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.lcars-panel h3 {
+    color: var(--lcars-blue);
+    margin-top: 0;
+    border-bottom: 2px solid var(--lcars-blue);
+    padding-bottom: 10px;
+}
+
+/* Status Indicators */
+.lcars-status {
+    display: inline-block;
+    padding: 5px 15px;
+    border-radius: 15px;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.lcars-status.pending {
+    background-color: var(--lcars-yellow);
+    color: var(--lcars-black);
+}
+
+.lcars-status.processing {
+    background-color: var(--lcars-orange);
+    color: var(--lcars-black);
+    animation: pulse 2s infinite;
+}
+
+.lcars-status.completed {
+    background-color: var(--lcars-green);
+    color: var(--lcars-black);
+}
+
+.lcars-status.failed {
+    background-color: var(--lcars-red);
+    color: var(--lcars-white);
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+/* Form Elements */
+.lcars-input {
+    background-color: var(--lcars-bg);
+    border: 2px solid var(--lcars-orange);
+    border-radius: 5px;
+    color: var(--lcars-orange);
+    padding: 10px;
+    font-family: inherit;
+    font-size: 1em;
+    width: 100%;
+    margin: 10px 0;
+}
+
+.lcars-input:focus {
+    outline: none;
+    border-color: var(--lcars-blue);
+    box-shadow: 0 0 10px rgba(153, 153, 204, 0.5);
+}
+
+/* Audio Controls */
+.lcars-audio-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 20px;
+    background: linear-gradient(90deg, rgba(255, 153, 0, 0.1), rgba(153, 153, 204, 0.1));
+    border-radius: 10px;
+    margin: 20px 0;
+}
+
+.lcars-waveform {
+    flex: 1;
+    height: 60px;
+    background-color: var(--lcars-bg);
+    border: 2px solid var(--lcars-blue);
+    border-radius: 5px;
+    position: relative;
+    overflow: hidden;
+}
+
+.lcars-record-button {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--lcars-red), #aa4444);
+    border: none;
+    color: var(--lcars-white);
+    font-size: 2em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.lcars-record-button:hover {
+    box-shadow: 0 0 20px var(--lcars-red);
+    transform: scale(1.05);
+}
+
+.lcars-record-button.recording {
+    animation: recordPulse 1s infinite;
+}
+
+@keyframes recordPulse {
+    0% { box-shadow: 0 0 0 0 rgba(204, 102, 102, 0.7); }
+    70% { box-shadow: 0 0 0 20px rgba(204, 102, 102, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(204, 102, 102, 0); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .lcars-frame {
+        grid-template-columns: 60px 1fr 60px;
+        grid-template-rows: 60px 1fr 60px;
+    }
+    
+    .lcars-top-left,
+    .lcars-top-right,
+    .lcars-bottom-left,
+    .lcars-bottom-right {
+        border-radius: 30px;
+    }
+    
+    .lcars-content {
+        padding: 10px;
+    }
+    
+    .lcars-audio-controls {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .lcars-record-button {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5em;
+    }
+}
+
+/* Navigation Elements */
+.lcars-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px;
+}
+
+.lcars-nav-item {
+    background-color: rgba(255, 153, 0, 0.8);
+    color: var(--lcars-black);
+    padding: 8px 12px;
+    border-radius: 15px;
+    text-decoration: none;
+    font-size: 0.9em;
+    text-transform: uppercase;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.lcars-nav-item:hover {
+    background-color: var(--lcars-blue);
+    color: var(--lcars-white);
+}
+
+.lcars-nav-item.active {
+    background-color: var(--lcars-red);
+    color: var(--lcars-white);
+}
+
+/* Progress Indicator */
+.lcars-progress {
+    width: 100%;
+    height: 20px;
+    background-color: var(--lcars-bg);
+    border: 2px solid var(--lcars-orange);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+.lcars-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--lcars-orange), var(--lcars-red));
+    transition: width 0.3s ease;
+}
+
+.lcars-progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--lcars-white);
+    font-size: 0.8em;
+    font-weight: bold;
+    text-shadow: 1px 1px 2px var(--lcars-black);
+}

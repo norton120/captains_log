@@ -1,0 +1,660 @@
+{% extends "base.html" %}
+
+{% block title %}Record Log Entry - Captain's Log{% endblock %}
+
+{% block page_title %}VOICE LOG RECORDER{% endblock %}
+
+{% block head %}
+<style>
+    .recording-interface {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .waveform-container {
+        background: linear-gradient(45deg, rgba(255, 153, 0, 0.1), rgba(153, 153, 204, 0.1));
+        border: 3px solid var(--lcars-orange);
+        border-radius: 15px;
+        padding: 20px;
+        height: 200px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .waveform-display {
+        width: 100%;
+        height: 100%;
+        background-color: var(--lcars-bg);
+        border-radius: 10px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .waveform-bars {
+        display: flex;
+        align-items: end;
+        gap: 2px;
+        height: 80%;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .waveform-bars.active {
+        opacity: 1;
+    }
+    
+    .waveform-bar {
+        width: 4px;
+        background: linear-gradient(to top, var(--lcars-orange), var(--lcars-red));
+        border-radius: 2px;
+        transition: height 0.1s ease;
+        min-height: 2px;
+    }
+    
+    .recording-controls {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 30px;
+        padding: 30px;
+        background: rgba(153, 153, 204, 0.05);
+        border-radius: 15px;
+        border: 2px solid var(--lcars-blue);
+    }
+    
+    .record-btn {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        border: none;
+        font-size: 2.5em;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .record-btn.ready {
+        background: radial-gradient(circle, var(--lcars-red), #aa4444);
+        color: var(--lcars-white);
+    }
+    
+    .record-btn.recording {
+        background: radial-gradient(circle, #ff4444, var(--lcars-red));
+        animation: recordingPulse 1.5s infinite;
+    }
+    
+    .record-btn.stopped {
+        background: radial-gradient(circle, var(--lcars-orange), #cc7700);
+        color: var(--lcars-black);
+    }
+    
+    @keyframes recordingPulse {
+        0% { 
+            box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7);
+            transform: scale(1);
+        }
+        50% { 
+            box-shadow: 0 0 0 20px rgba(255, 68, 68, 0);
+            transform: scale(1.05);
+        }
+        100% { 
+            box-shadow: 0 0 0 0 rgba(255, 68, 68, 0);
+            transform: scale(1);
+        }
+    }
+    
+    .control-button {
+        padding: 15px 25px;
+        background: linear-gradient(135deg, var(--lcars-blue), var(--lcars-purple));
+        border: none;
+        color: var(--lcars-white);
+        border-radius: 20px;
+        font-family: inherit;
+        font-weight: bold;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1em;
+    }
+    
+    .control-button:hover {
+        background: linear-gradient(135deg, var(--lcars-purple), var(--lcars-blue));
+        box-shadow: 0 0 15px rgba(153, 153, 204, 0.5);
+    }
+    
+    .control-button:disabled {
+        background: var(--lcars-gray);
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+    
+    .recording-status {
+        text-align: center;
+        padding: 20px;
+        background: rgba(255, 153, 0, 0.1);
+        border-radius: 10px;
+        border: 2px solid var(--lcars-orange);
+    }
+    
+    .status-text {
+        font-size: 1.2em;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    
+    .recording-timer {
+        font-size: 2em;
+        color: var(--lcars-orange);
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    
+    .upload-progress {
+        display: none;
+        margin-top: 20px;
+    }
+    
+    .progress-container {
+        position: relative;
+        margin: 20px 0;
+    }
+    
+    .lcars-alert {
+        padding: 15px;
+        border-radius: 10px;
+        margin: 20px 0;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    
+    .lcars-alert.error {
+        background-color: rgba(204, 102, 102, 0.2);
+        border: 2px solid var(--lcars-red);
+        color: var(--lcars-red);
+    }
+    
+    .lcars-alert.success {
+        background-color: rgba(153, 204, 153, 0.2);
+        border: 2px solid var(--lcars-green);
+        color: var(--lcars-green);
+    }
+    
+    .lcars-alert.info {
+        background-color: rgba(153, 153, 204, 0.2);
+        border: 2px solid var(--lcars-blue);
+        color: var(--lcars-blue);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="recording-interface">
+    <!-- Recording Status Panel -->
+    <div class="recording-status">
+        <div class="status-text" id="status-text">READY TO RECORD</div>
+        <div class="recording-timer" id="timer">00:00</div>
+        <div style="font-size: 0.9em; color: var(--lcars-blue);" id="instructions">
+            PRESS RECORD BUTTON TO BEGIN LOG ENTRY
+        </div>
+    </div>
+
+    <!-- Waveform Display -->
+    <div class="waveform-container">
+        <div class="waveform-display">
+            <div class="waveform-bars" id="waveform">
+                <!-- Waveform bars will be generated by JavaScript -->
+            </div>
+            <div id="waveform-placeholder" style="color: var(--lcars-blue); font-size: 1.2em; text-transform: uppercase;">
+                AUDIO WAVEFORM DISPLAY
+            </div>
+        </div>
+    </div>
+
+    <!-- Recording Controls -->
+    <div class="recording-controls">
+        <button class="control-button" id="pause-btn" disabled onclick="pauseRecording()">
+            ⏸ PAUSE
+        </button>
+        
+        <button class="record-btn ready" id="record-btn" onclick="toggleRecording()">
+            🎤
+        </button>
+        
+        <button class="control-button" id="save-btn" disabled onclick="saveRecording()">
+            💾 SAVE LOG
+        </button>
+    </div>
+
+    <!-- Upload Progress -->
+    <div class="upload-progress" id="upload-progress">
+        <h3 style="color: var(--lcars-blue);">PROCESSING LOG ENTRY</h3>
+        <div class="progress-container">
+            <div class="lcars-progress">
+                <div class="lcars-progress-bar" id="progress-bar" style="width: 0%"></div>
+                <div class="lcars-progress-text" id="progress-text">0%</div>
+            </div>
+        </div>
+        <div style="font-size: 0.9em; color: var(--lcars-blue); margin-top: 10px;" id="progress-status">
+            Preparing upload...
+        </div>
+    </div>
+
+    <!-- Alerts -->
+    <div id="alerts"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    class AudioRecorder {
+        constructor() {
+            this.mediaRecorder = null;
+            this.audioContext = null;
+            this.analyser = null;
+            this.microphone = null;
+            this.chunks = [];
+            this.isRecording = false;
+            this.isPaused = false;
+            this.startTime = null;
+            this.pausedTime = 0;
+            this.timerInterval = null;
+            this.animationId = null;
+            
+            this.recordBtn = document.getElementById('record-btn');
+            this.pauseBtn = document.getElementById('pause-btn');
+            this.saveBtn = document.getElementById('save-btn');
+            this.statusText = document.getElementById('status-text');
+            this.timer = document.getElementById('timer');
+            this.instructions = document.getElementById('instructions');
+            this.waveform = document.getElementById('waveform');
+            this.waveformPlaceholder = document.getElementById('waveform-placeholder');
+            
+            this.initializeWaveform();
+        }
+        
+        initializeWaveform() {
+            // Create 60 waveform bars
+            for (let i = 0; i < 60; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'waveform-bar';
+                bar.style.height = '2px';
+                this.waveform.appendChild(bar);
+            }
+        }
+        
+        async startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: 44100
+                    } 
+                });
+                
+                this.chunks = [];
+                this.mediaRecorder = new MediaRecorder(stream);
+                
+                this.mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        this.chunks.push(event.data);
+                    }
+                };
+                
+                this.mediaRecorder.onstop = () => {
+                    stream.getTracks().forEach(track => track.stop());
+                    this.stopWaveformVisualization();
+                    this.updateUI(); // Update UI after recording data is available
+                };
+                
+                // Set up audio context for visualization
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.analyser = this.audioContext.createAnalyser();
+                this.microphone = this.audioContext.createMediaStreamSource(stream);
+                this.microphone.connect(this.analyser);
+                
+                this.analyser.fftSize = 256;
+                this.analyser.smoothingTimeConstant = 0.8;
+                
+                this.mediaRecorder.start();
+                this.isRecording = true;
+                this.startTime = Date.now();
+                this.startTimer();
+                this.startWaveformVisualization();
+                this.updateUI();
+                
+                this.showAlert('Recording started', 'success');
+                
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                this.showAlert('Failed to access microphone. Please check permissions.', 'error');
+            }
+        }
+        
+        stopRecording() {
+            if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                this.mediaRecorder.stop();
+            }
+            
+            this.isRecording = false;
+            this.isPaused = false;
+            this.stopTimer();
+            this.updateUI();
+        }
+        
+        pauseRecording() {
+            if (this.isPaused) {
+                // Resume
+                this.mediaRecorder.resume();
+                this.isPaused = false;
+                this.pausedTime += Date.now() - this.pauseStartTime;
+                this.startTimer();
+            } else {
+                // Pause
+                this.mediaRecorder.pause();
+                this.isPaused = true;
+                this.pauseStartTime = Date.now();
+                this.stopTimer();
+            }
+            this.updateUI();
+        }
+        
+        startTimer() {
+            this.timerInterval = setInterval(() => {
+                const elapsed = (Date.now() - this.startTime - this.pausedTime) / 1000;
+                const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                const seconds = Math.floor(elapsed % 60).toString().padStart(2, '0');
+                this.timer.textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+        
+        stopTimer() {
+            if (this.timerInterval) {
+                clearInterval(this.timerInterval);
+                this.timerInterval = null;
+            }
+        }
+        
+        startWaveformVisualization() {
+            this.waveformPlaceholder.style.display = 'none';
+            this.waveform.classList.add('active');
+            
+            const bars = this.waveform.children;
+            const bufferLength = this.analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            
+            const animate = () => {
+                if (!this.isRecording && !this.isPaused) return;
+                
+                this.analyser.getByteFrequencyData(dataArray);
+                
+                // Update bars based on frequency data
+                for (let i = 0; i < bars.length; i++) {
+                    const dataIndex = Math.floor(i * bufferLength / bars.length);
+                    const value = dataArray[dataIndex] || 0;
+                    const height = Math.max(2, (value / 255) * 100);
+                    bars[i].style.height = `${height}%`;
+                }
+                
+                this.animationId = requestAnimationFrame(animate);
+            };
+            
+            animate();
+        }
+        
+        stopWaveformVisualization() {
+            if (this.animationId) {
+                cancelAnimationFrame(this.animationId);
+                this.animationId = null;
+            }
+            
+            this.waveform.classList.remove('active');
+            this.waveformPlaceholder.style.display = 'block';
+            
+            // Reset bars
+            Array.from(this.waveform.children).forEach(bar => {
+                bar.style.height = '2px';
+            });
+        }
+        
+        async saveRecording() {
+            if (this.chunks.length === 0) {
+                this.showAlert('No audio data to save', 'error');
+                return;
+            }
+            
+            const audioBlob = new Blob(this.chunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('file', audioBlob, 'recording.webm');
+            
+            // Get geolocation
+            try {
+                const location = await this.getCurrentLocation();
+                if (location) {
+                    formData.append('latitude', location.latitude.toString());
+                    formData.append('longitude', location.longitude.toString());
+                    if (location.location_name) {
+                        formData.append('location_name', location.location_name);
+                    }
+                    this.showAlert('Location captured', 'info');
+                }
+            } catch (error) {
+                console.warn('Could not get location:', error);
+                this.showAlert('Location unavailable - continuing without location data', 'info');
+            }
+            
+            this.showUploadProgress();
+            
+            try {
+                const response = await fetch('/api/logs/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    this.showAlert(`Log entry saved! ID: ${result.id}`, 'success');
+                    
+                    // Redirect to log detail page after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = `/logs/${result.id}`;
+                    }, 2000);
+                } else {
+                    const errorText = await response.text();
+                    throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+                }
+            } catch (error) {
+                console.error('Error uploading:', error);
+                this.showAlert(`Failed to save log entry: ${error.message}`, 'error');
+            }
+            
+            this.hideUploadProgress();
+            this.resetRecorder();
+        }
+        
+        resetRecorder() {
+            this.chunks = [];
+            this.isRecording = false;
+            this.isPaused = false;
+            this.startTime = null;
+            this.pausedTime = 0;
+            this.timer.textContent = '00:00';
+            this.updateUI();
+        }
+        
+        updateUI() {
+            if (this.isRecording && !this.isPaused) {
+                this.recordBtn.className = 'record-btn recording';
+                this.recordBtn.innerHTML = '⏹';
+                this.statusText.textContent = 'RECORDING IN PROGRESS';
+                this.instructions.textContent = 'CLICK TO STOP RECORDING';
+                this.pauseBtn.disabled = false;
+                this.saveBtn.disabled = true;
+            } else if (this.isPaused) {
+                this.recordBtn.className = 'record-btn stopped';
+                this.recordBtn.innerHTML = '⏹';
+                this.statusText.textContent = 'RECORDING PAUSED';
+                this.instructions.textContent = 'CLICK PAUSE TO RESUME';
+                this.pauseBtn.textContent = '▶ RESUME';
+                this.saveBtn.disabled = true;
+            } else if (this.chunks.length > 0) {
+                this.recordBtn.className = 'record-btn ready';
+                this.recordBtn.innerHTML = '🎤';
+                this.statusText.textContent = 'RECORDING COMPLETE';
+                this.instructions.textContent = 'SAVE LOG OR RECORD NEW ENTRY';
+                this.pauseBtn.disabled = true;
+                this.pauseBtn.textContent = '⏸ PAUSE';
+                this.saveBtn.disabled = false;
+            } else {
+                this.recordBtn.className = 'record-btn ready';
+                this.recordBtn.innerHTML = '🎤';
+                this.statusText.textContent = 'READY TO RECORD';
+                this.instructions.textContent = 'PRESS RECORD BUTTON TO BEGIN LOG ENTRY';
+                this.pauseBtn.disabled = true;
+                this.pauseBtn.textContent = '⏸ PAUSE';
+                this.saveBtn.disabled = true;
+            }
+        }
+        
+        showUploadProgress() {
+            document.getElementById('upload-progress').style.display = 'block';
+            this.updateProgress(0, 'Preparing upload...');
+            
+            // Simulate progress for better UX
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress > 90) progress = 90;
+                this.updateProgress(progress, 'Uploading audio...');
+            }, 500);
+            
+            setTimeout(() => {
+                clearInterval(interval);
+                this.updateProgress(100, 'Processing complete!');
+            }, 3000);
+        }
+        
+        hideUploadProgress() {
+            setTimeout(() => {
+                document.getElementById('upload-progress').style.display = 'none';
+            }, 1000);
+        }
+        
+        updateProgress(percentage, status) {
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const progressStatus = document.getElementById('progress-status');
+            
+            progressBar.style.width = `${percentage}%`;
+            progressText.textContent = `${Math.round(percentage)}%`;
+            progressStatus.textContent = status;
+        }
+        
+        async getCurrentLocation() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject(new Error('Geolocation not supported'));
+                    return;
+                }
+                
+                const options = {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 60000
+                };
+                
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        const location = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        };
+                        
+                        // Try to get location name using reverse geocoding
+                        try {
+                            const response = await fetch(
+                                `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${location.latitude}&longitude=${location.longitude}&localityLanguage=en`
+                            );
+                            if (response.ok) {
+                                const data = await response.json();
+                                location.location_name = data.city && data.countryName 
+                                    ? `${data.city}, ${data.countryName}`
+                                    : data.locality || 'Unknown location';
+                            }
+                        } catch (error) {
+                            console.warn('Could not get location name:', error);
+                        }
+                        
+                        resolve(location);
+                    },
+                    (error) => {
+                        reject(new Error(`Geolocation error: ${error.message}`));
+                    },
+                    options
+                );
+            });
+        }
+        
+        showAlert(message, type) {
+            const alertsContainer = document.getElementById('alerts');
+            const alert = document.createElement('div');
+            alert.className = `lcars-alert ${type}`;
+            alert.textContent = message;
+            
+            alertsContainer.appendChild(alert);
+            
+            // Remove alert after 5 seconds
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.parentNode.removeChild(alert);
+                }
+            }, 5000);
+        }
+    }
+    
+    // Initialize recorder
+    let recorder;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        recorder = new AudioRecorder();
+    });
+    
+    function toggleRecording() {
+        if (recorder.isRecording) {
+            recorder.stopRecording();
+        } else {
+            recorder.startRecording();
+        }
+    }
+    
+    function pauseRecording() {
+        recorder.pauseRecording();
+    }
+    
+    function saveRecording() {
+        recorder.saveRecording();
+    }
+    
+    // Handle keyboard shortcuts
+    document.addEventListener('keydown', function(event) {
+        if (event.code === 'Space' && event.target.tagName !== 'INPUT') {
+            event.preventDefault();
+            toggleRecording();
+        } else if (event.code === 'KeyP' && event.ctrlKey) {
+            event.preventDefault();
+            pauseRecording();
+        } else if (event.code === 'KeyS' && event.ctrlKey) {
+            event.preventDefault();
+            saveRecording();
+        }
+    });
+</script>
+{% endblock %}

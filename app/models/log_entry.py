@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from uuid import UUID, uuid4
 from typing import Optional
-from sqlalchemy import Column, String, Text, DateTime, Enum
+from sqlalchemy import Column, String, Text, DateTime, Enum, Float
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.ext.declarative import declarative_base
 from pgvector.sqlalchemy import Vector
@@ -34,6 +34,9 @@ class LogEntry(Base):
         default=ProcessingStatus.PENDING
     )
     processing_error = Column(Text, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    location_name = Column(String, nullable=True)
     
     def __repr__(self):
         return f"<LogEntry(id={self.id}, created_at={self.created_at}, status={self.processing_status.value})>"

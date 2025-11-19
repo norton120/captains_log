@@ -11,6 +11,7 @@ from fastapi import (
     BackgroundTasks, 
     Depends, 
     File, 
+    Form,
     HTTPException, 
     Query,
     UploadFile,
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/logs", tags=["logs"])
 
 
+
 # Pydantic models for request/response
 class LogEntryResponse(BaseModel):
     """Response model for log entry."""
@@ -43,6 +45,9 @@ class LogEntryResponse(BaseModel):
     summary: Optional[str] = None
     processing_status: str
     processing_error: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    location_name: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -89,10 +94,11 @@ ALLOWED_AUDIO_TYPES = {
     "audio/mpeg",
     "audio/mp3",
     "audio/flac",
-    "audio/x-flac"
+    "audio/x-flac",
+    "audio/webm"
 }
 
-ALLOWED_EXTENSIONS = {".wav", ".mp3", ".flac", ".m4a"}
+ALLOWED_EXTENSIONS = {".wav", ".mp3", ".flac", ".m4a", ".webm"}
 
 
 def validate_audio_file(file: UploadFile, max_size: int) -> None:
@@ -126,8 +132,11 @@ def validate_audio_file(file: UploadFile, max_size: int) -> None:
             detail=f"Invalid file format. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
         )
     
-    # Check content type
-    if file.content_type and file.content_type not in ALLOWED_AUDIO_TYPES:
+    # Check content type (only if it's not a generic type and extension is invalid)
+    if (file.content_type and 
+        file.content_type not in ALLOWED_AUDIO_TYPES and
+        file.content_type not in ["application/octet-stream"] and  # Allow generic types
+        file_ext not in ALLOWED_EXTENSIONS):  # But only if extension is also invalid
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Invalid file format. Expected audio file, got: {file.content_type}"
@@ -209,6 +218,9 @@ async def start_audio_processing(
 async def upload_audio_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    latitude: Optional[float] = Form(None),
+    longitude: Optional[float] = Form(None),
+    location_name: Optional[str] = Form(None),
     db_session: AsyncSession = Depends(get_db_session),
     s3_service: S3Service = Depends(get_s3_service),
     openai_service: OpenAIService = Depends(get_openai_service),
@@ -227,13 +239,13 @@ async def upload_audio_file(
         # Save temporary file
         temp_file_path = await save_uploaded_file(file)
         
-        # Upload to S3
-        s3_key = await s3_service.upload_audio(temp_file_path)
-        
-        # Create log entry
+        # Create log entry (S3 upload will be handled by the workflow)
         log_entry = LogEntry(
-            audio_s3_key=s3_key,
-            processing_status=ProcessingStatus.PENDING
+            audio_s3_key="",  # Will be set by workflow after upload
+            processing_status=ProcessingStatus.PENDING,
+            latitude=latitude,
+            longitude=longitude,
+            location_name=location_name
         )
         
         db_session.add(log_entry)
@@ -253,7 +265,7 @@ async def upload_audio_file(
         
         return UploadResponse(
             id=str(log_entry.id),
-            audio_s3_key=log_entry.audio_s3_key,
+            audio_s3_key=log_entry.audio_s3_key or "processing",
             processing_status=log_entry.processing_status.value,
             created_at=log_entry.created_at,
             message="File uploaded successfully. Processing started."
@@ -326,7 +338,10 @@ async def list_log_entries(
                 transcription=entry.transcription,
                 summary=entry.summary,
                 processing_status=entry.processing_status.value,
-                processing_error=entry.processing_error
+                processing_error=entry.processing_error,
+                latitude=entry.latitude,
+                longitude=entry.longitude,
+                location_name=entry.location_name
             )
             for entry in log_entries
         ]
@@ -375,7 +390,10 @@ async def get_log_entry(
             transcription=log_entry.transcription,
             summary=log_entry.summary,
             processing_status=log_entry.processing_status.value,
-            processing_error=log_entry.processing_error
+            processing_error=log_entry.processing_error,
+            latitude=log_entry.latitude,
+            longitude=log_entry.longitude,
+            location_name=log_entry.location_name
         )
         
     except HTTPException:

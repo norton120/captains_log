@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Captain's Log - SV Defiant{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/lcars.css') }}">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="lcars-frame">
+        <!-- Top Elements -->
+        <div class="lcars-top-left">
+            <div style="position: absolute; bottom: 10px; left: 10px; color: #000; font-weight: bold; font-size: 0.8em;">
+                SV DEFIANT
+            </div>
+        </div>
+        
+        <div class="lcars-top-bar">
+            <h1 style="margin: 0; font-size: 1.5em; color: #000;">
+                {% block page_title %}CAPTAIN'S LOG{% endblock %}
+            </h1>
+        </div>
+        
+        <div class="lcars-top-right">
+            <div style="position: absolute; bottom: 10px; right: 10px; color: #000; font-weight: bold; font-size: 0.8em;">
+                {{ current_time or "STARDATE" }}
+            </div>
+        </div>
+
+        <!-- Left Navigation -->
+        <div class="lcars-left-bar">
+            <nav class="lcars-nav">
+                <a href="/" class="lcars-nav-item {% if request.url.path == '/' %}active{% endif %}">
+                    LOGS
+                </a>
+                <a href="/record" class="lcars-nav-item {% if request.url.path == '/record' %}active{% endif %}">
+                    RECORD
+                </a>
+                <a href="/search" class="lcars-nav-item {% if request.url.path == '/search' %}active{% endif %}">
+                    SEARCH
+                </a>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="lcars-content">
+            {% block content %}{% endblock %}
+        </div>
+
+        <!-- Right Status Panel -->
+        <div class="lcars-right-bar">
+            <div class="lcars-nav">
+                <div class="lcars-nav-item" style="background-color: rgba(153, 153, 204, 0.8);">
+                    STATUS
+                </div>
+                <div id="system-status" style="padding: 10px; font-size: 0.8em; color: #fff;">
+                    <div>AUDIO: READY</div>
+                    <div>DB: ONLINE</div>
+                    <div>S3: READY</div>
+                    <div id="active-tasks">TASKS: 0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Elements -->
+        <div class="lcars-bottom-left">
+            <div style="position: absolute; top: 10px; left: 10px; color: #000; font-weight: bold; font-size: 0.8em;">
+                NCC-75633
+            </div>
+        </div>
+        
+        <div class="lcars-bottom-bar">
+            <div style="color: #000; font-size: 0.9em; font-weight: bold;">
+                PERSONAL LOG ENTRY SYSTEM - AUTHENTICATED
+            </div>
+        </div>
+        
+        <div class="lcars-bottom-right">
+            <div style="position: absolute; top: 10px; right: 10px; color: #000; font-weight: bold; font-size: 0.8em;">
+                v{{ version or "1.0" }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Scripts -->
+    <script>
+        // Global HTMX configuration
+        htmx.config.globalViewTransitions = true;
+        
+        // LCARS sound effects (optional)
+        function playLcarsSound(type = 'button') {
+            // Implement LCARS sound effects if desired
+            // For now, just a simple beep
+            if (window.AudioContext || window.webkitAudioContext) {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = type === 'button' ? 800 : 600;
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+            }
+        }
+        
+        // Add sound to all LCARS buttons
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('lcars-button') || e.target.classList.contains('lcars-nav-item')) {
+                playLcarsSound('button');
+            }
+        });
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

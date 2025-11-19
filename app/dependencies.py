@@ -1,7 +1,9 @@
 """FastAPI dependency providers."""
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Generator
 from fastapi import Depends, HTTPException, status
+from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.config import Settings
@@ -14,6 +16,8 @@ from app.services.openai_client import OpenAIService
 _settings: Settings = None
 _async_session_maker = None
 _db_engine = None
+_sync_db_engine = None
+_sync_session_maker = None
 
 
 def get_settings() -> Settings:
@@ -69,6 +73,41 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         ) from e
 
 
+def get_sync_db_engine():
+    """Get synchronous database engine for template routes."""
+    global _sync_db_engine
+    if _sync_db_engine is None:
+        settings = get_settings()
+        # Convert async URL to sync URL
+        sync_url = settings.database_url.replace('postgresql+asyncpg://', 'postgresql://')
+        _sync_db_engine = create_engine(
+            sync_url,
+            poolclass=StaticPool if sync_url.startswith("sqlite") else None,
+            connect_args={"check_same_thread": False} if sync_url.startswith("sqlite") else {},
+            echo=settings.debug,
+        )
+    return _sync_db_engine
+
+
+def get_sync_session_maker():
+    """Get synchronous session maker."""
+    global _sync_session_maker
+    if _sync_session_maker is None:
+        engine = get_sync_db_engine()
+        _sync_session_maker = sessionmaker(bind=engine, expire_on_commit=False)
+    return _sync_session_maker
+
+
+def get_db() -> Generator[Session, None, None]:
+    """Get synchronous database session for template routes."""
+    session_maker = get_sync_session_maker()
+    session = session_maker()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
 def get_s3_service(settings: Settings = Depends(get_settings)) -> S3Service:
     """Get S3 service instance."""
     return S3Service(settings)
@@ -82,7 +121,10 @@ def get_openai_service(settings: Settings = Depends(get_settings)) -> OpenAIServ
 # Cleanup function for graceful shutdown
 async def close_db_connection():
     """Close database connections on shutdown."""
-    global _db_engine
+    global _db_engine, _sync_db_engine
     if _db_engine:
         await _db_engine.dispose()
         _db_engine = None
+    if _sync_db_engine:
+        _sync_db_engine.dispose()
+        _sync_db_engine = None

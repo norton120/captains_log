@@ -2,6 +2,8 @@
 
 Voice-based ship's log for SV Defiant with automatic transcription, semantic search, and AI summaries.
 
+![picard log](picard.webp)
+
 ## Quick Start
 
 ```bash

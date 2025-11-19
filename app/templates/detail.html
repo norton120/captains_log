@@ -1,0 +1,875 @@
+{% extends "base.html" %}
+
+{% block title %}Log Entry {{ log.id }} - Captain's Log{% endblock %}
+
+{% block page_title %}PERSONAL LOG ENTRY {{ log.entry_number or log.id[:8] }}{% endblock %}
+
+{% block head %}
+<style>
+    .log-detail {
+        display: grid;
+        grid-template-columns: 1fr 350px;
+        grid-gap: 30px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .main-content {
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+    }
+    
+    .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    /* Audio Player Section */
+    .audio-section {
+        background: linear-gradient(135deg, rgba(255, 153, 0, 0.1), rgba(153, 153, 204, 0.1));
+        border: 3px solid var(--lcars-orange);
+        border-radius: 15px;
+        padding: 25px;
+    }
+    
+    .audio-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .audio-title {
+        color: var(--lcars-orange);
+        font-size: 1.3em;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    
+    .audio-controls {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        background: var(--lcars-bg);
+        padding: 20px;
+        border-radius: 10px;
+        border: 2px solid var(--lcars-blue);
+    }
+    
+    .play-button {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: radial-gradient(circle, var(--lcars-orange), var(--lcars-red));
+        border: none;
+        color: var(--lcars-white);
+        font-size: 1.8em;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .play-button:hover {
+        box-shadow: 0 0 20px rgba(255, 153, 0, 0.5);
+        transform: scale(1.05);
+    }
+    
+    .play-button.playing {
+        background: radial-gradient(circle, var(--lcars-red), #aa4444);
+        animation: playingPulse 2s infinite;
+    }
+    
+    @keyframes playingPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
+    }
+    
+    .audio-timeline {
+        flex: 1;
+        margin: 0 20px;
+    }
+    
+    .timeline-track {
+        width: 100%;
+        height: 8px;
+        background: rgba(153, 153, 204, 0.3);
+        border-radius: 4px;
+        position: relative;
+        cursor: pointer;
+        margin: 10px 0;
+    }
+    
+    .timeline-progress {
+        height: 100%;
+        background: linear-gradient(90deg, var(--lcars-orange), var(--lcars-red));
+        border-radius: 4px;
+        width: 0%;
+        transition: width 0.1s ease;
+    }
+    
+    .timeline-time {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.9em;
+        color: var(--lcars-blue);
+        margin-top: 5px;
+    }
+    
+    .volume-control {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .volume-slider {
+        width: 80px;
+        height: 6px;
+        background: rgba(153, 153, 204, 0.3);
+        border-radius: 3px;
+        cursor: pointer;
+        position: relative;
+    }
+    
+    .volume-progress {
+        height: 100%;
+        background: var(--lcars-blue);
+        border-radius: 3px;
+        width: 70%;
+    }
+    
+    /* Transcription Section */
+    .transcription-section {
+        background: rgba(153, 153, 204, 0.1);
+        border: 2px solid var(--lcars-blue);
+        border-radius: 15px;
+        padding: 25px;
+    }
+    
+    .transcription-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid var(--lcars-blue);
+    }
+    
+    .transcription-title {
+        color: var(--lcars-blue);
+        font-size: 1.3em;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    
+    .transcription-actions {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .action-btn {
+        padding: 8px 15px;
+        background: var(--lcars-blue);
+        border: none;
+        color: var(--lcars-white);
+        border-radius: 12px;
+        font-family: inherit;
+        font-size: 0.9em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .action-btn:hover {
+        background: var(--lcars-purple);
+        box-shadow: 0 0 10px rgba(204, 153, 204, 0.5);
+    }
+    
+    .transcription-content {
+        font-size: 1.1em;
+        line-height: 1.8;
+        color: var(--lcars-white);
+        background: var(--lcars-bg);
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid rgba(153, 153, 204, 0.3);
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .transcription-content.placeholder {
+        color: var(--lcars-gray);
+        font-style: italic;
+        text-align: center;
+        padding: 40px 20px;
+    }
+    
+    /* Summary Section */
+    .summary-section {
+        background: rgba(255, 153, 0, 0.1);
+        border: 2px solid var(--lcars-orange);
+        border-radius: 15px;
+        padding: 25px;
+    }
+    
+    .summary-title {
+        color: var(--lcars-orange);
+        font-size: 1.3em;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid var(--lcars-orange);
+    }
+    
+    .summary-content {
+        font-size: 1.1em;
+        line-height: 1.7;
+        color: var(--lcars-white);
+    }
+    
+    .summary-content.placeholder {
+        color: var(--lcars-gray);
+        font-style: italic;
+        text-align: center;
+        padding: 30px 20px;
+    }
+    
+    /* Sidebar Sections */
+    .info-panel {
+        background: rgba(153, 153, 204, 0.1);
+        border: 2px solid var(--lcars-blue);
+        border-radius: 12px;
+        padding: 20px;
+    }
+    
+    .panel-title {
+        color: var(--lcars-blue);
+        font-size: 1.1em;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--lcars-blue);
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(153, 153, 204, 0.2);
+    }
+    
+    .info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        color: var(--lcars-blue);
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 0.9em;
+    }
+    
+    .info-value {
+        color: var(--lcars-white);
+        font-size: 0.9em;
+    }
+    
+    /* Status Panel */
+    .status-panel {
+        background: linear-gradient(135deg, rgba(255, 153, 0, 0.1), rgba(204, 102, 102, 0.1));
+        border: 2px solid var(--lcars-orange);
+        border-radius: 12px;
+        padding: 20px;
+    }
+    
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin: 10px 0;
+    }
+    
+    .status-icon {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        position: relative;
+    }
+    
+    .status-icon.completed {
+        background: var(--lcars-green);
+    }
+    
+    .status-icon.processing {
+        background: var(--lcars-orange);
+        animation: statusPulse 2s infinite;
+    }
+    
+    .status-icon.failed {
+        background: var(--lcars-red);
+    }
+    
+    .status-icon.pending {
+        background: var(--lcars-gray);
+    }
+    
+    @keyframes statusPulse {
+        0%, 100% { 
+            opacity: 1;
+            box-shadow: 0 0 0 0 rgba(255, 153, 0, 0.7);
+        }
+        50% { 
+            opacity: 0.7;
+            box-shadow: 0 0 0 10px rgba(255, 153, 0, 0);
+        }
+    }
+    
+    .status-text {
+        flex: 1;
+        color: var(--lcars-white);
+        font-size: 0.9em;
+    }
+    
+    .status-label {
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    
+    /* Actions Panel */
+    .actions-panel {
+        background: rgba(204, 102, 102, 0.1);
+        border: 2px solid var(--lcars-red);
+        border-radius: 12px;
+        padding: 20px;
+    }
+    
+    .action-group {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin: 15px 0;
+    }
+    
+    .action-button {
+        padding: 12px 18px;
+        background: var(--lcars-red);
+        border: none;
+        color: var(--lcars-white);
+        border-radius: 15px;
+        font-family: inherit;
+        font-weight: bold;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 0.9em;
+    }
+    
+    .action-button:hover {
+        background: var(--lcars-purple);
+        box-shadow: 0 0 15px rgba(204, 153, 204, 0.5);
+    }
+    
+    .action-button.secondary {
+        background: rgba(204, 102, 102, 0.3);
+        border: 2px solid var(--lcars-red);
+    }
+    
+    .action-button:disabled {
+        background: var(--lcars-gray);
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 1024px) {
+        .log-detail {
+            grid-template-columns: 1fr;
+            grid-gap: 20px;
+        }
+        
+        .sidebar {
+            order: -1;
+        }
+        
+        .audio-controls {
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .audio-timeline {
+            margin: 0;
+            width: 100%;
+        }
+    }
+    
+    /* Loading States */
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 15px;
+        z-index: 10;
+    }
+    
+    .loading-spinner {
+        border: 4px solid rgba(255, 153, 0, 0.3);
+        border-top: 4px solid var(--lcars-orange);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="log-detail" 
+     data-log-id="{{ log.id }}">
+    
+    <div class="main-content">
+        <!-- Audio Section -->
+        <div class="audio-section">
+            <div class="audio-header">
+                <div class="audio-title">Audio Playback</div>
+                <div class="lcars-status {{ log.processing_status }}" id="audio-status">
+                    {{ log.processing_status.replace('_', ' ').upper() }}
+                </div>
+            </div>
+            
+            {% if log.audio_s3_key %}
+            <div class="audio-controls">
+                <button class="play-button" id="play-btn" onclick="togglePlayback()">
+                    ▶
+                </button>
+                
+                <div class="audio-timeline">
+                    <div class="timeline-track" onclick="seekAudio(event)">
+                        <div class="timeline-progress" id="timeline-progress"></div>
+                    </div>
+                    <div class="timeline-time">
+                        <span id="current-time">00:00</span>
+                        <span id="total-time">--:--</span>
+                    </div>
+                </div>
+                
+                <div class="volume-control">
+                    <span style="color: var(--lcars-blue); font-size: 1.2em;">🔊</span>
+                    <div class="volume-slider" onclick="setVolume(event)">
+                        <div class="volume-progress" id="volume-progress"></div>
+                    </div>
+                </div>
+            </div>
+            <audio id="audio-player" preload="metadata" style="display: none;">
+                <source src="{{ audio_url }}" type="audio/webm">
+                <source src="{{ audio_url }}" type="audio/mpeg">
+                Your browser does not support the audio element.
+            </audio>
+            {% else %}
+            <div class="audio-controls" style="justify-content: center; padding: 40px;">
+                <div style="color: var(--lcars-gray); font-size: 1.1em; text-align: center;">
+                    {% if log.processing_status == 'failed' %}
+                    <div style="color: var(--lcars-red);">⚠ AUDIO PROCESSING FAILED</div>
+                    <div style="margin-top: 10px; font-size: 0.9em;">
+                        Error: {{ log.processing_error or 'Unknown error occurred' }}
+                    </div>
+                    {% else %}
+                    <div class="loading-spinner"></div>
+                    <div style="margin-top: 15px;">PROCESSING AUDIO FILE...</div>
+                    <div style="margin-top: 5px; font-size: 0.9em;">Please wait while audio is being processed</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Transcription Section -->
+        <div class="transcription-section">
+            <div class="transcription-header">
+                <div class="transcription-title">Voice Transcription</div>
+                <div class="transcription-actions">
+                    {% if log.transcription %}
+                    <button class="action-btn" onclick="copyTranscription()">📋 Copy</button>
+                    <button class="action-btn" onclick="downloadTranscription()">💾 Download</button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="transcription-content {% if not log.transcription %}placeholder{% endif %}" 
+                 id="transcription-content">
+                {% if log.transcription %}
+                {{ log.transcription }}
+                {% elif log.processing_status == 'failed' %}
+                <div style="color: var(--lcars-red);">
+                    ⚠ Transcription failed: {{ log.processing_error or 'Unknown error' }}
+                </div>
+                {% elif log.processing_status in ['pending', 'transcribing'] %}
+                <div class="loading-spinner" style="margin: 0 auto;"></div>
+                <div style="margin-top: 15px;">Transcribing audio content...</div>
+                {% else %}
+                Transcription will appear here once audio processing is complete.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="summary-section">
+            <div class="summary-title">AI Summary</div>
+            <div class="summary-content {% if not log.summary %}placeholder{% endif %}" 
+                 id="summary-content">
+                {% if log.summary %}
+                {{ log.summary }}
+                {% elif log.processing_status == 'failed' %}
+                <div style="color: var(--lcars-red);">
+                    ⚠ Summary generation failed
+                </div>
+                {% elif log.processing_status in ['pending', 'transcribing', 'vectorizing', 'summarizing'] %}
+                <div class="loading-spinner" style="margin: 0 auto;"></div>
+                <div style="margin-top: 15px;">Generating AI summary...</div>
+                {% else %}
+                AI-generated summary will appear here once processing is complete.
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <!-- Log Information Panel -->
+        <div class="info-panel">
+            <div class="panel-title">Log Information</div>
+            <div class="info-item">
+                <span class="info-label">Entry ID</span>
+                <span class="info-value">{{ log.id[:8] }}...</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Entry Number</span>
+                <span class="info-value">#{{ log.entry_number or 'Unknown' }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Created</span>
+                <span class="info-value">{{ log.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            </div>
+            {% if log.duration %}
+            <div class="info-item">
+                <span class="info-label">Duration</span>
+                <span class="info-value">{{ format_duration(log.duration) }}</span>
+            </div>
+            {% endif %}
+            {% if log.file_size %}
+            <div class="info-item">
+                <span class="info-label">File Size</span>
+                <span class="info-value">{{ format_file_size(log.file_size) }}</span>
+            </div>
+            {% endif %}
+            {% if log.location_name or (log.latitude and log.longitude) %}
+            <div class="info-item">
+                <span class="info-label">Location</span>
+                <span class="info-value">
+                    {% if log.location_name %}
+                        {{ log.location_name }}
+                    {% else %}
+                        {{ "%.4f, %.4f"|format(log.latitude, log.longitude) }}
+                    {% endif %}
+                </span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Processing Status Panel -->
+        <div class="status-panel">
+            <div class="panel-title">Processing Status</div>
+            <div class="status-indicator">
+                <div class="status-icon {{ 'completed' if log.audio_s3_key else 'processing' if log.processing_status != 'failed' else 'failed' }}"></div>
+                <div class="status-text">
+                    <div class="status-label">Audio Upload</div>
+                    <div>{{ 'Complete' if log.audio_s3_key else 'Failed' if log.processing_status == 'failed' else 'Processing...' }}</div>
+                </div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-icon {{ 'completed' if log.transcription else 'processing' if log.processing_status in ['transcribing', 'vectorizing', 'summarizing'] else 'failed' if log.processing_status == 'failed' else 'pending' }}"></div>
+                <div class="status-text">
+                    <div class="status-label">Transcription</div>
+                    <div>{{ 'Complete' if log.transcription else 'Failed' if log.processing_status == 'failed' else 'In Progress...' if log.processing_status in ['transcribing', 'vectorizing', 'summarizing'] else 'Pending' }}</div>
+                </div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-icon {{ 'completed' if log.embedding else 'processing' if log.processing_status in ['vectorizing', 'summarizing'] else 'failed' if log.processing_status == 'failed' else 'pending' }}"></div>
+                <div class="status-text">
+                    <div class="status-label">Vectorization</div>
+                    <div>{{ 'Complete' if log.embedding else 'Failed' if log.processing_status == 'failed' else 'In Progress...' if log.processing_status in ['vectorizing', 'summarizing'] else 'Pending' }}</div>
+                </div>
+            </div>
+            <div class="status-indicator">
+                <div class="status-icon {{ 'completed' if log.summary else 'processing' if log.processing_status == 'summarizing' else 'failed' if log.processing_status == 'failed' else 'pending' }}"></div>
+                <div class="status-text">
+                    <div class="status-label">AI Summary</div>
+                    <div>{{ 'Complete' if log.summary else 'Failed' if log.processing_status == 'failed' else 'In Progress...' if log.processing_status == 'summarizing' else 'Pending' }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions Panel -->
+        <div class="actions-panel">
+            <div class="panel-title">Actions</div>
+            <div class="action-group">
+                <button class="action-button" onclick="downloadAudio()" {{ 'disabled' if not log.audio_s3_key }}>
+                    💾 Download Audio
+                </button>
+                <button class="action-button secondary" onclick="shareLog()" {{ 'disabled' if not log.transcription }}>
+                    🔗 Share Log
+                </button>
+                <button class="action-button secondary" onclick="exportLog()">
+                    📄 Export Data
+                </button>
+            </div>
+            <div class="action-group" style="margin-top: 20px;">
+                <button class="action-button" onclick="retryProcessing()" 
+                        {{ 'disabled' if log.processing_status not in ['failed'] }}
+                        style="background: var(--lcars-orange);">
+                    🔄 Retry Processing
+                </button>
+                <button class="action-button secondary" onclick="deleteLog()" 
+                        style="background: var(--lcars-red);">
+                    🗑 Delete Log
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let audio = null;
+    let isPlaying = false;
+    let currentVolume = 0.7;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        audio = document.getElementById('audio-player');
+        if (audio) {
+            setupAudioEvents();
+            updateVolume(currentVolume);
+        }
+    });
+    
+    function setupAudioEvents() {
+        audio.addEventListener('loadedmetadata', function() {
+            document.getElementById('total-time').textContent = formatTime(audio.duration);
+        });
+        
+        audio.addEventListener('timeupdate', function() {
+            const progress = (audio.currentTime / audio.duration) * 100;
+            document.getElementById('timeline-progress').style.width = progress + '%';
+            document.getElementById('current-time').textContent = formatTime(audio.currentTime);
+        });
+        
+        audio.addEventListener('ended', function() {
+            isPlaying = false;
+            document.getElementById('play-btn').innerHTML = '▶';
+            document.getElementById('play-btn').classList.remove('playing');
+        });
+        
+        audio.addEventListener('play', function() {
+            isPlaying = true;
+            document.getElementById('play-btn').innerHTML = '⏸';
+            document.getElementById('play-btn').classList.add('playing');
+        });
+        
+        audio.addEventListener('pause', function() {
+            isPlaying = false;
+            document.getElementById('play-btn').innerHTML = '▶';
+            document.getElementById('play-btn').classList.remove('playing');
+        });
+    }
+    
+    function togglePlayback() {
+        if (!audio) return;
+        
+        if (isPlaying) {
+            audio.pause();
+        } else {
+            audio.play();
+        }
+    }
+    
+    function seekAudio(event) {
+        if (!audio) return;
+        
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const percentage = x / rect.width;
+        const newTime = percentage * audio.duration;
+        
+        audio.currentTime = newTime;
+    }
+    
+    function setVolume(event) {
+        if (!audio) return;
+        
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const percentage = x / rect.width;
+        
+        updateVolume(percentage);
+    }
+    
+    function updateVolume(volume) {
+        currentVolume = Math.max(0, Math.min(1, volume));
+        
+        if (audio) {
+            audio.volume = currentVolume;
+        }
+        
+        const volumeProgress = document.getElementById('volume-progress');
+        if (volumeProgress) {
+            volumeProgress.style.width = (currentVolume * 100) + '%';
+        }
+    }
+    
+    function formatTime(seconds) {
+        if (!seconds || isNaN(seconds)) return '00:00';
+        
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        
+        return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+    
+    // Transcription functions
+    function copyTranscription() {
+        const content = document.getElementById('transcription-content').textContent;
+        navigator.clipboard.writeText(content).then(function() {
+            showNotification('Transcription copied to clipboard', 'success');
+        });
+    }
+    
+    function downloadTranscription() {
+        const content = document.getElementById('transcription-content').textContent;
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `log-{{ log.id[:8] }}-transcription.txt`;
+        a.click();
+        
+        window.URL.revokeObjectURL(url);
+    }
+    
+    // Action functions
+    function downloadAudio() {
+        window.open('/api/logs/{{ log.id }}/download', '_blank');
+    }
+    
+    function shareLog() {
+        const url = window.location.href;
+        navigator.clipboard.writeText(url).then(function() {
+            showNotification('Log URL copied to clipboard', 'success');
+        });
+    }
+    
+    function exportLog() {
+        window.open('/api/logs/{{ log.id }}/export', '_blank');
+    }
+    
+    function retryProcessing() {
+        if (confirm('Retry processing this log entry?')) {
+            fetch('/api/logs/{{ log.id }}/retry', {
+                method: 'POST'
+            }).then(response => {
+                if (response.ok) {
+                    showNotification('Processing retry initiated', 'success');
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    showNotification('Failed to retry processing', 'error');
+                }
+            });
+        }
+    }
+    
+    function deleteLog() {
+        if (confirm('Are you sure you want to delete this log entry? This action cannot be undone.')) {
+            fetch('/api/logs/{{ log.id }}', {
+                method: 'DELETE'
+            }).then(response => {
+                if (response.ok) {
+                    showNotification('Log entry deleted', 'success');
+                    setTimeout(() => window.location.href = '/', 2000);
+                } else {
+                    showNotification('Failed to delete log entry', 'error');
+                }
+            });
+        }
+    }
+    
+    // Note: Live status updates via websockets not implemented yet
+    // The page will show the current status on load
+    
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `lcars-alert ${type}`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+            animation: slideIn 0.3s ease;
+        `;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notification.remove(), 300);
+        }, 5000);
+    }
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(event) {
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+        
+        switch(event.code) {
+            case 'Space':
+                event.preventDefault();
+                togglePlayback();
+                break;
+            case 'ArrowLeft':
+                if (audio && event.ctrlKey) {
+                    event.preventDefault();
+                    audio.currentTime = Math.max(0, audio.currentTime - 10);
+                }
+                break;
+            case 'ArrowRight':
+                if (audio && event.ctrlKey) {
+                    event.preventDefault();
+                    audio.currentTime = Math.min(audio.duration, audio.currentTime + 10);
+                }
+                break;
+            case 'KeyC':
+                if (event.ctrlKey) {
+                    event.preventDefault();
+                    copyTranscription();
+                }
+                break;
+        }
+    });
+</script>
+{% endblock %}

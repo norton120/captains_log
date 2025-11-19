@@ -19,7 +19,7 @@ services:
       - ./tests:/app/tests
       - ./.env:/app/.env
     environment:
-      DATABASE_URL: postgresql://captain:defiant@db:5432/captains_log
+      DATABASE_URL: postgresql+asyncpg://captain:defiant@db:5432/captains_log
       # Pass AWS session credentials from host
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
@@ -39,7 +39,7 @@ services:
       - ./tests:/app/tests
       - ./.env:/app/.env
     environment:
-      DATABASE_URL: postgresql://captain:defiant@db:5432/captains_log
+      DATABASE_URL: postgresql+asyncpg://captain:defiant@db:5432/captains_log
     depends_on:
       - db
     command: bash -c "cd /app && PYTHONPATH=/app python -m pytest tests/ -v --tb=short --asyncio-mode=auto"
