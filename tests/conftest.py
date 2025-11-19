@@ -12,9 +12,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
+from fastapi import UploadFile
+import httpx
 import vcr
 from moto import mock_aws
 import boto3
+import io
 
 # Add the parent directory to the Python path for Docker environment
 current_dir = Path(__file__).parent.parent
@@ -38,7 +41,7 @@ def test_settings() -> Settings:
         s3_bucket_name="test-captains-log-bucket",
         aws_region="us-east-1",
         dbos_app_name="captains-log-test",
-        max_audio_file_size=10 * 1024 * 1024,  # 10MB for tests
+        max_audio_file_size=2 * 1024 * 1024,  # 2MB for tests to make oversized test work
     )
 
 
@@ -282,3 +285,120 @@ def event_loop():
     loop = policy.new_event_loop()
     yield loop
     loop.close()
+
+
+# API Test Fixtures
+@pytest.fixture(scope="function")
+def audio_test_files():
+    """Provide paths to test audio files."""
+    fixtures_dir = Path(__file__).parent / "fixtures"
+    return {
+        "valid_short": fixtures_dir / "test_audio_short.wav",
+        "valid_medium": fixtures_dir / "test_audio_medium.wav", 
+        "valid_long": fixtures_dir / "test_audio_long.wav",
+        "valid_tiny": fixtures_dir / "test_audio_tiny.wav",
+        "oversized": fixtures_dir / "test_audio_large.wav",
+        "empty": fixtures_dir / "empty_file.wav",
+        "corrupted": fixtures_dir / "corrupted_audio.wav",
+    }
+
+
+@pytest.fixture(scope="function")  
+def upload_file_factory(audio_test_files):
+    """Factory for creating mock file uploads."""
+    
+    def _create_upload_file(
+        file_key: str = "valid_short",
+        filename: str = None,
+        content_type: str = "audio/wav"
+    ) -> UploadFile:
+        """Create a mock UploadFile for testing."""
+        file_path = audio_test_files[file_key]
+        
+        if filename is None:
+            filename = file_path.name
+            
+        # Read file content into bytes
+        with open(file_path, "rb") as f:
+            file_content = f.read()
+        
+        # Create BytesIO object
+        file_obj = io.BytesIO(file_content)
+        file_obj.name = filename
+        
+        # Create UploadFile
+        upload_file = UploadFile(
+            file=file_obj,
+            filename=filename,
+            headers={"content-type": content_type},
+            size=len(file_content)
+        )
+        
+        return upload_file
+    
+    return _create_upload_file
+
+
+@pytest.fixture(scope="function")
+def multipart_form_data(upload_file_factory):
+    """Create multipart form data for file upload tests."""
+    
+    def _create_form_data(file_key: str = "valid_short", **extra_data):
+        """Create form data dict for multipart uploads."""
+        upload_file = upload_file_factory(file_key)
+        
+        form_data = {"file": upload_file}
+        form_data.update(extra_data)
+        
+        return form_data
+    
+    return _create_form_data
+
+
+@pytest_asyncio.fixture(scope="function") 
+async def api_client(test_settings, async_db_engine):
+    """Async HTTP client for API testing."""
+    from app.main import app
+    from app.dependencies import get_settings, get_db_session
+    from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+    
+    # Create session maker for API testing
+    async_session_maker = async_sessionmaker(
+        bind=async_db_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    
+    async def override_get_db_session():
+        async with async_session_maker() as session:
+            yield session
+    
+    # Override dependencies for testing
+    app.dependency_overrides[get_settings] = lambda: test_settings
+    app.dependency_overrides[get_db_session] = override_get_db_session
+    
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        yield client
+    
+    # Clean up overrides
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+def mock_background_tasks():
+    """Mock FastAPI background tasks."""
+    mock_tasks = MagicMock()
+    mock_tasks.add_task = MagicMock()
+    return mock_tasks
+
+
+@pytest.fixture(scope="function")
+def mock_workflow_service():
+    """Mock audio processing workflow service."""
+    mock_service = AsyncMock()
+    mock_service.process_audio.return_value = {
+        "workflow_id": "test-workflow-123",
+        "status": "started",
+        "log_entry_id": "test-log-entry-456"
+    }
+    return mock_service
