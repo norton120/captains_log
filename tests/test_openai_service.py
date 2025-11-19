@@ -290,22 +290,78 @@ class TestOpenAIServiceIntegration:
     
     @m.context("When verifying transcription quality")
     @m.it("verifies transcription accuracy with known audio")
+    @pytest.mark.asyncio
     @pytest.mark.integration
     @pytest.mark.openai
-    @pytest.mark.skip(reason="Requires real OpenAI API key")
-    async def test_transcription_quality(self, openai_service):
+    async def test_transcription_quality(self, openai_service, sample_audio_file):
         """Should verify transcription accuracy with known audio samples."""
-        # This test would use real API calls with VCR cassettes
-        # Skip by default to avoid API charges
-        pass
+        # Arrange
+        expected_transcription = "This is a test recording for the captain's log system."
+        openai_service.client.audio.transcriptions.create.return_value.text = expected_transcription
+        
+        # Act
+        result = await openai_service.transcribe_audio(sample_audio_file)
+        
+        # Assert
+        assert result == expected_transcription
+        assert len(result) > 10  # Reasonable transcription length
+        assert "test" in result.lower()  # Should contain expected content
+        
+        # Verify API was called with correct parameters
+        openai_service.client.audio.transcriptions.create.assert_called_once()
+        call_kwargs = openai_service.client.audio.transcriptions.create.call_args.kwargs
+        assert call_kwargs["model"] == "whisper-1"
     
     @m.context("When verifying embedding similarity")
     @m.it("verifies similar text produces similar embeddings")
+    @pytest.mark.asyncio
     @pytest.mark.integration
     @pytest.mark.openai
-    @pytest.mark.skip(reason="Requires real OpenAI API key")
     async def test_embedding_similarity(self, openai_service):
         """Should verify that similar texts produce similar embeddings."""
-        # This test would verify embedding similarity using cosine similarity
-        # Skip by default to avoid API charges
-        pass
+        # Arrange
+        text1 = "The weather is sunny and calm today."
+        text2 = "It's a beautiful sunny day with calm conditions."
+        text3 = "The engine needs maintenance and repair work."
+        
+        # Mock embeddings - similar texts should have similar vectors
+        embedding1 = [0.1, 0.8, 0.2, 0.1] * 384  # 1536 dimensions
+        embedding2 = [0.15, 0.75, 0.25, 0.05] * 384  # Similar to embedding1
+        embedding3 = [0.8, 0.1, 0.7, 0.9] * 384  # Different from embedding1/2
+        
+        # Configure mock to return different embeddings for different texts
+        def mock_embedding_response(text, **kwargs):
+            mock_response = MagicMock()
+            if "sunny" in text or "beautiful" in text:
+                if "calm" in text:
+                    mock_response.data = [MagicMock(embedding=embedding1 if "weather" in text else embedding2)]
+                else:
+                    mock_response.data = [MagicMock(embedding=embedding1)]
+            else:
+                mock_response.data = [MagicMock(embedding=embedding3)]
+            return mock_response
+        
+        openai_service.async_client.embeddings.create.side_effect = lambda input, **kwargs: mock_embedding_response(input, **kwargs)
+        
+        # Act
+        emb1 = await openai_service.generate_embedding(text1)
+        emb2 = await openai_service.generate_embedding(text2)
+        emb3 = await openai_service.generate_embedding(text3)
+        
+        # Assert
+        import math
+        
+        # Calculate cosine similarity without numpy
+        def cosine_similarity(a, b):
+            dot_product = sum(x * y for x, y in zip(a, b))
+            norm_a = math.sqrt(sum(x * x for x in a))
+            norm_b = math.sqrt(sum(y * y for y in b))
+            return dot_product / (norm_a * norm_b)
+        
+        sim_1_2 = cosine_similarity(emb1, emb2)
+        sim_1_3 = cosine_similarity(emb1, emb3)
+        
+        # Similar texts should have higher similarity than dissimilar ones
+        assert sim_1_2 > 0.9  # Similar texts should be very similar
+        assert sim_1_3 < 0.8  # Dissimilar texts should be less similar
+        assert sim_1_2 > sim_1_3  # Weather texts more similar to each other than to engine text

@@ -224,11 +224,83 @@ class TestS3ServiceIntegration:
     
     @m.context("When verifying bucket permissions")
     @m.it("has proper bucket access permissions")
+    @pytest.mark.asyncio
     @pytest.mark.integration
     @pytest.mark.s3
-    @pytest.mark.skip(reason="Requires real AWS credentials")
     async def test_s3_bucket_permissions(self, s3_service):
         """Should verify that the service has proper S3 bucket permissions."""
-        # This test would run against real S3 to verify permissions
-        # Skip by default to avoid AWS charges and credential requirements
-        pass
+        # This test uses the moto mock AWS environment
+        bucket_name = s3_service.settings.s3_bucket_name
+        s3_client = s3_service.s3_client
+        
+        # Test 1: Verify service can list bucket contents (basic read permission)
+        try:
+            response = s3_client.list_objects_v2(Bucket=bucket_name, MaxKeys=10)
+            list_permission = True
+            # Should return a valid response structure
+            assert 'Contents' in response or 'KeyCount' in response
+        except Exception as e:
+            list_permission = False
+            
+        assert list_permission, f"Service should have list permissions on bucket: {bucket_name}"
+        
+        # Test 2: Verify service can upload objects (write permission)
+        test_key = 'test/permissions-check.txt'
+        try:
+            response = s3_client.put_object(
+                Bucket=bucket_name,
+                Key=test_key,
+                Body=b'test content for permissions check'
+            )
+            write_permission = True
+            # Should return ETag indicating successful upload
+            assert 'ETag' in response
+        except Exception as e:
+            write_permission = False
+            
+        assert write_permission, f"Service should have write permissions on bucket: {bucket_name}"
+        
+        # Test 3: Verify service can read back the uploaded object
+        try:
+            response = s3_client.get_object(Bucket=bucket_name, Key=test_key)
+            read_permission = True
+            # Verify content matches what we uploaded
+            content = response['Body'].read()
+            assert content == b'test content for permissions check'
+        except Exception as e:
+            read_permission = False
+            
+        assert read_permission, f"Service should have read permissions on bucket: {bucket_name}"
+        
+        # Test 4: Verify service can delete objects (delete permission)
+        try:
+            s3_client.delete_object(Bucket=bucket_name, Key=test_key)
+            delete_permission = True
+            
+            # Verify object is actually deleted
+            try:
+                s3_client.get_object(Bucket=bucket_name, Key=test_key)
+                delete_permission = False  # Object still exists
+            except s3_client.exceptions.NoSuchKey:
+                pass  # Object correctly deleted
+        except Exception as e:
+            delete_permission = False
+            
+        assert delete_permission, f"Service should have delete permissions on bucket: {bucket_name}"
+        
+        # Test 5: Verify service can generate presigned URLs
+        try:
+            presigned_url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': bucket_name, 'Key': 'test/sample.wav'},
+                ExpiresIn=3600
+            )
+            presigned_permission = True
+            # URL should be a valid string containing bucket name
+            assert isinstance(presigned_url, str)
+            assert bucket_name in presigned_url
+            assert 'test/sample.wav' in presigned_url
+        except Exception as e:
+            presigned_permission = False
+            
+        assert presigned_permission, f"Service should be able to generate presigned URLs for bucket: {bucket_name}"
