@@ -469,29 +469,63 @@ class TestAudioProcessingWorkflow:
     @pytest.mark.integration
     @pytest.mark.workflow
     async def test_concurrent_workflows(
-        self, audio_workflow, sample_audio_file, log_entry_factory
+        self, test_settings, async_db_engine, sample_audio_file, log_entry_factory
     ):
         """Should handle multiple workflows processing simultaneously."""
-        # Arrange
+        # Create separate sessions for each workflow to avoid session conflicts
+        from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+        
+        async_session_maker = async_sessionmaker(
+            bind=async_db_engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+        
+        # Create log entries using the factory (which uses the shared session)
         log_entries = [await log_entry_factory() for _ in range(3)]
         
-        # Mock services
-        audio_workflow.s3_service.upload_audio.return_value = "audio/test-123.wav"
-        audio_workflow.openai_service.transcribe_audio.return_value = "Test transcription"
-        audio_workflow.openai_service.generate_embedding.return_value = [0.1] * 1536
-        audio_workflow.openai_service.generate_summary.return_value = "Test summary"
+        # Create separate workflow instances with their own sessions
+        workflows = []
+        for i in range(3):
+            # Create separate session for each workflow
+            session = async_session_maker()
+            
+            # Create mock services
+            s3_mock = MagicMock()
+            s3_mock.upload_audio = AsyncMock(return_value=f"audio/test-{i}.wav")
+            
+            openai_mock = MagicMock()
+            openai_mock.transcribe_audio = AsyncMock(return_value="Test transcription")
+            openai_mock.generate_embedding = AsyncMock(return_value=[0.1] * 1536)
+            openai_mock.generate_summary = AsyncMock(return_value="Test summary")
+            
+            workflow = AudioProcessingWorkflow(
+                settings=test_settings,
+                db_session=session,
+                s3_service=s3_mock,
+                openai_service=openai_mock
+            )
+            workflows.append(workflow)
         
-        # Act
-        import asyncio
-        tasks = [
-            audio_workflow.process_audio(entry.id, sample_audio_file)
-            for entry in log_entries
-        ]
-        results = await asyncio.gather(*tasks)
-        
-        # Assert
-        assert len(results) == 3
-        assert all(result["success"] for result in results)
+        try:
+            # Act
+            import asyncio
+            tasks = [
+                workflows[i].process_audio(log_entries[i].id, sample_audio_file)
+                for i in range(3)
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Assert
+            assert len(results) == 3
+            # Check that all results are success (not exceptions)
+            successful_results = [r for r in results if isinstance(r, dict) and r.get("success")]
+            assert len(successful_results) == 3
+            
+        finally:
+            # Close all sessions
+            for workflow in workflows:
+                await workflow.db_session.close()
 
 
 @m.describe("Workflow Database Integration")
