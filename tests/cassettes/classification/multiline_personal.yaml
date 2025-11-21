@@ -1,0 +1,16 @@
+interactions:
+- request:
+    body: '{"messages":[{"role":"system","content":"Most logs are NOT personal logs, but in the case that they are we treat them differently. Given this content from the log, is it a personal log? A personal log is explicitly identified by the speaker saying ''personal log''. Return ONLY ''True'' if it''s a personal log, or ''False'' if it''s not. Nothing else - just True or False."},{"role":"user","content":"Personal log, this is my entry.\nLine 2 of content.\nLine 3 of content.\nLine 4 of more content."}],"model":"gpt-4o-mini","max_tokens":5,"temperature":0.0}'
+    headers:
+      accept: [application/json]
+      content-type: [application/json]
+      host: [api.openai.com]
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: '{"id":"chatcmpl-test","object":"chat.completion","created":1700000000,"model":"gpt-4o-mini","choices":[{"index":0,"message":{"role":"assistant","content":"True"},"finish_reason":"stop"}]}'
+    headers:
+      Content-Type: [application/json]
+    status: {code: 200, message: OK}
+version: 1

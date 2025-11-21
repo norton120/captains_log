@@ -348,13 +348,16 @@ class OpenAIService:
     async def classify_log_type(self, transcription: str) -> str:
         """
         Classify log entry as PERSONAL or SHIP based on transcription.
-        
+
+        Uses LLM to determine if this is a personal log. Most logs are NOT personal logs,
+        but in the case that they are we treat them differently.
+
         Args:
             transcription: Transcribed text to classify
-            
+
         Returns:
             "PERSONAL" or "SHIP" (defaults to "SHIP" if uncertain)
-            
+
         Raises:
             ClassificationError: If classification fails
         """
@@ -362,47 +365,37 @@ class OpenAIService:
             # Validate input
             if not transcription or not transcription.strip():
                 raise ClassificationError("Empty transcription provided for classification")
-            
-            # Get first few lines for classification
-            lines = transcription.strip().split('\n')
-            first_lines = '\n'.join(lines[:3]).strip()  # Use first 3 lines
-            
-            # System prompt for classification
+
+            # System prompt for pessimistic boolean check
             system_prompt = (
-                "Classify this log entry as either 'PERSONAL' or 'SHIP' based ONLY on the opening words. "
-                "Look for these exact patterns:\n"
-                "- PERSONAL: starts with 'Personal log', 'personal log', or similar personal indicators\n"
-                "- SHIP: starts with 'Captain's log', 'Ship's log', 'Science Officer's log', 'Chief Engineer's log', "
-                "'First Officer's log', 'Medical log', or any other ship/crew role log\n\n"
-                "Rules:\n"
-                "1. If it starts with 'Personal log' (any capitalization), return 'PERSONAL'\n"
-                "2. If it starts with any ship/crew role + 'log', return 'SHIP'\n"
-                "3. If uncertain or no clear pattern, default to 'SHIP'\n"
-                "4. Return ONLY the word 'PERSONAL' or 'SHIP', nothing else"
+                "Most logs are NOT personal logs, but in the case that they are we treat them differently. "
+                "Given this content from the log, is it a personal log? "
+                "A personal log is explicitly identified by the speaker saying 'personal log'. "
+                "Return ONLY 'True' if it's a personal log, or 'False' if it's not. "
+                "Nothing else - just True or False."
             )
-            
-            # Generate classification
+
+            # Use LLM to classify
             response = await self.async_client.chat.completions.create(
                 model=self.settings.openai_model_chat,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Classify this log opening:\n\n{first_lines}"}
+                    {"role": "user", "content": transcription}
                 ],
                 temperature=0.0,  # Deterministic classification
-                max_tokens=10  # Very short response needed
+                max_tokens=5  # Very short response needed
             )
-            
+
             # Extract classification
-            classification = response.choices[0].message.content.strip().upper()
-            
-            # Validate result
-            if classification not in ["PERSONAL", "SHIP"]:
-                logger.warning(f"Invalid classification '{classification}', defaulting to SHIP")
-                return "SHIP"
-            
-            logger.info(f"Classified log as: {classification}")
+            result = response.choices[0].message.content.strip()
+
+            # Parse the boolean response
+            is_personal = result.lower() in ['true', 'yes', '1']
+
+            classification = "PERSONAL" if is_personal else "SHIP"
+            logger.info(f"Classified log as: {classification} (LLM returned: {result})")
             return classification
-            
+
         except ClassificationError:
             raise
         except Exception as e:
