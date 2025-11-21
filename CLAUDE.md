@@ -1,12 +1,12 @@
 # Captain's Log - Claude Context
 
-Voice-based ship's log for SV Defiant with automatic transcription, semantic search, and AI summaries.
+Voice-based ship's log for Sailing Vessels with automatic transcription, semantic search, and AI summaries.
 
 ## Quick Commands
 
 ```bash
 # Run the application
-docker compose up
+./utils/dev.sh
 
 # Run tests
 docker compose run --rm test
@@ -14,25 +14,22 @@ docker compose run --rm test
 # Run specific tests
 docker compose run --rm test pytest tests/test_specific.py -v
 
-# Run tests with coverage
-docker compose run --rm test pytest --cov=app tests/
-
 # Access at http://captains-log.localhost
 ```
+
+## Environment
+You are running in a worktree in parallel with other development branches. It is critical that you do not interfere with other containers
+on the host machine.
+**NEVER**:
+- alter your `PORT_OFFSET` or `COMPOSE_PROJECT_NAME` envars - these are intentionally set for each worktree
+- stop other containers due to port conflicts
+
+**ALWAYS**:
+- use the helper docker compose services, they are pre-configured to abstract away the complexity of worktrees.
 
 ## Development Approach
 
 This project follows **Test-Driven Development (TDD)**.
-
-## Required Environment Variables
-
-Create `.env` file:
-```bash
-OPENAI_API_KEY=your_openai_key
-AWS_ACCESS_KEY_ID=your_aws_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret
-AWS_REGION=us-east-2
-```
 
 ## Tech Stack
 

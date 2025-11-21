@@ -63,7 +63,7 @@ export PORT_OFFSET
 
 # namespace the project name by the current git branch
 # removing vibe prefix if it exists, then escape special chars for sed
-COMPOSE_PROJECT_NAME=$(git branch --show-current | sed 's/vibe\///' | sed 's/[\/&\\]/\\&/g')
+COMPOSE_PROJECT_NAME=$(git branch --show-current | sed 's/vk///' | sed 's/[\/&\\]/\\&/g')
 
 # Update or add COMPOSE_PROJECT_NAME in .env file
 if [ -f .env ]; then
