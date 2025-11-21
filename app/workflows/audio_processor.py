@@ -212,7 +212,7 @@ class GenerateSummaryStep(BaseWorkflowStep):
             # Generate summary
             summary = await self.openai_service.generate_summary(
                 transcription,
-                instructions="Focus on key events, weather conditions, and important decisions."
+                instructions="Report operational status, environmental conditions, navigational data, and significant events."
             )
             
             logger.info(f"Successfully generated summary: {len(summary)} characters")

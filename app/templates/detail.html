@@ -6,6 +6,27 @@
 
 {% block head %}
 <style>
+    /* AI Summary at top */
+    .ai-summary-top {
+        background: rgba(255, 153, 0, 0.1);
+        border: 2px solid var(--lcars-orange);
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 25px;
+        font-size: 1.1em;
+        line-height: 1.6;
+        color: var(--lcars-white);
+    }
+    
+    .ai-summary-top.placeholder {
+        color: var(--lcars-gray);
+        font-style: italic;
+        text-align: center;
+        padding: 15px 20px;
+        font-size: 1em;
+    }
+</style>
+<style>
     .log-detail {
         display: grid;
         grid-template-columns: 1fr 350px;
@@ -171,21 +192,26 @@
     }
     
     .action-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
         padding: 8px 15px;
         background: var(--lcars-blue);
         border: none;
-        color: var(--lcars-white);
-        border-radius: 12px;
-        font-family: inherit;
-        font-size: 0.9em;
+        color: var(--lcars-black);
+        border-radius: var(--lcars-small-radius);
+        font-family: 'lcars', 'Helvetica Neue', 'Arial Narrow', sans-serif;
+        font-size: 14px;
+        font-weight: bold;
         text-transform: uppercase;
         cursor: pointer;
         transition: all 0.3s ease;
+        min-width: 80px;
     }
     
     .action-btn:hover {
-        background: var(--lcars-purple);
-        box-shadow: 0 0 10px rgba(204, 153, 204, 0.5);
+        filter: brightness(1.15);
+        box-shadow: 0 0 10px rgba(102, 153, 204, 0.4);
     }
     
     .transcription-content {
@@ -357,33 +383,42 @@
     }
     
     .action-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
         padding: 12px 18px;
         background: var(--lcars-red);
         border: none;
-        color: var(--lcars-white);
-        border-radius: 15px;
-        font-family: inherit;
+        color: var(--lcars-black);
+        border-radius: var(--lcars-small-radius);
+        font-family: 'lcars', 'Helvetica Neue', 'Arial Narrow', sans-serif;
         font-weight: bold;
         text-transform: uppercase;
         cursor: pointer;
         transition: all 0.3s ease;
-        font-size: 0.9em;
+        font-size: 14px;
+        min-width: 120px;
     }
     
     .action-button:hover {
-        background: var(--lcars-purple);
-        box-shadow: 0 0 15px rgba(204, 153, 204, 0.5);
+        filter: brightness(1.15);
+        box-shadow: 0 0 15px rgba(204, 102, 102, 0.4);
     }
     
     .action-button.secondary {
-        background: rgba(204, 102, 102, 0.3);
-        border: 2px solid var(--lcars-red);
+        background: var(--lcars-orange);
+        color: var(--lcars-black);
     }
     
     .action-button:disabled {
         background: var(--lcars-gray);
         cursor: not-allowed;
         opacity: 0.5;
+        filter: none;
+    }
+    
+    .action-button:disabled:hover {
+        box-shadow: none;
     }
     
     /* Responsive Design */
@@ -440,6 +475,22 @@
 {% endblock %}
 
 {% block content %}
+<!-- AI Summary at top -->
+{% if log.summary %}
+<div class="ai-summary-top">
+    {{ log.summary }}
+</div>
+{% elif log.processing_status == 'failed' %}
+<div class="ai-summary-top placeholder" style="color: var(--lcars-red);">
+    SUMMARY GENERATION FAILED
+</div>
+{% elif log.processing_status in ['pending', 'transcribing', 'vectorizing', 'summarizing'] %}
+<div class="ai-summary-top placeholder">
+    <div class="loading-spinner" style="margin: 0 auto; display: inline-block; width: 20px; height: 20px;"></div>
+    Generating AI summary...
+</div>
+{% endif %}
+
 <div class="log-detail" 
      data-log-id="{{ log.id }}">
     
@@ -456,7 +507,7 @@
             {% if log.audio_s3_key %}
             <div class="audio-controls">
                 <button class="play-button" id="play-btn" onclick="togglePlayback()">
-                    ▶
+                    PLAY
                 </button>
                 
                 <div class="audio-timeline">
@@ -470,7 +521,7 @@
                 </div>
                 
                 <div class="volume-control">
-                    <span style="color: var(--lcars-blue); font-size: 1.2em;">🔊</span>
+                    <span style="color: var(--lcars-blue); font-size: 14px; font-weight: bold; text-transform: uppercase;">VOL</span>
                     <div class="volume-slider" onclick="setVolume(event)">
                         <div class="volume-progress" id="volume-progress"></div>
                     </div>
@@ -485,7 +536,7 @@
             <div class="audio-controls" style="justify-content: center; padding: 40px;">
                 <div style="color: var(--lcars-gray); font-size: 1.1em; text-align: center;">
                     {% if log.processing_status == 'failed' %}
-                    <div style="color: var(--lcars-red);">⚠ AUDIO PROCESSING FAILED</div>
+                    <div style="color: var(--lcars-red);">AUDIO PROCESSING FAILED</div>
                     <div style="margin-top: 10px; font-size: 0.9em;">
                         Error: {{ log.processing_error or 'Unknown error occurred' }}
                     </div>
@@ -505,8 +556,8 @@
                 <div class="transcription-title">Voice Transcription</div>
                 <div class="transcription-actions">
                     {% if log.transcription %}
-                    <button class="action-btn" onclick="copyTranscription()">📋 Copy</button>
-                    <button class="action-btn" onclick="downloadTranscription()">💾 Download</button>
+                    <button class="action-btn" onclick="copyTranscription()">COPY</button>
+                    <button class="action-btn" onclick="downloadTranscription()">DOWNLOAD</button>
                     {% endif %}
                 </div>
             </div>
@@ -517,7 +568,7 @@
                 {{ log.transcription }}
                 {% elif log.processing_status == 'failed' %}
                 <div style="color: var(--lcars-red);">
-                    ⚠ Transcription failed: {{ log.processing_error or 'Unknown error' }}
+                    TRANSCRIPTION FAILED: {{ log.processing_error or 'Unknown error' }}
                 </div>
                 {% elif log.processing_status in ['pending', 'transcribing'] %}
                 <div class="loading-spinner" style="margin: 0 auto;"></div>
@@ -528,25 +579,6 @@
             </div>
         </div>
 
-        <!-- Summary Section -->
-        <div class="summary-section">
-            <div class="summary-title">AI Summary</div>
-            <div class="summary-content {% if not log.summary %}placeholder{% endif %}" 
-                 id="summary-content">
-                {% if log.summary %}
-                {{ log.summary }}
-                {% elif log.processing_status == 'failed' %}
-                <div style="color: var(--lcars-red);">
-                    ⚠ Summary generation failed
-                </div>
-                {% elif log.processing_status in ['pending', 'transcribing', 'vectorizing', 'summarizing'] %}
-                <div class="loading-spinner" style="margin: 0 auto;"></div>
-                <div style="margin-top: 15px;">Generating AI summary...</div>
-                {% else %}
-                AI-generated summary will appear here once processing is complete.
-                {% endif %}
-            </div>
-        </div>
     </div>
 
     <div class="sidebar">
@@ -629,24 +661,24 @@
             <div class="panel-title">Actions</div>
             <div class="action-group">
                 <button class="action-button" onclick="downloadAudio()" {{ 'disabled' if not log.audio_s3_key }}>
-                    💾 Download Audio
+                    DOWNLOAD
                 </button>
                 <button class="action-button secondary" onclick="shareLog()" {{ 'disabled' if not log.transcription }}>
-                    🔗 Share Log
+                    SHARE
                 </button>
                 <button class="action-button secondary" onclick="exportLog()">
-                    📄 Export Data
+                    EXPORT
                 </button>
             </div>
             <div class="action-group" style="margin-top: 20px;">
                 <button class="action-button" onclick="retryProcessing()" 
                         {{ 'disabled' if log.processing_status not in ['failed'] }}
                         style="background: var(--lcars-orange);">
-                    🔄 Retry Processing
+                    RETRY
                 </button>
-                <button class="action-button secondary" onclick="deleteLog()" 
-                        style="background: var(--lcars-red);">
-                    🗑 Delete Log
+                <button class="action-button" onclick="deleteLog()" 
+                        style="background: var(--lcars-red); color: white;">
+                    DELETE
                 </button>
             </div>
         </div>
@@ -681,19 +713,19 @@
         
         audio.addEventListener('ended', function() {
             isPlaying = false;
-            document.getElementById('play-btn').innerHTML = '▶';
+            document.getElementById('play-btn').innerHTML = 'PLAY';
             document.getElementById('play-btn').classList.remove('playing');
         });
         
         audio.addEventListener('play', function() {
             isPlaying = true;
-            document.getElementById('play-btn').innerHTML = '⏸';
+            document.getElementById('play-btn').innerHTML = 'PAUSE';
             document.getElementById('play-btn').classList.add('playing');
         });
         
         audio.addEventListener('pause', function() {
             isPlaying = false;
-            document.getElementById('play-btn').innerHTML = '▶';
+            document.getElementById('play-btn').innerHTML = 'PLAY';
             document.getElementById('play-btn').classList.remove('playing');
         });
     }

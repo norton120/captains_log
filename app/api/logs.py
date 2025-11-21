@@ -637,3 +637,62 @@ async def get_log_audio(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve log audio"
         ) from e
+
+
+@router.delete("/{log_id}")
+async def delete_log_entry(
+    log_id: UUID,
+    db_session: AsyncSession = Depends(get_db_session),
+    s3_service: S3Service = Depends(get_s3_service)
+) -> dict:
+    """
+    Delete a log entry and its associated audio file.
+    
+    - **log_id**: UUID of the log entry to delete
+    """
+    logger.info(f"Starting delete operation for log entry: {log_id}")
+    try:
+        # Get the log entry
+        logger.info(f"About to query database for log entry: {log_id}")
+        result = await db_session.get(LogEntry, log_id)
+        logger.info(f"Database query completed, result: {result}")
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Log entry not found"
+            )
+        
+        log_entry = result
+        audio_s3_key = log_entry.audio_s3_key  # Store for S3 cleanup after DB deletion
+        
+        # Delete from database first
+        await db_session.delete(log_entry)
+        await db_session.commit()
+        
+        logger.info(f"Successfully deleted log entry from database: {log_id}")
+        
+        # Delete from S3 after successful DB deletion
+        if audio_s3_key:
+            try:
+                await s3_service.delete_audio(audio_s3_key)
+                logger.info(f"Deleted audio file from S3: {audio_s3_key}")
+            except Exception as s3_error:
+                logger.warning(f"Failed to delete S3 file {audio_s3_key}: {s3_error}")
+                # S3 deletion failure doesn't affect the API response since DB deletion succeeded
+        
+        return {"message": "Log entry deleted successfully", "id": str(log_id)}
+        
+    except HTTPException:
+        logger.info(f"HTTPException caught for {log_id}, re-raising")
+        raise
+    except Exception as e:
+        # Rollback the transaction if it's still active
+        try:
+            await db_session.rollback()
+        except Exception as rollback_error:
+            logger.warning(f"Rollback failed: {rollback_error}")
+        logger.error(f"Failed to delete log entry {log_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete log entry"
+        ) from e

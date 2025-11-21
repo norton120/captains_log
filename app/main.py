@@ -89,6 +89,10 @@ async def record_page(request: Request):
 @app.get("/logs/{log_id}")
 async def log_detail_page(log_id: str, request: Request, db: Session = Depends(get_db)):
     """Log detail page."""
+    from app.dependencies import get_settings
+    from app.services.s3 import S3Service
+    from uuid import UUID
+    
     log_entry = db.query(LogEntry).filter(LogEntry.id == log_id).first()
     
     if not log_entry:
@@ -101,8 +105,13 @@ async def log_detail_page(log_id: str, request: Request, db: Session = Depends(g
     # Get audio URL if available
     audio_url = None
     if log_entry.audio_s3_key:
-        # This would normally call your S3 service to get a presigned URL
-        audio_url = f"/api/logs/{log_id}/audio"
+        try:
+            settings = get_settings()
+            s3_service = S3Service(settings)
+            audio_url = await s3_service.get_audio_url(log_entry.audio_s3_key)
+        except Exception as e:
+            logger.warning(f"Failed to get audio URL for {log_id}: {e}")
+            audio_url = None
     
     # Helper functions for template
     def format_status(status):

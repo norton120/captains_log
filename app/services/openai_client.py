@@ -255,7 +255,7 @@ class OpenAIService:
         self, 
         transcription: str,
         instructions: Optional[str] = None,
-        max_length: int = 200
+        max_length: int = 75
     ) -> str:
         """
         Generate a summary of the transcription using OpenAI.
@@ -292,7 +292,7 @@ class OpenAIService:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": f"Transcription to summarize:\n\n{transcription}"}
                 ],
-                temperature=0.3,
+                temperature=0.1,
                 max_tokens=max_length * 2  # Allow some buffer for token count
             )
             
@@ -323,23 +323,20 @@ class OpenAIService:
                 raise SummaryError(f"Summary generation failed: {error_msg}")
     
     def _build_summary_prompt(self, instructions: Optional[str], max_length: int) -> str:
-        """Build system prompt for summarization."""
+        """Build system prompt for summarization in TNG computer style."""
         base_prompt = (
-            "You are an AI assistant helping to summarize captain's log entries from a sailing vessel. "
-            "Create a concise, informative summary that captures the key points, events, and observations. "
-            f"Keep the summary under {max_length} words. "
-            "Focus on:\n"
-            "- Important events or incidents\n"
-            "- Weather and sea conditions\n"
-            "- Navigation details\n"
-            "- Crew activities and decisions\n"
-            "- Any notable observations or concerns\n\n"
+            "Generate ship log summary in Starfleet computer format. "
+            f"Maximum {max_length} words. Use precise, clinical language. "
+            "Report critical events, environmental conditions, and navigation status. "
+            "No contractions. No emotional language. State facts only. "
+            "Use terminology: position, heading, environmental systems, structural integrity, operations. "
+            "Format: Status reports and operational summaries.\n\n"
         )
         
         if instructions:
-            base_prompt += f"Additional instructions: {instructions}\n\n"
+            base_prompt += f"Additional parameters: {instructions}\n\n"
         
-        base_prompt += "Provide only the summary, without additional commentary."
+        base_prompt += "Return summary data only."
         
         return base_prompt
     

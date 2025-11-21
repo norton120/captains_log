@@ -32,13 +32,13 @@
                         
                         <div class="log-actions" onclick="event.stopPropagation();">
                             <button class="action-button" onclick="playAudio('{{ log.id }}')" {% if not log.audio_s3_key %}disabled{% endif %}>
-                                🔊 PLAY
+                                PLAY
                             </button>
                             <button class="action-button secondary" onclick="viewTranscript('{{ log.id }}')" {% if not log.transcription %}disabled{% endif %}>
-                                📝 TRANSCRIPT
+                                TRANSCRIPT
                             </button>
                             <button class="action-button secondary" onclick="downloadLog('{{ log.id }}')" {% if not log.audio_s3_key %}disabled{% endif %}>
-                                💾 DOWNLOAD
+                                DOWNLOAD
                             </button>
                         </div>
                     </div>

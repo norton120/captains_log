@@ -112,28 +112,46 @@
     }
     
     .control-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
         padding: 15px 25px;
-        background: linear-gradient(135deg, var(--lcars-blue), var(--lcars-purple));
+        background: var(--lcars-blue);
         border: none;
-        color: var(--lcars-white);
-        border-radius: 20px;
-        font-family: inherit;
+        color: var(--lcars-black);
+        border-radius: var(--lcars-small-radius);
+        font-family: 'lcars', 'Helvetica Neue', 'Arial Narrow', sans-serif;
         font-weight: bold;
         text-transform: uppercase;
         cursor: pointer;
         transition: all 0.3s ease;
-        font-size: 1em;
+        font-size: 16px;
+        min-width: 120px;
     }
     
     .control-button:hover {
-        background: linear-gradient(135deg, var(--lcars-purple), var(--lcars-blue));
-        box-shadow: 0 0 15px rgba(153, 153, 204, 0.5);
+        filter: brightness(1.15);
+        box-shadow: 0 0 15px rgba(102, 153, 204, 0.4);
     }
     
     .control-button:disabled {
         background: var(--lcars-gray);
         cursor: not-allowed;
         opacity: 0.5;
+        filter: none;
+    }
+    
+    .control-button:disabled:hover {
+        box-shadow: none;
+    }
+    
+    .control-button.secondary {
+        background: var(--lcars-orange);
+    }
+    
+    .control-button.danger {
+        background: var(--lcars-red);
+        color: white;
     }
     
     .recording-status {
@@ -221,15 +239,15 @@
     <!-- Recording Controls -->
     <div class="recording-controls">
         <button class="control-button" id="pause-btn" disabled onclick="pauseRecording()">
-            ⏸ PAUSE
+            PAUSE
         </button>
         
         <button class="record-btn ready" id="record-btn" onclick="toggleRecording()">
-            🎤
+            REC
         </button>
         
-        <button class="control-button" id="save-btn" disabled onclick="saveRecording()">
-            💾 SAVE LOG
+        <button class="control-button secondary" id="save-btn" disabled onclick="saveRecording()">
+            SAVE LOG
         </button>
     </div>
 
@@ -493,33 +511,33 @@
         updateUI() {
             if (this.isRecording && !this.isPaused) {
                 this.recordBtn.className = 'record-btn recording';
-                this.recordBtn.innerHTML = '⏹';
+                this.recordBtn.innerHTML = 'STOP';
                 this.statusText.textContent = 'RECORDING IN PROGRESS';
                 this.instructions.textContent = 'CLICK TO STOP RECORDING';
                 this.pauseBtn.disabled = false;
                 this.saveBtn.disabled = true;
             } else if (this.isPaused) {
                 this.recordBtn.className = 'record-btn stopped';
-                this.recordBtn.innerHTML = '⏹';
+                this.recordBtn.innerHTML = 'STOP';
                 this.statusText.textContent = 'RECORDING PAUSED';
                 this.instructions.textContent = 'CLICK PAUSE TO RESUME';
-                this.pauseBtn.textContent = '▶ RESUME';
+                this.pauseBtn.textContent = 'RESUME';
                 this.saveBtn.disabled = true;
             } else if (this.chunks.length > 0) {
                 this.recordBtn.className = 'record-btn ready';
-                this.recordBtn.innerHTML = '🎤';
+                this.recordBtn.innerHTML = 'REC';
                 this.statusText.textContent = 'RECORDING COMPLETE';
                 this.instructions.textContent = 'SAVE LOG OR RECORD NEW ENTRY';
                 this.pauseBtn.disabled = true;
-                this.pauseBtn.textContent = '⏸ PAUSE';
+                this.pauseBtn.textContent = 'PAUSE';
                 this.saveBtn.disabled = false;
             } else {
                 this.recordBtn.className = 'record-btn ready';
-                this.recordBtn.innerHTML = '🎤';
+                this.recordBtn.innerHTML = 'REC';
                 this.statusText.textContent = 'READY TO RECORD';
                 this.instructions.textContent = 'PRESS RECORD BUTTON TO BEGIN LOG ENTRY';
                 this.pauseBtn.disabled = true;
-                this.pauseBtn.textContent = '⏸ PAUSE';
+                this.pauseBtn.textContent = 'PAUSE';
                 this.saveBtn.disabled = true;
             }
         }
@@ -572,26 +590,11 @@
                 };
                 
                 navigator.geolocation.getCurrentPosition(
-                    async (position) => {
+                    (position) => {
                         const location = {
                             latitude: position.coords.latitude,
                             longitude: position.coords.longitude
                         };
-                        
-                        // Try to get location name using reverse geocoding
-                        try {
-                            const response = await fetch(
-                                `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${location.latitude}&longitude=${location.longitude}&localityLanguage=en`
-                            );
-                            if (response.ok) {
-                                const data = await response.json();
-                                location.location_name = data.city && data.countryName 
-                                    ? `${data.city}, ${data.countryName}`
-                                    : data.locality || 'Unknown location';
-                            }
-                        } catch (error) {
-                            console.warn('Could not get location name:', error);
-                        }
                         
                         resolve(location);
                     },
