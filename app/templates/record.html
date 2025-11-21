@@ -372,6 +372,7 @@
             this.chunks = [];
             this.isRecording = false;
             this.isPaused = false;
+            this.isSaving = false;
             this.startTime = null;
             this.pausedTime = 0;
             this.timerInterval = null;
@@ -449,14 +450,17 @@
         }
 
         async startRecording() {
-            // If resuming from pause
-            if (this.isPaused && this.mediaRecorder) {
+            // If resuming from pause, check that MediaRecorder is still in paused state
+            if (this.isPaused && this.mediaRecorder && this.mediaRecorder.state === 'paused') {
                 this.mediaRecorder.resume();
                 this.isPaused = false;
                 this.isRecording = true;
                 this.pausedTime += Date.now() - this.pauseStartTime;
                 this.startTimer();
-                this.startWaveformVisualization();
+                // Restart visualization when resuming
+                if (!this.animationId) {
+                    this.startWaveformVisualization();
+                }
                 this.updateUI();
                 return;
             }
@@ -488,40 +492,30 @@
                         // Try different video formats in order of preference
                         if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
                             mimeType = 'video/webm;codecs=vp9,opus';
-                            console.log('Using video format: vp9 with opus');
                         } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
                             mimeType = 'video/webm;codecs=vp8,opus';
-                            console.log('Using video format: vp8 with opus');
                         } else if (MediaRecorder.isTypeSupported('video/webm')) {
                             mimeType = 'video/webm';
-                            console.log('Using video format: webm default');
                         } else {
                             mimeType = 'video/webm';
-                            console.log('Using fallback video format: webm');
                         }
                     } else {
                         // Fallback for browsers without isTypeSupported
                         mimeType = 'video/webm';
-                        console.log('Browser does not support format testing, using default: webm');
                     }
                 } else {
                     mimeType = 'audio/webm';
                 }
 
-                console.log('Creating MediaRecorder with MIME type:', mimeType);
-                console.log('Stream tracks:', stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
-
                 let mediaRecorder;
                 try {
                     mediaRecorder = new MediaRecorder(stream, { mimeType });
-                    console.log('MediaRecorder created successfully with options:', mediaRecorder);
                 } catch (mimeError) {
                     console.warn('Failed to create MediaRecorder with MIME type, trying without options:', mimeError);
                     try {
                         mediaRecorder = new MediaRecorder(stream);
-                        console.log('MediaRecorder created with default settings:', mediaRecorder);
                     } catch (defaultError) {
-                        console.error('Failed to create MediaRecorder even without options:', defaultError);
+                        console.error('Failed to create MediaRecorder:', defaultError);
                         throw new Error('MediaRecorder not supported in this browser');
                     }
                 }
@@ -552,37 +546,12 @@
                 this.analyser.fftSize = 256;
                 this.analyser.smoothingTimeConstant = 0.8;
 
-                // Verify MediaRecorder was created properly
-                console.log('Verifying MediaRecorder:', {
-                    exists: !!this.mediaRecorder,
-                    type: typeof this.mediaRecorder,
-                    constructor: this.mediaRecorder ? this.mediaRecorder.constructor.name : 'none',
-                    hasStart: this.mediaRecorder && typeof this.mediaRecorder.start === 'function',
-                    startType: this.mediaRecorder ? typeof this.mediaRecorder.start : 'none',
-                    methods: this.mediaRecorder ? Object.getOwnPropertyNames(this.mediaRecorder) : 'none',
-                    prototype: this.mediaRecorder ? Object.getOwnPropertyNames(Object.getPrototypeOf(this.mediaRecorder)) : 'none'
-                });
-
-                if (!this.mediaRecorder) {
-                    throw new Error('MediaRecorder is null or undefined');
-                }
-
-                if (typeof this.mediaRecorder.start !== 'function') {
-                    throw new Error(`MediaRecorder.start is not a function, it is: ${typeof this.mediaRecorder.start}`);
-                }
-
-                console.log('About to call start() on MediaRecorder:', this.mediaRecorder);
-                console.log('MediaRecorder state:', this.mediaRecorder.state);
-                console.log('MediaRecorder stream:', this.mediaRecorder.stream);
-
-                // Add a small delay to ensure MediaRecorder is ready
-                await new Promise(resolve => setTimeout(resolve, 100));
-
-                console.log('After delay - MediaRecorder state:', this.mediaRecorder.state);
-                this.mediaRecorder.start();
-                console.log('MediaRecorder.start() called successfully');
+                // Start recording immediately with timeslice for periodic data availability
+                // This ensures chunks are populated during recording, not just on stop
+                this.mediaRecorder.start(1000); // Collect data every 1 second
                 this.isRecording = true;
                 this.startTime = Date.now();
+                this.pausedTime = 0; // Reset paused time for new recording
                 this.startTimer();
                 this.startWaveformVisualization();
                 this.updateUI();
@@ -613,6 +582,7 @@
             this.isPaused = true;
             this.pauseStartTime = Date.now();
             this.stopTimer();
+            // Keep waveform visualization running while paused
             this.updateUI();
         }
 
@@ -634,12 +604,20 @@
         }
 
         startTimer() {
+            // Update timer display immediately
+            this.updateTimerDisplay();
+
             this.timerInterval = setInterval(() => {
-                const elapsed = (Date.now() - this.startTime - this.pausedTime) / 1000;
-                const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
-                const seconds = Math.floor(elapsed % 60).toString().padStart(2, '0');
-                this.timer.textContent = `${minutes}:${seconds}`;
+                this.updateTimerDisplay();
             }, 1000);
+        }
+
+        updateTimerDisplay() {
+            // Calculate elapsed time: current time minus start time minus all paused time
+            const elapsed = (Date.now() - this.startTime - this.pausedTime) / 1000;
+            const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+            const seconds = Math.floor(elapsed % 60).toString().padStart(2, '0');
+            this.timer.textContent = `${minutes}:${seconds}`;
         }
 
         stopTimer() {
@@ -650,6 +628,12 @@
         }
 
         startWaveformVisualization() {
+            // Only start if we have an analyser
+            if (!this.analyser) {
+                console.warn('Cannot start waveform visualization: analyser not initialized');
+                return;
+            }
+
             this.waveformPlaceholder.style.display = 'none';
             this.waveform.classList.add('active');
 
@@ -658,16 +642,23 @@
             const dataArray = new Uint8Array(bufferLength);
 
             const animate = () => {
-                if (!this.isRecording && !this.isPaused) return;
+                // Stop animation if not recording or paused
+                if (!this.isRecording && !this.isPaused) {
+                    this.animationId = null;
+                    return;
+                }
 
-                this.analyser.getByteFrequencyData(dataArray);
+                // Only update if analyser still exists
+                if (this.analyser) {
+                    this.analyser.getByteFrequencyData(dataArray);
 
-                // Update bars based on frequency data
-                for (let i = 0; i < bars.length; i++) {
-                    const dataIndex = Math.floor(i * bufferLength / bars.length);
-                    const value = dataArray[dataIndex] || 0;
-                    const height = Math.max(2, (value / 255) * 100);
-                    bars[i].style.height = `${height}%`;
+                    // Update bars based on frequency data
+                    for (let i = 0; i < bars.length; i++) {
+                        const dataIndex = Math.floor(i * bufferLength / bars.length);
+                        const value = dataArray[dataIndex] || 0;
+                        const height = Math.max(2, (value / 255) * 100);
+                        bars[i].style.height = `${height}%`;
+                    }
                 }
 
                 this.animationId = requestAnimationFrame(animate);
@@ -692,70 +683,99 @@
         }
 
         async saveRecording() {
-            // First stop the recording if it's still going
-            if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-                this.mediaRecorder.stop();
-            }
-
-            if (this.chunks.length === 0) {
-                const mediaType = this.isVideoMode ? 'video' : 'audio';
-                this.showAlert(`No ${mediaType} data to save`, 'error');
+            // Prevent multiple save attempts
+            if (this.isSaving) {
                 return;
             }
+            this.isSaving = true;
 
-            const mimeType = this.isVideoMode ? 'video/webm' : 'audio/webm';
-            const extension = this.isVideoMode ? '.webm' : '.webm';
-            const filename = this.isVideoMode ? `recording${extension}` : `recording${extension}`;
-
-            const mediaBlob = new Blob(this.chunks, { type: mimeType });
-            const formData = new FormData();
-            formData.append('file', mediaBlob, filename);
-            formData.append('media_type', this.isVideoMode ? 'video' : 'audio');
-
-            // Get geolocation
             try {
-                const location = await this.getCurrentLocation();
-                if (location) {
-                    formData.append('latitude', location.latitude.toString());
-                    formData.append('longitude', location.longitude.toString());
-                    if (location.location_name) {
-                        formData.append('location_name', location.location_name);
+                // First stop the recording if it's still going and wait for it
+                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+                    // If paused, we need to resume briefly to request data
+                    // requestData() only works when recording, not when paused
+                    const wasPaused = this.mediaRecorder.state === 'paused';
+                    if (wasPaused) {
+                        this.mediaRecorder.resume();
+                        // Brief moment to ensure it's in recording state
+                        await new Promise(resolve => setTimeout(resolve, 50));
                     }
-                    this.showAlert('Location captured', 'info');
+
+                    // Request any final data before stopping (now that we're recording)
+                    this.mediaRecorder.requestData();
+
+                    // Wait for stop event to fire
+                    await new Promise((resolve) => {
+                        this.mediaRecorder.addEventListener('stop', resolve, { once: true });
+                        this.mediaRecorder.stop();
+                    });
+
+                    // Wait for ondataavailable to process and add to chunks
+                    await new Promise(resolve => setTimeout(resolve, 200));
                 }
-            } catch (error) {
-                console.warn('Could not get location:', error);
-                this.showAlert('Location unavailable - continuing without location data', 'info');
-            }
 
-            this.showUploadProgress();
-
-            try {
-                const response = await fetch('/api/logs/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
+                if (this.chunks.length === 0) {
                     const mediaType = this.isVideoMode ? 'video' : 'audio';
-                    this.showAlert(`${mediaType} log entry saved! ID: ${result.id}`, 'success');
-
-                    // Redirect to log detail page after 2 seconds
-                    setTimeout(() => {
-                        window.location.href = `/logs/${result.id}`;
-                    }, 2000);
-                } else {
-                    const errorText = await response.text();
-                    throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+                    this.showAlert(`No ${mediaType} data to save`, 'error');
+                    return;
                 }
-            } catch (error) {
-                console.error('Error uploading:', error);
-                this.showAlert(`Failed to save log entry: ${error.message}`, 'error');
-            }
 
-            this.hideUploadProgress();
-            this.resetRecorder();
+                const mimeType = this.isVideoMode ? 'video/webm' : 'audio/webm';
+                const extension = this.isVideoMode ? '.webm' : '.webm';
+                const filename = this.isVideoMode ? `recording${extension}` : `recording${extension}`;
+
+                const mediaBlob = new Blob(this.chunks, { type: mimeType });
+                const formData = new FormData();
+                formData.append('file', mediaBlob, filename);
+                formData.append('media_type', this.isVideoMode ? 'video' : 'audio');
+
+                // Get geolocation
+                try {
+                    const location = await this.getCurrentLocation();
+                    if (location) {
+                        formData.append('latitude', location.latitude.toString());
+                        formData.append('longitude', location.longitude.toString());
+                        if (location.location_name) {
+                            formData.append('location_name', location.location_name);
+                        }
+                        this.showAlert('Location captured', 'info');
+                    }
+                } catch (error) {
+                    console.warn('Could not get location:', error);
+                    this.showAlert('Location unavailable - continuing without location data', 'info');
+                }
+
+                this.showUploadProgress();
+
+                try {
+                    const response = await fetch('/api/logs/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        const mediaType = this.isVideoMode ? 'video' : 'audio';
+                        this.showAlert(`${mediaType} log entry saved! ID: ${result.id}`, 'success');
+
+                        // Redirect to log detail page after 2 seconds
+                        setTimeout(() => {
+                            window.location.href = `/logs/${result.id}`;
+                        }, 2000);
+                    } else {
+                        const errorText = await response.text();
+                        throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+                    }
+                } catch (error) {
+                    console.error('Error uploading:', error);
+                    this.showAlert(`Failed to save log entry: ${error.message}`, 'error');
+                }
+
+                this.hideUploadProgress();
+                this.resetRecorder();
+            } finally {
+                this.isSaving = false;
+            }
         }
 
         resetRecorder() {

@@ -1,0 +1,21 @@
+FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY pyproject.toml .
+RUN pip install uv && uv pip install --system -e ".[dev]"
+
+# Install Playwright browsers
+RUN playwright install chromium
+
+COPY . .
+
+# Run tests with Playwright
+CMD ["pytest", "tests/e2e/", "-v", "--headed", "--browser", "chromium"]

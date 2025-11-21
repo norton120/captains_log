@@ -75,3 +75,21 @@ services:
     depends_on:
       - app
 
+  playwright:
+    build:
+      context: .
+      dockerfile: Dockerfile.playwright
+    volumes:
+      - ./app:/app/app
+      - ./tests:/app/tests
+      - ./.env:/app/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://captain:defiant@db:5432/captains_log
+      BASE_URL: http://nginx
+    depends_on:
+      - nginx
+      - db
+    command: pytest tests/e2e/ -v --browser chromium --base-url http://nginx
+    profiles:
+      - e2e
+

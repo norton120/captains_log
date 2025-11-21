@@ -36,4 +36,6 @@ dev = [
     "faker>=24.0.0",        # generate fake data
     "aiosqlite>=0.19.0",    # async SQLite for testing
     "aiohttp>=3.9.0",       # async HTTP client for workflows
+    "playwright>=1.40.0",   # browser automation for E2E tests
+    "pytest-playwright>=0.4.4",  # pytest plugin for playwright
 ]
