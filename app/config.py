@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     dbos_app_name: str = Field(default="captains-log", description="DBOS application name")
     dbos_database_url: Optional[str] = Field(default=None, description="DBOS database URL (defaults to main database)")
     
+    # Network resilience settings
+    enable_resilient_processing: bool = Field(default=True, description="Enable network-resilient processing")
+    max_network_retries: int = Field(default=10, description="Maximum retry attempts for network operations")
+    network_retry_base_delay: int = Field(default=30, description="Base delay for network retries in seconds")
+    network_retry_max_delay: int = Field(default=3600, description="Maximum delay for network retries in seconds")
+    
     # Media storage settings
     media_storage_mode: MediaStorageMode = Field(
         default=MediaStorageMode.S3_ONLY,

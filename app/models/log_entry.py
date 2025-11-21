@@ -64,5 +64,19 @@ class LogEntry(Base):
     body_of_water = Column(String, nullable=True)
     nearest_port = Column(String, nullable=True)
     
+    # Weather/Marine conditions at time of log
+    weather_air_temp_f = Column(Float, nullable=True)
+    weather_water_temp_f = Column(Float, nullable=True)  
+    weather_wind_speed_kts = Column(Float, nullable=True)
+    weather_wind_direction_deg = Column(Float, nullable=True)
+    weather_wind_gust_kts = Column(Float, nullable=True)
+    weather_wave_height_ft = Column(Float, nullable=True)
+    weather_wave_period_sec = Column(Float, nullable=True)
+    weather_barometric_pressure_mb = Column(Float, nullable=True)
+    weather_visibility_nm = Column(Float, nullable=True)
+    weather_conditions = Column(String, nullable=True)  # "Clear", "Overcast", etc.
+    weather_forecast = Column(Text, nullable=True)  # Short text forecast
+    weather_captured_at = Column(DateTime, nullable=True)  # When weather data was captured
+    
     def __repr__(self):
         return f"<LogEntry(id={self.id}, created_at={self.created_at}, status={self.processing_status.value})>"

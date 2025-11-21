@@ -16,6 +16,7 @@ from app.services.s3 import S3Service
 from app.services.media_storage import MediaStorageService
 from app.services.openai_client import OpenAIService
 from app.services.video_processor import VideoProcessor, VideoProcessingError
+from app.services.network_resilient_processor import NetworkResilientProcessor, TaskPriority
 
 logger = logging.getLogger(__name__)
 
@@ -408,13 +409,23 @@ class AudioProcessingWorkflow:
         settings: Settings,
         db_session: AsyncSession,
         media_storage: Optional[MediaStorageService] = None,
-        openai_service: Optional[OpenAIService] = None
+        openai_service: Optional[OpenAIService] = None,
+        use_resilient_processor: bool = True
     ):
         """Initialize workflow with required services."""
         self.settings = settings
         self.db_session = db_session
         self.media_storage = media_storage or MediaStorageService(settings)
         self.openai_service = openai_service or OpenAIService(settings)
+        self.use_resilient_processor = use_resilient_processor
+        
+        # Initialize network-resilient processor if enabled
+        if self.use_resilient_processor:
+            self.resilient_processor = NetworkResilientProcessor(
+                settings, db_session, None, self.openai_service
+            )
+        else:
+            self.resilient_processor = None
         
         # Initialize workflow steps
         self.preprocess_step = VideoPreprocessStep(self)
@@ -595,6 +606,86 @@ class AudioProcessingWorkflow:
                 except Exception as cleanup_error:
                     logger.warning(f"Failed to clean up extracted audio file: {cleanup_error}")
     
+    async def process_media_resilient(
+        self, 
+        log_entry_id: UUID, 
+        media_file: Path
+    ) -> Dict[str, Any]:
+        """
+        Process media file using network-resilient processor.
+        
+        This method queues tasks for processing and handles network failures gracefully.
+        
+        Args:
+            log_entry_id: UUID of log entry to update
+            media_file: Path to media file to process
+            
+        Returns:
+            Dictionary with initial processing results
+        """
+        if not self.use_resilient_processor or not self.resilient_processor:
+            # Fall back to regular processing
+            return await self.process_media(log_entry_id, media_file, max_retries=10)
+        
+        try:
+            # Start the resilient processor if not already running
+            await self.resilient_processor.start_processor()
+            
+            logger.info(f"Starting resilient media processing for: {log_entry_id}")
+            
+            # Step 1: Update status to transcribing
+            await self._update_status(log_entry_id, ProcessingStatus.TRANSCRIBING)
+            
+            # Step 2: Preprocess media file (extract audio if video) - do this locally first
+            preprocess_result = await self.preprocess_step.execute(media_file)
+            
+            audio_file = preprocess_result["audio_file"]
+            video_file = preprocess_result.get("video_file")
+            is_video = preprocess_result.get("is_video", False)
+            
+            # Step 3: Queue storage tasks
+            if is_video and video_file:
+                video_upload_task = await self.resilient_processor.queue_s3_upload(
+                    str(log_entry_id), video_file, is_video=True, priority=TaskPriority.HIGH
+                )
+            
+            audio_upload_task = await self.resilient_processor.queue_s3_upload(
+                str(log_entry_id), audio_file, is_video=False, priority=TaskPriority.HIGH
+            )
+            
+            # Step 4: Queue transcription (this will automatically queue embedding and summary)
+            transcription_task = await self.resilient_processor.queue_transcription(
+                str(log_entry_id), audio_file=audio_file, priority=TaskPriority.HIGH
+            )
+            
+            return {
+                "log_entry_id": str(log_entry_id),
+                "success": True,
+                "processing_mode": "resilient",
+                "tasks_queued": {
+                    "audio_upload": audio_upload_task,
+                    "video_upload": video_upload_task if is_video else None,
+                    "transcription": transcription_task
+                },
+                "extracted_audio_file": str(audio_file) if preprocess_result.get("extracted_audio") else None,
+                "message": "Media processing queued successfully for resilient processing"
+            }
+            
+        except Exception as e:
+            logger.error(f"Resilient media processing failed: {e}")
+            
+            # Mark log entry as failed
+            try:
+                await self.update_step.execute(
+                    log_entry_id,
+                    processing_status=ProcessingStatus.FAILED,
+                    processing_error=str(e)
+                )
+            except Exception as update_error:
+                logger.error(f"Failed to update error status: {update_error}")
+            
+            raise WorkflowError(f"Resilient media processing failed: {str(e)}")
+
     # Keep the old method name for backward compatibility
     async def process_audio(self, log_entry_id: UUID, audio_file: Path, max_retries: int = 3) -> Dict[str, Any]:
         """Legacy method - redirects to process_media."""

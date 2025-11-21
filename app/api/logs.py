@@ -30,6 +30,7 @@ from app.services.s3 import S3Service
 from app.services.media_storage import MediaStorageService
 from app.services.openai_client import OpenAIService
 from app.services.geocoding import GeocodingService
+from app.services.weather_service import weather_service
 from app.workflows.audio_processor import AudioProcessingWorkflow
 from app.config import Settings
 
@@ -66,6 +67,20 @@ class LogEntryResponse(BaseModel):
     location_country: Optional[str] = None
     body_of_water: Optional[str] = None
     nearest_port: Optional[str] = None
+    
+    # Weather fields
+    weather_air_temp_f: Optional[float] = None
+    weather_water_temp_f: Optional[float] = None
+    weather_wind_speed_kts: Optional[float] = None
+    weather_wind_direction_deg: Optional[float] = None
+    weather_wind_gust_kts: Optional[float] = None
+    weather_wave_height_ft: Optional[float] = None
+    weather_wave_period_sec: Optional[float] = None
+    weather_barometric_pressure_mb: Optional[float] = None
+    weather_visibility_nm: Optional[float] = None
+    weather_conditions: Optional[str] = None
+    weather_forecast: Optional[str] = None
+    weather_captured_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -209,27 +224,37 @@ async def start_media_processing(
     db_session: AsyncSession,
     settings: Settings,
     media_storage: MediaStorageService,
-    openai_service: OpenAIService
+    openai_service: OpenAIService,
+    use_resilient_processing: bool = True
 ) -> None:
     """Start media processing workflow in background (supports audio and video)."""
     try:
         logger.info(f"Starting media processing for log entry: {log_entry_id}")
         
-        # Create workflow instance
+        # Create workflow instance with resilient processing option
         workflow = AudioProcessingWorkflow(
             settings=settings,
             db_session=db_session,
             media_storage=media_storage,
-            openai_service=openai_service
+            openai_service=openai_service,
+            use_resilient_processor=use_resilient_processing
         )
         
-        # Start processing (handles both audio and video)
-        await workflow.process_media(
-            log_entry_id=log_entry_id,
-            media_file=media_file_path
-        )
-        
-        logger.info(f"Media processing completed for log entry: {log_entry_id}")
+        # Use resilient processing if enabled, otherwise fall back to regular processing
+        if use_resilient_processing:
+            logger.info(f"Using network-resilient processing for: {log_entry_id}")
+            result = await workflow.process_media_resilient(
+                log_entry_id=log_entry_id,
+                media_file=media_file_path
+            )
+            logger.info(f"Media processing queued successfully: {result}")
+        else:
+            logger.info(f"Using regular processing for: {log_entry_id}")
+            await workflow.process_media(
+                log_entry_id=log_entry_id,
+                media_file=media_file_path
+            )
+            logger.info(f"Media processing completed for log entry: {log_entry_id}")
         
     except Exception as e:
         logger.error(f"Media processing failed for {log_entry_id}: {e}")
@@ -245,11 +270,13 @@ async def start_media_processing(
             logger.error(f"Failed to update error status: {update_error}")
     
     finally:
-        # Clean up temporary file
-        try:
-            media_file_path.unlink()
-        except:
-            pass
+        # Clean up temporary file only if not using resilient processing
+        # (resilient processing may need the file later)
+        if not use_resilient_processing:
+            try:
+                media_file_path.unlink()
+            except:
+                pass
 
 
 # API Endpoints
@@ -302,6 +329,30 @@ async def upload_media_file(
             except Exception as geocoding_error:
                 logger.warning(f"Geocoding failed: {geocoding_error}, continuing without enhanced location")
         
+        # Capture weather conditions if coordinates are provided
+        weather_data = {}
+        if latitude and longitude:
+            try:
+                weather_conditions = await weather_service.get_marine_conditions(latitude, longitude)
+                if weather_conditions:
+                    weather_data = {
+                        'weather_air_temp_f': weather_conditions.get('air_temp_f'),
+                        'weather_water_temp_f': weather_conditions.get('water_temp_f'),
+                        'weather_wind_speed_kts': weather_conditions.get('wind_speed_kts'),
+                        'weather_wind_direction_deg': weather_conditions.get('wind_direction_deg'),
+                        'weather_wind_gust_kts': weather_conditions.get('wind_gust_kts'),
+                        'weather_wave_height_ft': weather_conditions.get('wave_height_ft'),
+                        'weather_wave_period_sec': weather_conditions.get('wave_period_sec'),
+                        'weather_barometric_pressure_mb': weather_conditions.get('barometric_pressure_mb'),
+                        'weather_visibility_nm': weather_conditions.get('visibility_nm'),
+                        'weather_conditions': weather_conditions.get('conditions'),
+                        'weather_forecast': weather_conditions.get('forecast'),
+                        'weather_captured_at': weather_conditions.get('captured_at')
+                    }
+                    logger.info(f"Captured weather data: {len([k for k, v in weather_data.items() if v is not None])} fields")
+            except Exception as weather_error:
+                logger.warning(f"Weather capture failed: {weather_error}, continuing without weather data")
+        
         # Determine media type and video source flag
         file_ext = Path(file.filename).suffix.lower()
         is_video = file_ext in {'.mp4', '.webm', '.mov', '.avi'} or media_type == "video"
@@ -321,7 +372,8 @@ async def upload_media_file(
             location_state=location_state,
             location_country=location_country,
             body_of_water=body_of_water,
-            nearest_port=nearest_port
+            nearest_port=nearest_port,
+            **weather_data  # Include weather data fields
         )
         
         db_session.add(log_entry)
@@ -526,7 +578,19 @@ async def list_log_entries(
                 location_state=entry.location_state,
                 location_country=entry.location_country,
                 body_of_water=entry.body_of_water,
-                nearest_port=entry.nearest_port
+                nearest_port=entry.nearest_port,
+                weather_air_temp_f=entry.weather_air_temp_f,
+                weather_water_temp_f=entry.weather_water_temp_f,
+                weather_wind_speed_kts=entry.weather_wind_speed_kts,
+                weather_wind_direction_deg=entry.weather_wind_direction_deg,
+                weather_wind_gust_kts=entry.weather_wind_gust_kts,
+                weather_wave_height_ft=entry.weather_wave_height_ft,
+                weather_wave_period_sec=entry.weather_wave_period_sec,
+                weather_barometric_pressure_mb=entry.weather_barometric_pressure_mb,
+                weather_visibility_nm=entry.weather_visibility_nm,
+                weather_conditions=entry.weather_conditions,
+                weather_forecast=entry.weather_forecast,
+                weather_captured_at=entry.weather_captured_at
             )
             for entry in log_entries
         ]
@@ -588,7 +652,19 @@ async def get_log_entry(
             location_state=log_entry.location_state,
             location_country=log_entry.location_country,
             body_of_water=log_entry.body_of_water,
-            nearest_port=log_entry.nearest_port
+            nearest_port=log_entry.nearest_port,
+            weather_air_temp_f=log_entry.weather_air_temp_f,
+            weather_water_temp_f=log_entry.weather_water_temp_f,
+            weather_wind_speed_kts=log_entry.weather_wind_speed_kts,
+            weather_wind_direction_deg=log_entry.weather_wind_direction_deg,
+            weather_wind_gust_kts=log_entry.weather_wind_gust_kts,
+            weather_wave_height_ft=log_entry.weather_wave_height_ft,
+            weather_wave_period_sec=log_entry.weather_wave_period_sec,
+            weather_barometric_pressure_mb=log_entry.weather_barometric_pressure_mb,
+            weather_visibility_nm=log_entry.weather_visibility_nm,
+            weather_conditions=log_entry.weather_conditions,
+            weather_forecast=log_entry.weather_forecast,
+            weather_captured_at=log_entry.weather_captured_at
         )
         
     except HTTPException:

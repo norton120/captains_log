@@ -15,7 +15,9 @@
                 {% for log in entries %}
                     <div class="log-entry" data-log-id="{{ log.id }}" onclick="viewLog('{{ log.id }}')">
                         <div class="log-header">
-                            <div class="log-timestamp">{{ format_timestamp(log.created_at) }}</div>
+                            <div class="log-timestamp">{{ format_timestamp(log.created_at) }}
+                                <span class="media-type-tag {{ log.media_type.value }}">{{ log.media_type.value.upper() }}</span>
+                            </div>
                             <div class="log-status {{ log.processing_status.value }}">{{ format_status(log.processing_status) }}</div>
                         </div>
                         
@@ -30,17 +32,6 @@
                             {% endif %}
                         </div>
                         
-                        <div class="log-actions" onclick="event.stopPropagation();">
-                            <button class="action-button" onclick="playAudio('{{ log.id }}')" {% if not log.audio_s3_key %}disabled{% endif %}>
-                                PLAY
-                            </button>
-                            <button class="action-button secondary" onclick="viewTranscript('{{ log.id }}')" {% if not log.transcription %}disabled{% endif %}>
-                                TRANSCRIPT
-                            </button>
-                            <button class="action-button secondary" onclick="downloadLog('{{ log.id }}')" {% if not log.audio_s3_key %}disabled{% endif %}>
-                                DOWNLOAD
-                            </button>
-                        </div>
                     </div>
                 {% endfor %}
             </div>

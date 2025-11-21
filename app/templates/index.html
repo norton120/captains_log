@@ -143,6 +143,28 @@
         font-weight: bold;
         color: var(--lcars-orange);
         text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .media-type-tag {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 0.8em;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+    
+    .media-type-tag.audio {
+        background-color: var(--lcars-blue);
+        color: var(--lcars-black);
+    }
+    
+    .media-type-tag.video {
+        background-color: var(--lcars-purple);
+        color: var(--lcars-black);
     }
     
     .log-duration {

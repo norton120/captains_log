@@ -534,7 +534,7 @@
                     </div>
                 </div>
             </div>
-            <video id="video-player" preload="metadata" style="width: 100%; max-width: 600px; border-radius: 10px; background: black;">
+            <video id="video-player" preload="metadata" style="width: 100%; border-radius: 10px; background: black; margin-top: 15px;">
                 <source src="{{ video_url }}" type="video/mp4">
                 <source src="{{ video_url }}" type="video/webm">
                 Your browser does not support the video element.
@@ -719,6 +719,97 @@
                 </div>
             </div>
         </div>
+
+        <!-- Weather Information Panel -->
+        {% if log.latitude and log.longitude %}
+        <div class="info-panel">
+            <div class="panel-title">Weather Conditions</div>
+            {% if log.weather_captured_at %}
+            <div class="info-item">
+                <span class="info-label">Captured</span>
+                <span class="info-value">{{ log.weather_captured_at.strftime('%H:%M UTC') }}</span>
+            </div>
+            {% endif %}
+            {% if log.weather_conditions %}
+            <div class="info-item">
+                <span class="info-label">Conditions</span>
+                <span class="info-value">{{ log.weather_conditions }}</span>
+            </div>
+            {% endif %}
+            {% if log.weather_air_temp_f %}
+            <div class="info-item">
+                <span class="info-label">Air Temp</span>
+                <span class="info-value">{{ "%.1f°F"|format(log.weather_air_temp_f) }}</span>
+            </div>
+            {% endif %}
+            {% if log.weather_water_temp_f %}
+            <div class="info-item">
+                <span class="info-label">Water Temp</span>
+                <span class="info-value">{{ "%.1f°F"|format(log.weather_water_temp_f) }}</span>
+            </div>
+            {% endif %}
+            {% if log.weather_wind_speed_kts %}
+            <div class="info-item">
+                <span class="info-label">Wind Speed</span>
+                <span class="info-value">
+                    {{ "%.1f kts"|format(log.weather_wind_speed_kts) }}
+                    {% if log.weather_wind_direction_deg %}
+                        @ {{ "%.0f°"|format(log.weather_wind_direction_deg) }}
+                    {% endif %}
+                </span>
+            </div>
+            {% endif %}
+            {% if log.weather_wind_gust_kts %}
+            <div class="info-item">
+                <span class="info-label">Wind Gusts</span>
+                <span class="info-value">{{ "%.1f kts"|format(log.weather_wind_gust_kts) }}</span>
+            </div>
+            {% endif %}
+            {% if log.weather_wave_height_ft %}
+            <div class="info-item">
+                <span class="info-label">Wave Height</span>
+                <span class="info-value">
+                    {{ "%.1f ft"|format(log.weather_wave_height_ft) }}
+                    {% if log.weather_wave_period_sec %}
+                        ({{ "%.0fs"|format(log.weather_wave_period_sec) }})
+                    {% endif %}
+                </span>
+            </div>
+            {% endif %}
+            {% if log.weather_barometric_pressure_mb %}
+            <div class="info-item">
+                <span class="info-label">Pressure</span>
+                <span class="info-value">{{ "%.1f mb"|format(log.weather_barometric_pressure_mb) }}</span>
+            </div>
+            {% endif %}
+            {% if log.weather_visibility_nm %}
+            <div class="info-item">
+                <span class="info-label">Visibility</span>
+                <span class="info-value">{{ "%.1f nm"|format(log.weather_visibility_nm) }}</span>
+            </div>
+            {% endif %}
+            {% if log.weather_forecast %}
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(153, 153, 204, 0.3);">
+                <div class="info-label" style="margin-bottom: 8px;">Forecast</div>
+                <div style="color: var(--lcars-white); font-size: 0.9em; line-height: 1.4;">
+                    {{ log.weather_forecast }}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Show message if no weather data available -->
+            {% if not (log.weather_air_temp_f or log.weather_water_temp_f or log.weather_wind_speed_kts or log.weather_wave_height_ft or log.weather_barometric_pressure_mb or log.weather_conditions) %}
+            <div style="padding: 20px; text-align: center; color: var(--lcars-gray); font-style: italic;">
+                <div class="loading-spinner" style="margin: 0 auto 10px; width: 20px; height: 20px;"></div>
+                <div style="font-size: 0.9em;">NOAA weather data unavailable</div>
+                <div style="font-size: 0.8em; margin-top: 5px;">Location: {{ "%.4f, %.4f"|format(log.latitude, log.longitude) }}</div>
+                {% if log.location_name %}
+                <div style="font-size: 0.8em;">{{ log.location_name }}</div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <!-- Actions Panel -->
         <div class="actions-panel">
