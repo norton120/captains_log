@@ -18,14 +18,14 @@ depends_on = None
 
 def upgrade():
     """Add settings and user_preferences tables, plus log types and weather fields."""
-    
+
     # Create the LogType enum
     logtype_enum = sa.Enum('PERSONAL', 'SHIP', name='logtype')
-    logtype_enum.create(op.get_bind())
-    
+    logtype_enum.create(op.get_bind(), checkfirst=True)
+
     # Create the MediaStorageMode enum
     mediastoragemode_enum = sa.Enum('S3_ONLY', 'LOCAL_WITH_S3', name='mediastoragemode')
-    mediastoragemode_enum.create(op.get_bind())
+    mediastoragemode_enum.create(op.get_bind(), checkfirst=True)
     
     # Add log_type column to log_entries
     op.add_column('log_entries', sa.Column('log_type', logtype_enum, nullable=False, server_default='SHIP'))

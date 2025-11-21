@@ -510,7 +510,7 @@
             document.getElementById('openai_model_whisper').value = settings.openai_model_whisper || 'whisper-1';
             document.getElementById('openai_model_embedding').value = settings.openai_model_embedding || 'text-embedding-3-small';
             document.getElementById('openai_model_chat').value = settings.openai_model_chat || 'gpt-4o-mini';
-            document.getElementById('media_storage_mode').value = settings.media_storage_mode || 'S3_ONLY';
+            document.getElementById('media_storage_mode').value = (settings.media_storage_mode || 'S3_ONLY').toUpperCase();
             document.getElementById('local_media_path').value = settings.local_media_path || '';
             document.getElementById('max_audio_file_size').value = Math.round(settings.max_audio_file_size / 1024 / 1024) || 100;
             document.getElementById('max_video_file_size').value = Math.round(settings.max_video_file_size / 1024 / 1024) || 1024;
@@ -554,7 +554,7 @@
                 openai_model_whisper: document.getElementById('openai_model_whisper').value,
                 openai_model_embedding: document.getElementById('openai_model_embedding').value,
                 openai_model_chat: document.getElementById('openai_model_chat').value,
-                media_storage_mode: document.getElementById('media_storage_mode').value,
+                media_storage_mode: document.getElementById('media_storage_mode').value.toLowerCase(),
                 local_media_path: document.getElementById('local_media_path').value || null,
                 max_audio_file_size: parseInt(document.getElementById('max_audio_file_size').value) * 1024 * 1024,
                 max_video_file_size: parseInt(document.getElementById('max_video_file_size').value) * 1024 * 1024,

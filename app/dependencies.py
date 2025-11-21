@@ -69,9 +69,12 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         async with session_maker() as session:
             yield session
     except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Database session error: {type(e).__name__}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database connection failed"
+            detail=f"Database connection failed: {type(e).__name__}"
         ) from e
 
 
