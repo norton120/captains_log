@@ -24,3 +24,4 @@ audio/
 .data/
 .claude/tmp/*
 __pycache__/
+.playwright-mcp/

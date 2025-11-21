@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
 from app.dependencies import get_db_session, get_s3_service, get_openai_service, get_settings, get_media_storage_service
-from app.models.log_entry import LogEntry, ProcessingStatus, MediaType
+from app.models.log_entry import LogEntry, ProcessingStatus, MediaType, LogType
 from app.services.s3 import S3Service
 from app.services.media_storage import MediaStorageService
 from app.services.openai_client import OpenAIService
@@ -51,6 +51,7 @@ class LogEntryResponse(BaseModel):
     created_at: datetime
     media_type: str
     is_video_source: bool
+    log_type: str
     video_s3_key: Optional[str] = None
     video_local_path: Optional[str] = None
     audio_s3_key: Optional[str] = None
@@ -121,6 +122,18 @@ class UploadResponse(BaseModel):
     audio_local_path: Optional[str] = None
     processing_status: str
     created_at: datetime
+    message: str
+
+
+class LogTypeUpdateRequest(BaseModel):
+    """Request model for updating log type."""
+    log_type: str = Field(..., pattern=r"^(PERSONAL|SHIP)$")
+
+
+class LogTypeUpdateResponse(BaseModel):
+    """Response model for log type update."""
+    id: str
+    log_type: str
     message: str
 
 
@@ -335,6 +348,11 @@ async def upload_media_file(
             try:
                 weather_conditions = await weather_service.get_marine_conditions(latitude, longitude)
                 if weather_conditions:
+                    # Convert timezone-aware datetime to naive for database storage
+                    captured_at = weather_conditions.get('captured_at')
+                    if captured_at and hasattr(captured_at, 'replace'):
+                        captured_at = captured_at.replace(tzinfo=None)
+                    
                     weather_data = {
                         'weather_air_temp_f': weather_conditions.get('air_temp_f'),
                         'weather_water_temp_f': weather_conditions.get('water_temp_f'),
@@ -347,7 +365,7 @@ async def upload_media_file(
                         'weather_visibility_nm': weather_conditions.get('visibility_nm'),
                         'weather_conditions': weather_conditions.get('conditions'),
                         'weather_forecast': weather_conditions.get('forecast'),
-                        'weather_captured_at': weather_conditions.get('captured_at')
+                        'weather_captured_at': captured_at
                     }
                     logger.info(f"Captured weather data: {len([k for k, v in weather_data.items() if v is not None])} fields")
             except Exception as weather_error:
@@ -420,6 +438,7 @@ async def list_log_entries(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(20, ge=1, le=100, description="Items per page"),
     status_filter: Optional[ProcessingStatus] = Query(None, alias="status", description="Filter by processing status"),
+    log_type_filter: Optional[LogType] = Query(None, alias="log_type", description="Filter by log type"),
     search: Optional[str] = Query(None, description="Search query"),
     start_date: Optional[datetime] = Query(None, description="Start date filter"),
     end_date: Optional[datetime] = Query(None, description="End date filter"),
@@ -432,6 +451,7 @@ async def list_log_entries(
     - **page**: Page number (1-based)
     - **size**: Items per page (max 100)
     - **status**: Filter by processing status
+    - **log_type**: Filter by log type (personal/ship)
     - **search**: Search query
     - **start_date**: Filter logs after this date
     - **end_date**: Filter logs before this date
@@ -448,6 +468,10 @@ async def list_log_entries(
         if status_filter:
             query = query.where(LogEntry.processing_status == status_filter)
             count_query = count_query.where(LogEntry.processing_status == status_filter)
+        
+        if log_type_filter:
+            query = query.where(LogEntry.log_type == log_type_filter)
+            count_query = count_query.where(LogEntry.log_type == log_type_filter)
         
         if start_date:
             query = query.where(LogEntry.created_at >= start_date)
@@ -544,6 +568,7 @@ async def list_log_entries(
                 has_next=offset + size < total,
                 has_prev=page > 1,
                 status=status_filter.value if status_filter else None,
+                log_type=log_type_filter.value if log_type_filter else None,
                 search=search,
                 format_timestamp=format_timestamp,
                 format_date=format_date,
@@ -563,6 +588,7 @@ async def list_log_entries(
                 created_at=entry.created_at,
                 media_type=entry.media_type.value,
                 is_video_source=entry.is_video_source,
+                log_type=entry.log_type.value,
                 video_s3_key=entry.video_s3_key,
                 video_local_path=entry.video_local_path,
                 audio_s3_key=entry.audio_s3_key,
@@ -637,6 +663,7 @@ async def get_log_entry(
             created_at=log_entry.created_at,
             media_type=log_entry.media_type.value,
             is_video_source=log_entry.is_video_source,
+            log_type=log_entry.log_type.value,
             video_s3_key=log_entry.video_s3_key,
             video_local_path=log_entry.video_local_path,
             audio_s3_key=log_entry.audio_s3_key,
@@ -763,6 +790,69 @@ async def get_log_audio(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve log audio"
+        ) from e
+
+
+@router.patch("/{log_id}/log-type", response_model=LogTypeUpdateResponse)
+async def update_log_type(
+    log_id: UUID,
+    update_request: LogTypeUpdateRequest,
+    db_session: AsyncSession = Depends(get_db_session)
+) -> LogTypeUpdateResponse:
+    """
+    Update the log type of a log entry.
+    
+    - **log_id**: UUID of the log entry to update
+    - **log_type**: New log type ("PERSONAL" or "SHIP")
+    """
+    try:
+        # Get the log entry
+        result = await db_session.get(LogEntry, log_id)
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Log entry not found"
+            )
+        
+        log_entry = result
+        
+        # Convert string to enum
+        try:
+            new_log_type = LogType.PERSONAL if update_request.log_type == "PERSONAL" else LogType.SHIP
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Invalid log type. Must be 'PERSONAL' or 'SHIP'"
+            )
+        
+        # Update log type
+        old_log_type = log_entry.log_type
+        log_entry.log_type = new_log_type
+        
+        # Commit changes
+        await db_session.commit()
+        await db_session.refresh(log_entry)
+        
+        logger.info(f"Updated log type for {log_id}: {old_log_type.value} -> {new_log_type.value}")
+        
+        return LogTypeUpdateResponse(
+            id=str(log_entry.id),
+            log_type=new_log_type.value.upper(),
+            message=f"Log type updated to {new_log_type.value.title()} Log"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Rollback the transaction if it's still active
+        try:
+            await db_session.rollback()
+        except Exception as rollback_error:
+            logger.warning(f"Rollback failed: {rollback_error}")
+        logger.error(f"Failed to update log type for {log_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update log type"
         ) from e
 
 

@@ -306,6 +306,33 @@
         font-size: 0.9em;
     }
     
+    .log-type-select {
+        background: var(--lcars-bg);
+        border: none;
+        border-radius: 4px;
+        color: var(--lcars-white);
+        font-family: 'lcars', 'Helvetica Neue', 'Arial Narrow', sans-serif;
+        font-size: 0.9em;
+        padding: 4px 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .log-type-select:hover {
+        box-shadow: 0 0 5px rgba(255, 153, 0, 0.3);
+    }
+    
+    .log-type-select:focus {
+        outline: none;
+        box-shadow: 0 0 8px rgba(255, 153, 0, 0.5);
+    }
+    
+    .log-type-select option {
+        background: var(--lcars-bg);
+        color: var(--lcars-white);
+        padding: 4px;
+    }
+    
     /* Status Panel */
     .status-panel {
         background: linear-gradient(135deg, rgba(255, 153, 0, 0.1), rgba(204, 102, 102, 0.1));
@@ -650,6 +677,14 @@
             <div class="info-item">
                 <span class="info-label">Entry Number</span>
                 <span class="info-value">#{{ log.entry_number or 'Unknown' }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Log Type</span>
+                <select id="log-type-select" class="info-value log-type-select" onchange="updateLogType()"
+                        data-log-id="{{ log.id }}" data-current-type="{{ log.log_type.value }}">
+                    <option value="SHIP" {{ 'selected' if log.log_type.value == 'ship' else '' }}>Ship's Log</option>
+                    <option value="PERSONAL" {{ 'selected' if log.log_type.value == 'personal' else '' }}>Personal Log</option>
+                </select>
             </div>
             <div class="info-item">
                 <span class="info-label">Created</span>
@@ -1004,6 +1039,60 @@
                 }
             });
         }
+    }
+    
+    function updateLogType() {
+        const select = document.getElementById('log-type-select');
+        const logId = select.dataset.logId;
+        const newType = select.value;
+        const currentType = select.dataset.currentType;
+        
+        if (newType === currentType.toUpperCase()) {
+            return; // No change
+        }
+        
+        // Show loading state
+        select.disabled = true;
+        const originalBg = select.style.backgroundColor;
+        select.style.backgroundColor = 'rgba(255, 153, 0, 0.3)';
+        
+        fetch(`/api/logs/${logId}/log-type`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                log_type: newType
+            })
+        })
+        .then(response => {
+            if (response.ok) {
+                select.dataset.currentType = newType.toLowerCase();
+                showNotification(`Log type updated to ${newType === 'PERSONAL' ? 'Personal Log' : 'Ship\'s Log'}`, 'success');
+                
+                // Update page title if needed
+                const pageTitle = document.querySelector('.page-title');
+                if (pageTitle && newType === 'PERSONAL') {
+                    pageTitle.textContent = pageTitle.textContent.replace('SHIP\'S LOG', 'PERSONAL LOG');
+                } else if (pageTitle && newType === 'SHIP') {
+                    pageTitle.textContent = pageTitle.textContent.replace('PERSONAL LOG', 'SHIP\'S LOG');
+                }
+            } else {
+                // Revert selection on error
+                select.value = currentType.toUpperCase();
+                showNotification('Failed to update log type', 'error');
+            }
+        })
+        .catch(error => {
+            // Revert selection on error
+            select.value = currentType.toUpperCase();
+            showNotification('Failed to update log type', 'error');
+        })
+        .finally(() => {
+            // Restore normal state
+            select.disabled = false;
+            select.style.backgroundColor = originalBg;
+        });
     }
     
     // Note: Live status updates via websockets not implemented yet

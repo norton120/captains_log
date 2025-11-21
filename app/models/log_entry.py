@@ -24,6 +24,11 @@ class MediaType(enum.Enum):
     VIDEO = "video"
 
 
+class LogType(enum.Enum):
+    PERSONAL = "personal"
+    SHIP = "ship"
+
+
 class LogEntry(Base):
     __tablename__ = "log_entries"
     
@@ -34,6 +39,9 @@ class LogEntry(Base):
     media_type = Column(Enum(MediaType), nullable=False, default=MediaType.AUDIO)
     original_filename = Column(String, nullable=True)
     is_video_source = Column(Boolean, nullable=False, default=False)
+    
+    # Log classification
+    log_type = Column(Enum(LogType), nullable=False, default=LogType.SHIP)
     
     # Video storage (if video source)
     video_s3_key = Column(String, nullable=True)

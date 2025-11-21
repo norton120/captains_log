@@ -2,7 +2,7 @@
 
 {% block title %}Log Entries - Captain's Log{% endblock %}
 
-{% block page_title %}PERSONAL LOG ARCHIVE{% endblock %}
+{% block page_title %}LOG ARCHIVE{% endblock %}
 
 {% block head %}
 <style>
@@ -11,7 +11,7 @@
         flex-direction: column;
         gap: 20px;
     }
-    
+
     .archive-controls {
         display: flex;
         justify-content: space-between;
@@ -22,13 +22,13 @@
         padding: 20px;
         margin-bottom: 20px;
     }
-    
+
     .search-controls {
         display: flex;
         gap: 15px;
         align-items: center;
     }
-    
+
     .search-input {
         width: 300px;
         background-color: var(--lcars-bg);
@@ -39,18 +39,37 @@
         font-family: inherit;
         font-size: 1em;
     }
-    
+
     .search-input:focus {
         outline: none;
         border-color: var(--lcars-blue);
         box-shadow: 0 0 10px rgba(153, 153, 204, 0.5);
     }
-    
+
     .filter-controls {
         display: flex;
-        gap: 10px;
+        gap: 20px;
+        flex-wrap: wrap;
     }
-    
+
+    .filter-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .filter-group::before {
+        content: '';
+        width: 2px;
+        height: 20px;
+        background: var(--lcars-orange);
+        margin-right: 10px;
+    }
+
+    .filter-group:first-child::before {
+        display: none;
+    }
+
     .filter-button {
         padding: 8px 15px;
         background: rgba(255, 153, 0, 0.2);
@@ -63,20 +82,20 @@
         font-size: 0.9em;
         transition: all 0.3s ease;
     }
-    
+
     .filter-button.active {
         background: var(--lcars-orange);
         color: var(--lcars-black);
     }
-    
+
     .filter-button:hover {
         background: rgba(255, 153, 0, 0.4);
     }
-    
+
     .date-group {
         margin-bottom: 30px;
     }
-    
+
     .date-header {
         background: linear-gradient(135deg, var(--lcars-blue), var(--lcars-purple));
         color: var(--lcars-white);
@@ -90,20 +109,20 @@
         justify-content: space-between;
         align-items: center;
     }
-    
+
     .date-count {
         background: rgba(255, 255, 255, 0.2);
         padding: 5px 12px;
         border-radius: 12px;
         font-size: 0.9em;
     }
-    
+
     .log-entries {
         display: flex;
         flex-direction: column;
         gap: 15px;
     }
-    
+
     .log-entry {
         background: linear-gradient(135deg, rgba(255, 153, 0, 0.05), rgba(153, 153, 204, 0.05));
         border: 2px solid var(--lcars-orange);
@@ -114,13 +133,13 @@
         position: relative;
         overflow: hidden;
     }
-    
+
     .log-entry:hover {
         border-color: var(--lcars-blue);
         box-shadow: 0 0 20px rgba(153, 153, 204, 0.3);
         transform: translateY(-2px);
     }
-    
+
     .log-entry::before {
         content: '';
         position: absolute;
@@ -130,14 +149,14 @@
         height: 100%;
         background: var(--lcars-orange);
     }
-    
+
     .log-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 15px;
     }
-    
+
     .log-timestamp {
         font-size: 1.1em;
         font-weight: bold;
@@ -147,7 +166,7 @@
         align-items: center;
         gap: 15px;
     }
-    
+
     .media-type-tag {
         display: inline-block;
         padding: 4px 12px;
@@ -156,22 +175,42 @@
         font-weight: bold;
         text-transform: uppercase;
     }
-    
+
     .media-type-tag.audio {
         background-color: var(--lcars-blue);
         color: var(--lcars-black);
     }
-    
+
     .media-type-tag.video {
         background-color: var(--lcars-purple);
         color: var(--lcars-black);
     }
-    
+
+    .log-type-tag {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 0.8em;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-left: 8px;
+    }
+
+    .log-type-tag.personal {
+        background-color: var(--lcars-green);
+        color: var(--lcars-black);
+    }
+
+    .log-type-tag.ship {
+        background-color: var(--lcars-blue);
+        color: var(--lcars-black);
+    }
+
     .log-duration {
         color: var(--lcars-blue);
         font-size: 0.9em;
     }
-    
+
     .log-status {
         display: inline-block;
         padding: 5px 15px;
@@ -180,12 +219,12 @@
         text-transform: uppercase;
         font-weight: bold;
     }
-    
+
     .log-status.pending {
         background-color: var(--lcars-yellow);
         color: var(--lcars-black);
     }
-    
+
     .log-status.transcribing,
     .log-status.vectorizing,
     .log-status.summarizing {
@@ -193,34 +232,34 @@
         color: var(--lcars-black);
         animation: processing 2s infinite;
     }
-    
+
     .log-status.completed {
         background-color: var(--lcars-green);
         color: var(--lcars-black);
     }
-    
+
     .log-status.failed {
         background-color: var(--lcars-red);
         color: var(--lcars-white);
     }
-    
+
     @keyframes processing {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.6; }
     }
-    
+
     .log-summary {
         font-size: 1em;
         line-height: 1.6;
         color: var(--lcars-white);
         margin: 15px 0;
     }
-    
+
     .log-summary.placeholder {
         color: var(--lcars-gray);
         font-style: italic;
     }
-    
+
     .log-metadata {
         display: flex;
         gap: 30px;
@@ -228,13 +267,13 @@
         color: var(--lcars-gray);
         margin: 15px 0;
     }
-    
+
     .log-actions {
         display: flex;
         gap: 10px;
         margin-top: 20px;
     }
-    
+
     .action-button {
         padding: 8px 15px;
         background: rgba(153, 153, 204, 0.2);
@@ -248,33 +287,33 @@
         text-transform: uppercase;
         font-weight: bold;
     }
-    
+
     .action-button:hover:not(:disabled) {
         background: var(--lcars-blue);
         color: var(--lcars-black);
     }
-    
+
     .action-button.secondary {
         background: rgba(255, 153, 0, 0.1);
         border-color: var(--lcars-orange);
         color: var(--lcars-orange);
     }
-    
+
     .action-button.secondary:hover:not(:disabled) {
         background: var(--lcars-orange);
         color: var(--lcars-black);
     }
-    
+
     .action-button:disabled {
         opacity: 0.5;
         cursor: not-allowed;
     }
-    
+
     .load-more {
         text-align: center;
         margin: 30px 0;
     }
-    
+
     .load-more-button {
         padding: 15px 40px;
         background: linear-gradient(135deg, var(--lcars-orange), var(--lcars-red));
@@ -288,12 +327,12 @@
         font-size: 1em;
         transition: all 0.3s ease;
     }
-    
+
     .load-more-button:hover {
         background: linear-gradient(135deg, var(--lcars-red), var(--lcars-purple));
         box-shadow: 0 0 20px rgba(204, 102, 102, 0.5);
     }
-    
+
     .empty-state {
         text-align: center;
         padding: 60px 20px;
@@ -302,19 +341,19 @@
         border-radius: 15px;
         margin: 40px 0;
     }
-    
+
     .empty-state h3 {
         color: var(--lcars-blue);
         font-size: 1.5em;
         margin-bottom: 20px;
     }
-    
+
     .empty-state p {
         color: var(--lcars-gray);
         font-size: 1.1em;
         margin-bottom: 30px;
     }
-    
+
     .htmx-indicator {
         display: none;
         text-align: center;
@@ -323,7 +362,7 @@
         font-size: 1.1em;
         text-transform: uppercase;
     }
-    
+
     .htmx-indicator.htmx-request {
         display: block;
     }
@@ -335,53 +374,53 @@
     <!-- Archive Controls -->
     <div class="archive-controls">
         <div class="search-controls">
-            <input 
-                type="text" 
-                class="search-input" 
+            <input
+                type="text"
+                class="search-input"
                 id="search-input"
                 placeholder="Search log entries..."
-                hx-get="/api/logs?page=1"
-                hx-target="#log-list"
-                hx-swap="innerHTML"
-                hx-trigger="input changed delay:500ms"
-                hx-indicator="#search-indicator"
+                oninput="debounceSearch()"
                 name="search"
             >
             <div id="search-indicator" class="htmx-indicator">Searching...</div>
         </div>
-        
+
         <div class="filter-controls">
-            <button class="filter-button active" 
-                    hx-get="/api/logs?page=1" 
-                    hx-target="#log-list" 
-                    hx-swap="innerHTML"
-                    hx-indicator="#initial-loader"
-                    onclick="updateFilterButtons(this)">ALL</button>
-            <button class="filter-button" 
-                    hx-get="/api/logs?page=1&status=completed" 
-                    hx-target="#log-list" 
-                    hx-swap="innerHTML"
-                    hx-indicator="#initial-loader"
-                    onclick="updateFilterButtons(this)">READY</button>
-            <button class="filter-button" 
-                    hx-get="/api/logs?page=1&status=transcribing" 
-                    hx-target="#log-list" 
-                    hx-swap="innerHTML"
-                    hx-indicator="#initial-loader"
-                    onclick="updateFilterButtons(this)">PROCESSING</button>
-            <button class="filter-button" 
-                    hx-get="/api/logs?page=1&status=failed" 
-                    hx-target="#log-list" 
-                    hx-swap="innerHTML"
-                    hx-indicator="#initial-loader"
-                    onclick="updateFilterButtons(this)">FAILED</button>
+            <!-- Log Type Filters -->
+            <div class="filter-group">
+                <button class="filter-button log-type-filter active"
+                        data-log-type=""
+                        onclick="updateLogTypeFilter(this)">ALL LOGS</button>
+                <button class="filter-button log-type-filter"
+                        data-log-type="personal"
+                        onclick="updateLogTypeFilter(this)">PERSONAL</button>
+                <button class="filter-button log-type-filter"
+                        data-log-type="ship"
+                        onclick="updateLogTypeFilter(this)">SHIP'S LOG</button>
+            </div>
+
+            <!-- Status Filters -->
+            <div class="filter-group">
+                <button class="filter-button status-filter active"
+                        data-status=""
+                        onclick="updateStatusFilter(this)">ALL STATUS</button>
+                <button class="filter-button status-filter"
+                        data-status="completed"
+                        onclick="updateStatusFilter(this)">READY</button>
+                <button class="filter-button status-filter"
+                        data-status="transcribing"
+                        onclick="updateStatusFilter(this)">PROCESSING</button>
+                <button class="filter-button status-filter"
+                        data-status="failed"
+                        onclick="updateStatusFilter(this)">FAILED</button>
+            </div>
         </div>
     </div>
 
     <!-- Log List -->
-    <div id="log-list" 
-         hx-get="/api/logs?page=1" 
-         hx-trigger="load" 
+    <div id="log-list"
+         hx-get="/api/logs?page=1"
+         hx-trigger="load"
          hx-indicator="#initial-loader">
         <!-- Loading indicator -->
         <div class="htmx-indicator" id="initial-loader">
@@ -395,25 +434,77 @@
 
 {% block scripts %}
 <script>
-    // Update filter buttons when clicked
-    function updateFilterButtons(clickedButton) {
-        document.querySelectorAll('.filter-button').forEach(btn => {
+    // Update log type filter buttons when clicked
+    function updateLogTypeFilter(clickedButton) {
+        document.querySelectorAll('.log-type-filter').forEach(btn => {
             btn.classList.remove('active');
         });
         clickedButton.classList.add('active');
+        loadFilteredResults();
     }
-    
+
+    // Update status filter buttons when clicked
+    function updateStatusFilter(clickedButton) {
+        document.querySelectorAll('.status-filter').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        clickedButton.classList.add('active');
+        loadFilteredResults();
+    }
+
+    // Load filtered results based on active filters
+    function loadFilteredResults() {
+        const searchValue = document.getElementById('search-input')?.value;
+        const activeLogTypeFilter = document.querySelector('.log-type-filter.active');
+        const activeStatusFilter = document.querySelector('.status-filter.active');
+
+        let url = '/api/logs?page=1';
+
+        // Add log type filter
+        const logType = activeLogTypeFilter?.dataset.logType;
+        if (logType) {
+            url += `&log_type=${logType}`;
+        }
+
+        // Add status filter
+        const status = activeStatusFilter?.dataset.status;
+        if (status) {
+            url += `&status=${status}`;
+        }
+
+        // Add search if present
+        if (searchValue) {
+            url += `&search=${encodeURIComponent(searchValue)}`;
+        }
+
+        // Use HTMX to refresh
+        htmx.ajax('GET', url, {
+            target: '#log-list',
+            swap: 'innerHTML',
+            indicator: '#initial-loader'
+        });
+    }
+
+    // Debounce search input
+    let searchTimeout;
+    function debounceSearch() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            loadFilteredResults();
+        }, 500);
+    }
+
     function viewLog(logId) {
         window.location.href = `/logs/${logId}`;
     }
-    
+
     function playAudio(logId) {
         // Create or update audio player
         const existingPlayer = document.getElementById('audio-player');
         if (existingPlayer) {
             existingPlayer.remove();
         }
-        
+
         const audio = document.createElement('audio');
         audio.id = 'audio-player';
         audio.controls = true;
@@ -427,7 +518,7 @@
             border-radius: 10px;
             padding: 10px;
         `;
-        
+
         // Get audio URL
         fetch(`/api/logs/${logId}/audio`)
             .then(response => response.json())
@@ -435,7 +526,7 @@
                 audio.src = data.audio_url;
                 audio.play();
                 document.body.appendChild(audio);
-                
+
                 // Remove player when audio ends
                 audio.addEventListener('ended', () => {
                     audio.remove();
@@ -446,17 +537,17 @@
                 showNotification('Failed to load audio', 'error');
             });
     }
-    
+
     function viewTranscript(logId) {
         // Open transcript in modal or new window
         window.open(`/logs/${logId}/transcript`, '_blank');
     }
-    
+
     function downloadLog(logId) {
         // Download audio file
         window.open(`/api/logs/${logId}/download`, '_blank');
     }
-    
+
     function showNotification(message, type = 'info') {
         const notification = document.createElement('div');
         notification.className = `lcars-alert ${type}`;
@@ -469,9 +560,9 @@
             animation: slideIn 0.3s ease;
         `;
         notification.textContent = message;
-        
+
         document.body.appendChild(notification);
-        
+
         setTimeout(() => {
             notification.style.animation = 'slideOut 0.3s ease';
             setTimeout(() => notification.remove(), 300);
@@ -482,33 +573,7 @@
     setInterval(() => {
         const processingEntries = document.querySelectorAll('.log-status.transcribing, .log-status.vectorizing, .log-status.summarizing, .log-status.pending');
         if (processingEntries.length > 0) {
-            // Get current search value and active filter
-            const searchValue = document.getElementById('search-input')?.value;
-            const activeFilter = document.querySelector('.filter-button.active');
-            
-            if (activeFilter) {
-                let url = '/api/logs?page=1';
-                
-                // Add status if not 'all'
-                const filterText = activeFilter.textContent.trim();
-                if (filterText !== 'ALL') {
-                    const statusMap = {
-                        'READY': 'completed',
-                        'PROCESSING': 'transcribing',
-                        'FAILED': 'failed'
-                    };
-                    const status = statusMap[filterText];
-                    if (status) url += `&status=${status}`;
-                }
-                
-                // Add search if present
-                if (searchValue) {
-                    url += `&search=${encodeURIComponent(searchValue)}`;
-                }
-                
-                // Use HTMX to refresh
-                htmx.ajax('GET', url, {target: '#log-list', swap: 'innerHTML'});
-            }
+            loadFilteredResults();
         }
     }, 10000); // Check every 10 seconds
 
@@ -526,22 +591,22 @@
 
 <style>
     @keyframes slideIn {
-        from { 
+        from {
             transform: translateX(100%);
             opacity: 0;
         }
-        to { 
+        to {
             transform: translateX(0);
             opacity: 1;
         }
     }
-    
+
     @keyframes slideOut {
-        from { 
+        from {
             transform: translateX(0);
             opacity: 1;
         }
-        to { 
+        to {
             transform: translateX(100%);
             opacity: 0;
         }

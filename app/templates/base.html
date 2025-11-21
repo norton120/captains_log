@@ -12,16 +12,18 @@
     <div class="lcars-frame">
         <!-- Top Elements -->
         <div class="lcars-top-left">
-            SV DEFIANT<br>
-            <small style="font-size: 10px;">NCC-75633</small>
+            <h3>SV DEFIANT</h3>
+            <div>
+                <small style="font-size: 10px;">NCC-75633</small>
+            </div>
         </div>
-        
+
         <div class="lcars-top-bar">
             {% block page_title %}CAPTAIN'S LOG{% endblock %}
         </div>
-        
+
         <div class="lcars-top-right"></div>
-        
+
         <!-- Side Bars -->
         <div class="lcars-left-bar">
             <a href="/" class="lcars-element {% if request.url.path == '/' %}active{% endif %}">
@@ -33,26 +35,29 @@
             <a href="/search" class="lcars-element {% if request.url.path == '/search' %}active{% endif %}">
                 SEARCH
             </a>
+            <a href="/settings" class="lcars-element {% if request.url.path == '/settings' %}active{% endif %}">
+                SETTINGS
+            </a>
             <div class="lcars-element">
                 STATUS
             </div>
         </div>
-        
+
         <div class="lcars-right-bar"></div>
-        
+
         <!-- Main Content -->
         <div class="lcars-content">
             {% block content %}{% endblock %}
         </div>
-        
+
         <!-- Bottom Elements -->
         <div class="lcars-bottom-left"></div>
-        
+
         <div class="lcars-bottom-bar">
             <span>LOG SYSTEM v{{ version or "1.0" }}</span>
             <span>{{ current_time or "STARDATE 2025.323" }}</span>
         </div>
-        
+
         <div class="lcars-bottom-right"></div>
     </div>
 
@@ -60,16 +65,16 @@
     <script>
         // Global HTMX configuration
         htmx.config.globalViewTransitions = true;
-        
+
         // Responsive breakpoint system
         function updateBreakpoint() {
             const screen = document.getElementById('screen');
             const width = window.innerWidth;
             const height = window.innerHeight;
-            
+
             // Remove all breakpoint classes
             screen.classList.remove('XS', 'SM', 'MD', 'LG', 'XL', 'XXL');
-            
+
             // Add appropriate breakpoint class
             if (width < 576 || height < 576) {
                 screen.classList.add('XS');
@@ -85,15 +90,15 @@
                 screen.classList.add('XXL');
             }
         }
-        
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             updateBreakpoint();
         });
-        
+
         // Update on window resize
         window.addEventListener('resize', updateBreakpoint);
-        
+
         // LCARS sound effects (optional)
         function playLcarsSound(type = 'button') {
             // Implement LCARS sound effects if desired
@@ -102,20 +107,20 @@
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const oscillator = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
-                
+
                 oscillator.connect(gainNode);
                 gainNode.connect(audioContext.destination);
-                
+
                 oscillator.frequency.value = type === 'button' ? 800 : 600;
                 oscillator.type = 'sine';
                 gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
-                
+
                 oscillator.start(audioContext.currentTime);
                 oscillator.stop(audioContext.currentTime + 0.1);
             }
         }
-        
+
         // Add sound to all LCARS buttons
         document.addEventListener('click', function(e) {
             if (e.target.classList.contains('lcars-button') || e.target.classList.contains('lcars-nav-item') || e.target.classList.contains('linkable')) {
@@ -123,7 +128,7 @@
             }
         });
     </script>
-    
+
     {% block scripts %}{% endblock %}
 </body>
 </html>

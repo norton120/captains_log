@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.api.logs import router as logs_router
+from app.api.settings import router as settings_router
 from app.dependencies import close_db_connection, get_db
 from app.models.log_entry import LogEntry
 
@@ -58,6 +59,7 @@ app.add_middleware(
 
 # Include API routers
 app.include_router(logs_router)
+app.include_router(settings_router)
 
 
 @app.get("/")
@@ -78,6 +80,19 @@ async def record_page(request: Request):
     """Recording page."""
     return templates.TemplateResponse(
         "record.html",
+        {
+            "request": request,
+            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
+            "version": "1.0.0"
+        }
+    )
+
+
+@app.get("/settings")
+async def settings_page(request: Request):
+    """Settings page."""
+    return templates.TemplateResponse(
+        "settings.html",
         {
             "request": request,
             "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),

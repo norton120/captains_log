@@ -11,7 +11,7 @@ from dbos import DBOS
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
-from app.models.log_entry import LogEntry, ProcessingStatus
+from app.models.log_entry import LogEntry, ProcessingStatus, LogType
 from app.services.s3 import S3Service
 from app.services.media_storage import MediaStorageService
 from app.services.openai_client import OpenAIService
@@ -309,6 +309,55 @@ class GenerateEmbeddingStep(BaseWorkflowStep):
             raise WorkflowError(f"Embedding generation failed: {str(e)}")
 
 
+class ClassifyLogTypeStep(BaseWorkflowStep):
+    """Workflow step for classifying log type from transcription."""
+    
+    async def execute(self, transcription: str) -> Dict[str, Any]:
+        """
+        Execute log type classification step.
+        
+        Args:
+            transcription: Transcribed text to classify
+            
+        Returns:
+            Dictionary with classification results
+            
+        Raises:
+            WorkflowError: If classification fails
+        """
+        try:
+            logger.info("Starting log type classification")
+            
+            # Validate input
+            if not transcription or not transcription.strip():
+                logger.warning("Empty transcription provided for classification, defaulting to SHIP")
+                return {
+                    "success": True,
+                    "log_type": "SHIP",
+                    "classification_source": "default"
+                }
+            
+            # Classify log type
+            log_type = await self.openai_service.classify_log_type(transcription)
+            
+            logger.info(f"Successfully classified log type: {log_type}")
+            return {
+                "success": True,
+                "log_type": log_type,
+                "classification_source": "llm"
+            }
+            
+        except Exception as e:
+            logger.error(f"Log classification failed: {e}, defaulting to SHIP")
+            # Default to SHIP on failure
+            return {
+                "success": True,
+                "log_type": "SHIP",
+                "classification_source": "fallback",
+                "error": str(e)
+            }
+
+
 class GenerateSummaryStep(BaseWorkflowStep):
     """Workflow step for generating summary from transcription."""
     
@@ -432,6 +481,7 @@ class AudioProcessingWorkflow:
         self.store_video_step = StoreVideoStep(self)
         self.store_audio_step = StoreAudioStep(self)
         self.transcribe_step = TranscribeAudioStep(self)
+        self.classify_step = ClassifyLogTypeStep(self)
         self.embedding_step = GenerateEmbeddingStep(self)
         self.summary_step = GenerateSummaryStep(self)
         self.update_step = UpdateLogEntryStep(self)
@@ -535,10 +585,20 @@ class AudioProcessingWorkflow:
             results.update(transcribe_result)
             results["steps_completed"].append("transcribe")
             
-            # Step 5: Update status to vectorizing
+            # Step 5: Classify log type
+            classify_result = await self._retry_step(
+                "classify",
+                self.classify_step.execute,
+                transcribe_result["transcription"],
+                max_retries=max_retries
+            )
+            results.update(classify_result)
+            results["steps_completed"].append("classify")
+            
+            # Step 6: Update status to vectorizing
             await self._update_status(log_entry_id, ProcessingStatus.VECTORIZING)
             
-            # Step 6: Generate embedding
+            # Step 7: Generate embedding
             embedding_result = await self._retry_step(
                 "embedding",
                 self.embedding_step.execute,
@@ -548,10 +608,10 @@ class AudioProcessingWorkflow:
             results.update(embedding_result)
             results["steps_completed"].append("embedding")
             
-            # Step 7: Update status to summarizing
+            # Step 8: Update status to summarizing
             await self._update_status(log_entry_id, ProcessingStatus.SUMMARIZING)
             
-            # Step 8: Generate summary
+            # Step 9: Generate summary
             summary_result = await self._retry_step(
                 "summary",
                 self.summary_step.execute,
@@ -561,12 +621,14 @@ class AudioProcessingWorkflow:
             results.update(summary_result)
             results["steps_completed"].append("summary")
             
-            # Step 9: Update log entry with all results
+            # Step 10: Update log entry with all results
+            log_type_enum = LogType.PERSONAL if classify_result["log_type"] == "PERSONAL" else LogType.SHIP
             await self.update_step.execute(
                 log_entry_id,
                 transcription=transcribe_result["transcription"],
                 embedding=embedding_result["embedding"],
                 summary=summary_result["summary"],
+                log_type=log_type_enum,
                 processing_status=ProcessingStatus.COMPLETED,
                 processing_error=None
             )

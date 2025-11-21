@@ -1,7 +1,7 @@
 {% if logs|length == 0 %}
     <div class="empty-state">
         <h3>NO LOG ENTRIES FOUND</h3>
-        <p>No personal log entries match your current filter criteria.</p>
+        <p>No log entries match your current filter criteria.</p>
         <a href="/record" class="lcars-button">RECORD FIRST ENTRY</a>
     </div>
 {% else %}
@@ -17,6 +17,7 @@
                         <div class="log-header">
                             <div class="log-timestamp">{{ format_timestamp(log.created_at) }}
                                 <span class="media-type-tag {{ log.media_type.value }}">{{ log.media_type.value.upper() }}</span>
+                                <span class="log-type-tag {{ log.log_type.value }}">{{ log.log_type.value.upper() }}</span>
                             </div>
                             <div class="log-status {{ log.processing_status.value }}">{{ format_status(log.processing_status) }}</div>
                         </div>
@@ -43,7 +44,7 @@
 {% if has_next %}
 <div id="load-more-container" style="text-align: center; margin: 30px 0;">
     <button class="lcars-button" 
-            hx-get="/api/logs?page={{ page + 1 }}{% if status %}&status={{ status }}{% endif %}{% if search %}&search={{ search }}{% endif %}"
+            hx-get="/api/logs?page={{ page + 1 }}{% if status %}&status={{ status }}{% endif %}{% if log_type %}&log_type={{ log_type }}{% endif %}{% if search %}&search={{ search }}{% endif %}"
             hx-target="#log-list"
             hx-swap="beforeend"
             hx-indicator="#load-indicator">

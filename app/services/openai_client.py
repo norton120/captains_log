@@ -29,6 +29,11 @@ class SummaryError(Exception):
     pass
 
 
+class ClassificationError(Exception):
+    """Exception raised when log classification fails."""
+    pass
+
+
 class OpenAIService:
     """Service for OpenAI API interactions."""
     
@@ -339,6 +344,72 @@ class OpenAIService:
         base_prompt += "Return summary data only."
         
         return base_prompt
+    
+    async def classify_log_type(self, transcription: str) -> str:
+        """
+        Classify log entry as PERSONAL or SHIP based on transcription.
+        
+        Args:
+            transcription: Transcribed text to classify
+            
+        Returns:
+            "PERSONAL" or "SHIP" (defaults to "SHIP" if uncertain)
+            
+        Raises:
+            ClassificationError: If classification fails
+        """
+        try:
+            # Validate input
+            if not transcription or not transcription.strip():
+                raise ClassificationError("Empty transcription provided for classification")
+            
+            # Get first few lines for classification
+            lines = transcription.strip().split('\n')
+            first_lines = '\n'.join(lines[:3]).strip()  # Use first 3 lines
+            
+            # System prompt for classification
+            system_prompt = (
+                "Classify this log entry as either 'PERSONAL' or 'SHIP' based ONLY on the opening words. "
+                "Look for these exact patterns:\n"
+                "- PERSONAL: starts with 'Personal log', 'personal log', or similar personal indicators\n"
+                "- SHIP: starts with 'Captain's log', 'Ship's log', 'Science Officer's log', 'Chief Engineer's log', "
+                "'First Officer's log', 'Medical log', or any other ship/crew role log\n\n"
+                "Rules:\n"
+                "1. If it starts with 'Personal log' (any capitalization), return 'PERSONAL'\n"
+                "2. If it starts with any ship/crew role + 'log', return 'SHIP'\n"
+                "3. If uncertain or no clear pattern, default to 'SHIP'\n"
+                "4. Return ONLY the word 'PERSONAL' or 'SHIP', nothing else"
+            )
+            
+            # Generate classification
+            response = await self.async_client.chat.completions.create(
+                model=self.settings.openai_model_chat,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Classify this log opening:\n\n{first_lines}"}
+                ],
+                temperature=0.0,  # Deterministic classification
+                max_tokens=10  # Very short response needed
+            )
+            
+            # Extract classification
+            classification = response.choices[0].message.content.strip().upper()
+            
+            # Validate result
+            if classification not in ["PERSONAL", "SHIP"]:
+                logger.warning(f"Invalid classification '{classification}', defaulting to SHIP")
+                return "SHIP"
+            
+            logger.info(f"Classified log as: {classification}")
+            return classification
+            
+        except ClassificationError:
+            raise
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Log classification failed: {error_msg}")
+            # Default to SHIP on error
+            return "SHIP"
     
     async def get_token_count(self, text: str) -> int:
         """

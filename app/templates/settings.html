@@ -1,0 +1,694 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Captain's Log{% endblock %}
+
+{% block page_title %}SYSTEM CONFIGURATION{% endblock %}
+
+{% block head %}
+<style>
+    .settings-container {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+
+    .settings-section {
+        background: linear-gradient(135deg, rgba(255, 153, 0, 0.05), rgba(153, 153, 204, 0.05));
+        border: 2px solid var(--lcars-orange);
+        border-radius: 15px;
+        padding: 25px;
+        position: relative;
+    }
+
+    .settings-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 5px;
+        height: 100%;
+        background: var(--lcars-orange);
+    }
+
+    .settings-section h2 {
+        color: var(--lcars-orange);
+        font-size: 1.4em;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .settings-section h2::after {
+        content: '';
+        flex: 1;
+        height: 2px;
+        background: var(--lcars-orange);
+        opacity: 0.3;
+    }
+
+    .settings-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 25px;
+    }
+
+    .settings-group {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .setting-item {
+        background: rgba(153, 153, 204, 0.1);
+        border: 2px solid var(--lcars-blue);
+        border-radius: 10px;
+        padding: 20px;
+        transition: all 0.3s ease;
+    }
+
+    .setting-item:hover {
+        border-color: var(--lcars-orange);
+        box-shadow: 0 0 15px rgba(255, 153, 0, 0.3);
+    }
+
+    .setting-label {
+        font-weight: bold;
+        color: var(--lcars-blue);
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        font-size: 0.9em;
+    }
+
+    .setting-description {
+        font-size: 0.8em;
+        color: var(--lcars-gray);
+        margin-bottom: 15px;
+        line-height: 1.4;
+    }
+
+    .setting-input {
+        width: 100%;
+        background-color: var(--lcars-bg);
+        border: 2px solid var(--lcars-blue);
+        border-radius: 8px;
+        color: var(--lcars-orange);
+        padding: 12px;
+        font-family: inherit;
+        font-size: 1em;
+    }
+
+    .setting-input:focus {
+        outline: none;
+        border-color: var(--lcars-orange);
+        box-shadow: 0 0 10px rgba(255, 153, 0, 0.3);
+    }
+
+    .setting-input[type="checkbox"] {
+        width: auto;
+        margin-right: 10px;
+        transform: scale(1.5);
+    }
+
+    .setting-select {
+        width: 100%;
+        background-color: var(--lcars-bg);
+        border: 2px solid var(--lcars-blue);
+        border-radius: 8px;
+        color: var(--lcars-orange);
+        padding: 12px;
+        font-family: inherit;
+        font-size: 1em;
+        cursor: pointer;
+    }
+
+    .setting-select:focus {
+        outline: none;
+        border-color: var(--lcars-orange);
+        box-shadow: 0 0 10px rgba(255, 153, 0, 0.3);
+    }
+
+    .setting-checkbox-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .setting-checkbox-label {
+        color: var(--lcars-orange);
+        cursor: pointer;
+    }
+
+    .array-input {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .array-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .array-item input {
+        flex: 1;
+    }
+
+    .array-remove-btn {
+        background: var(--lcars-red);
+        border: none;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.8em;
+    }
+
+    .array-add-btn {
+        background: var(--lcars-green);
+        border: none;
+        color: var(--lcars-black);
+        padding: 8px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 0.8em;
+        text-transform: uppercase;
+    }
+
+    .actions {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        margin-top: 30px;
+        padding: 20px;
+        background: rgba(153, 153, 204, 0.1);
+        border: 2px solid var(--lcars-blue);
+        border-radius: 15px;
+    }
+
+    .action-button {
+        padding: 15px 30px;
+        background: linear-gradient(135deg, var(--lcars-orange), var(--lcars-red));
+        border: none;
+        color: var(--lcars-black);
+        border-radius: 20px;
+        font-family: inherit;
+        font-weight: bold;
+        text-transform: uppercase;
+        cursor: pointer;
+        font-size: 1em;
+        transition: all 0.3s ease;
+    }
+
+    .action-button:hover {
+        background: linear-gradient(135deg, var(--lcars-red), var(--lcars-purple));
+        box-shadow: 0 0 20px rgba(204, 102, 102, 0.5);
+    }
+
+    .action-button.secondary {
+        background: rgba(153, 153, 204, 0.2);
+        color: var(--lcars-blue);
+        border: 2px solid var(--lcars-blue);
+    }
+
+    .action-button.secondary:hover {
+        background: var(--lcars-blue);
+        color: var(--lcars-black);
+    }
+
+    .status-indicator {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        border-radius: 10px;
+        font-weight: bold;
+        text-transform: uppercase;
+        z-index: 1000;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+    }
+
+    .status-indicator.show {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    .status-indicator.success {
+        background: var(--lcars-green);
+        color: var(--lcars-black);
+    }
+
+    .status-indicator.error {
+        background: var(--lcars-red);
+        color: var(--lcars-white);
+    }
+
+    .file-size-display {
+        font-size: 0.8em;
+        color: var(--lcars-gray);
+        margin-top: 5px;
+    }
+
+    @media (max-width: 768px) {
+        .settings-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    
+    <!-- Application Settings -->
+    <div class="settings-section">
+        <h2>Application Settings</h2>
+        <div class="settings-grid">
+            <div class="setting-item">
+                <div class="setting-label">Application Name</div>
+                <div class="setting-description">Display name for the application</div>
+                <input type="text" class="setting-input" id="app_name" placeholder="Captain's Log">
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Vessel Name</div>
+                <div class="setting-description">Name of the vessel for log headers</div>
+                <input type="text" class="setting-input" id="vessel_name" placeholder="SV DEFIANT">
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Vessel Designation</div>
+                <div class="setting-description">Registry designation for the vessel</div>
+                <input type="text" class="setting-input" id="vessel_designation" placeholder="NCC-75633">
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Default Page Size</div>
+                <div class="setting-description">Number of log entries to show per page</div>
+                <input type="number" class="setting-input" id="default_page_size" min="5" max="100" placeholder="20">
+            </div>
+        </div>
+    </div>
+
+    <!-- OpenAI Settings -->
+    <div class="settings-section">
+        <h2>AI Processing Models</h2>
+        <div class="settings-grid">
+            <div class="setting-item">
+                <div class="setting-label">Whisper Model</div>
+                <div class="setting-description">OpenAI model for speech transcription</div>
+                <select class="setting-select" id="openai_model_whisper">
+                    <option value="whisper-1">whisper-1</option>
+                </select>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Embedding Model</div>
+                <div class="setting-description">OpenAI model for text embeddings</div>
+                <select class="setting-select" id="openai_model_embedding">
+                    <option value="text-embedding-3-small">text-embedding-3-small</option>
+                    <option value="text-embedding-3-large">text-embedding-3-large</option>
+                    <option value="text-embedding-ada-002">text-embedding-ada-002</option>
+                </select>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Chat Model</div>
+                <div class="setting-description">OpenAI model for summaries and chat</div>
+                <select class="setting-select" id="openai_model_chat">
+                    <option value="gpt-4o-mini">gpt-4o-mini</option>
+                    <option value="gpt-4o">gpt-4o</option>
+                    <option value="gpt-4">gpt-4</option>
+                    <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+                </select>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Network Resilience</div>
+                <div class="setting-description">Enable resilient processing for poor network conditions</div>
+                <div class="setting-checkbox-container">
+                    <input type="checkbox" class="setting-input" id="enable_resilient_processing">
+                    <label class="setting-checkbox-label" for="enable_resilient_processing">Enable Resilient Processing</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Media Storage Settings -->
+    <div class="settings-section">
+        <h2>Media Storage Configuration</h2>
+        <div class="settings-grid">
+            <div class="setting-item">
+                <div class="setting-label">Storage Mode</div>
+                <div class="setting-description">Choose how media files are stored</div>
+                <select class="setting-select" id="media_storage_mode">
+                    <option value="S3_ONLY">S3 Only</option>
+                    <option value="LOCAL_WITH_S3">Local with S3 Backup</option>
+                </select>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Local Media Path</div>
+                <div class="setting-description">Directory for local media storage (when using local mode)</div>
+                <input type="text" class="setting-input" id="local_media_path" placeholder="./media">
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Max Audio File Size</div>
+                <div class="setting-description">Maximum allowed audio file size in MB</div>
+                <input type="number" class="setting-input" id="max_audio_file_size" min="1" max="1000" placeholder="100">
+                <div class="file-size-display" id="audio_size_display">100 MB</div>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Max Video File Size</div>
+                <div class="setting-description">Maximum allowed video file size in MB</div>
+                <input type="number" class="setting-input" id="max_video_file_size" min="1" max="10000" placeholder="1024">
+                <div class="file-size-display" id="video_size_display">1024 MB</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Format Settings -->
+    <div class="settings-section">
+        <h2>Allowed File Formats</h2>
+        <div class="settings-grid">
+            <div class="setting-item">
+                <div class="setting-label">Audio Formats</div>
+                <div class="setting-description">Allowed audio file extensions</div>
+                <div class="array-input" id="allowed_audio_formats">
+                    <!-- Dynamic content will be populated here -->
+                </div>
+                <button class="array-add-btn" onclick="addArrayItem('allowed_audio_formats', '')">Add Format</button>
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Video Formats</div>
+                <div class="setting-description">Allowed video file extensions</div>
+                <div class="array-input" id="allowed_video_formats">
+                    <!-- Dynamic content will be populated here -->
+                </div>
+                <button class="array-add-btn" onclick="addArrayItem('allowed_video_formats', '')">Add Format</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AWS Credentials -->
+    <div class="settings-section">
+        <h2>AWS Credentials (Optional)</h2>
+        <div style="background: rgba(255, 153, 0, 0.1); border: 2px solid var(--lcars-orange); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+            <div style="color: var(--lcars-orange); font-weight: bold; margin-bottom: 8px;">⚠️ SECURITY NOTICE</div>
+            <div style="color: var(--lcars-white); font-size: 0.9em;">
+                AWS credentials stored here will override environment variables. Leave empty to use environment settings.
+                These credentials are stored in the database and should only be used in secure environments.
+            </div>
+        </div>
+        <div class="settings-grid">
+            <div class="setting-item">
+                <div class="setting-label">AWS Access Key ID</div>
+                <div class="setting-description">Optional: Override environment AWS_ACCESS_KEY_ID</div>
+                <input type="text" class="setting-input" id="aws_access_key_id" placeholder="Leave empty to use environment">
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">AWS Secret Access Key</div>
+                <div class="setting-description">Optional: Override environment AWS_SECRET_ACCESS_KEY</div>
+                <input type="password" class="setting-input" id="aws_secret_access_key" placeholder="Leave empty to use environment">
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">AWS Region</div>
+                <div class="setting-description">AWS region for S3 storage</div>
+                <input type="text" class="setting-input" id="aws_region" placeholder="us-east-2">
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">S3 Bucket Name</div>
+                <div class="setting-description">Name of the S3 bucket for media storage</div>
+                <input type="text" class="setting-input" id="s3_bucket_name" placeholder="Leave empty to use environment">
+            </div>
+        </div>
+    </div>
+
+    <!-- S3 Settings -->
+    <div class="settings-section">
+        <h2>S3 Configuration</h2>
+        <div class="settings-grid">
+            <div class="setting-item">
+                <div class="setting-label">Audio Prefix</div>
+                <div class="setting-description">S3 prefix for audio files</div>
+                <input type="text" class="setting-input" id="s3_audio_prefix" placeholder="audio/">
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Video Prefix</div>
+                <div class="setting-description">S3 prefix for video files</div>
+                <input type="text" class="setting-input" id="s3_video_prefix" placeholder="video/">
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Presigned URL Expiry</div>
+                <div class="setting-description">How long presigned URLs remain valid (seconds)</div>
+                <input type="number" class="setting-input" id="s3_presigned_url_expiry" min="300" max="604800" placeholder="3600">
+            </div>
+            
+            <div class="setting-item">
+                <div class="setting-label">Network Retry Settings</div>
+                <div class="setting-description">Configuration for network retry behavior</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <input type="number" class="setting-input" id="max_network_retries" min="1" max="100" placeholder="10" title="Max Retries">
+                    <input type="number" class="setting-input" id="network_retry_base_delay" min="1" max="3600" placeholder="30" title="Base Delay (seconds)">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+        <button class="action-button" onclick="saveSettings()">Save Configuration</button>
+        <button class="action-button secondary" onclick="resetSettings()">Reset to Defaults</button>
+        <button class="action-button secondary" onclick="loadSettings()">Reload Settings</button>
+    </div>
+</div>
+
+<!-- Status indicator -->
+<div id="status-indicator" class="status-indicator"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentSettings = {};
+
+    // Load settings on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSettings();
+        
+        // Add file size display updates
+        document.getElementById('max_audio_file_size').addEventListener('input', updateAudioSizeDisplay);
+        document.getElementById('max_video_file_size').addEventListener('input', updateVideoSizeDisplay);
+    });
+
+    async function loadSettings() {
+        try {
+            showStatus('Loading settings...', 'info');
+            
+            const response = await fetch('/api/settings/preferences');
+            if (!response.ok) throw new Error('Failed to load settings');
+            
+            const settings = await response.json();
+            currentSettings = settings;
+            
+            // Populate form fields
+            document.getElementById('app_name').value = settings.app_name || '';
+            document.getElementById('vessel_name').value = settings.vessel_name || '';
+            document.getElementById('vessel_designation').value = settings.vessel_designation || '';
+            document.getElementById('openai_model_whisper').value = settings.openai_model_whisper || 'whisper-1';
+            document.getElementById('openai_model_embedding').value = settings.openai_model_embedding || 'text-embedding-3-small';
+            document.getElementById('openai_model_chat').value = settings.openai_model_chat || 'gpt-4o-mini';
+            document.getElementById('media_storage_mode').value = settings.media_storage_mode || 'S3_ONLY';
+            document.getElementById('local_media_path').value = settings.local_media_path || '';
+            document.getElementById('max_audio_file_size').value = Math.round(settings.max_audio_file_size / 1024 / 1024) || 100;
+            document.getElementById('max_video_file_size').value = Math.round(settings.max_video_file_size / 1024 / 1024) || 1024;
+            document.getElementById('default_page_size').value = settings.default_page_size || 20;
+            document.getElementById('enable_resilient_processing').checked = settings.enable_resilient_processing || false;
+            document.getElementById('s3_audio_prefix').value = settings.s3_audio_prefix || 'audio/';
+            document.getElementById('s3_video_prefix').value = settings.s3_video_prefix || 'video/';
+            document.getElementById('s3_presigned_url_expiry').value = settings.s3_presigned_url_expiry || 3600;
+            document.getElementById('max_network_retries').value = settings.max_network_retries || 10;
+            document.getElementById('network_retry_base_delay').value = settings.network_retry_base_delay || 30;
+            
+            // AWS credentials (optional)
+            document.getElementById('aws_access_key_id').value = settings.aws_access_key_id || '';
+            document.getElementById('aws_secret_access_key').value = settings.aws_secret_access_key || '';
+            document.getElementById('aws_region').value = settings.aws_region || '';
+            document.getElementById('s3_bucket_name').value = settings.s3_bucket_name || '';
+            
+            // Populate array fields
+            populateArrayField('allowed_audio_formats', settings.allowed_audio_formats || ['mp3', 'wav', 'flac']);
+            populateArrayField('allowed_video_formats', settings.allowed_video_formats || ['mp4', 'webm', 'mov']);
+            
+            updateAudioSizeDisplay();
+            updateVideoSizeDisplay();
+            
+            showStatus('Settings loaded successfully', 'success');
+            
+        } catch (error) {
+            console.error('Error loading settings:', error);
+            showStatus('Failed to load settings', 'error');
+        }
+    }
+
+    async function saveSettings() {
+        try {
+            showStatus('Saving settings...', 'info');
+            
+            const settings = {
+                app_name: document.getElementById('app_name').value,
+                vessel_name: document.getElementById('vessel_name').value,
+                vessel_designation: document.getElementById('vessel_designation').value,
+                openai_model_whisper: document.getElementById('openai_model_whisper').value,
+                openai_model_embedding: document.getElementById('openai_model_embedding').value,
+                openai_model_chat: document.getElementById('openai_model_chat').value,
+                media_storage_mode: document.getElementById('media_storage_mode').value,
+                local_media_path: document.getElementById('local_media_path').value || null,
+                max_audio_file_size: parseInt(document.getElementById('max_audio_file_size').value) * 1024 * 1024,
+                max_video_file_size: parseInt(document.getElementById('max_video_file_size').value) * 1024 * 1024,
+                default_page_size: parseInt(document.getElementById('default_page_size').value),
+                enable_resilient_processing: document.getElementById('enable_resilient_processing').checked,
+                s3_audio_prefix: document.getElementById('s3_audio_prefix').value,
+                s3_video_prefix: document.getElementById('s3_video_prefix').value,
+                s3_presigned_url_expiry: parseInt(document.getElementById('s3_presigned_url_expiry').value),
+                max_network_retries: parseInt(document.getElementById('max_network_retries').value),
+                network_retry_base_delay: parseInt(document.getElementById('network_retry_base_delay').value),
+                // AWS credentials (send empty string as null for optional fields)
+                aws_access_key_id: document.getElementById('aws_access_key_id').value || null,
+                aws_secret_access_key: document.getElementById('aws_secret_access_key').value || null,
+                aws_region: document.getElementById('aws_region').value || null,
+                s3_bucket_name: document.getElementById('s3_bucket_name').value || null,
+                allowed_audio_formats: getArrayFieldValues('allowed_audio_formats'),
+                allowed_video_formats: getArrayFieldValues('allowed_video_formats')
+            };
+            
+            const response = await fetch('/api/settings/preferences', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(settings)
+            });
+            
+            if (!response.ok) throw new Error('Failed to save settings');
+            
+            showStatus('Settings saved successfully', 'success');
+            
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            showStatus('Failed to save settings', 'error');
+        }
+    }
+
+    function resetSettings() {
+        if (confirm('Reset all settings to defaults? This cannot be undone.')) {
+            // Reset to default values
+            document.getElementById('app_name').value = "Captain's Log";
+            document.getElementById('vessel_name').value = "SV DEFIANT";
+            document.getElementById('vessel_designation').value = "NCC-75633";
+            document.getElementById('openai_model_whisper').value = 'whisper-1';
+            document.getElementById('openai_model_embedding').value = 'text-embedding-3-small';
+            document.getElementById('openai_model_chat').value = 'gpt-4o-mini';
+            document.getElementById('media_storage_mode').value = 'S3_ONLY';
+            document.getElementById('local_media_path').value = './media';
+            document.getElementById('max_audio_file_size').value = 100;
+            document.getElementById('max_video_file_size').value = 1024;
+            document.getElementById('default_page_size').value = 20;
+            document.getElementById('enable_resilient_processing').checked = true;
+            document.getElementById('s3_audio_prefix').value = 'audio/';
+            document.getElementById('s3_video_prefix').value = 'video/';
+            document.getElementById('s3_presigned_url_expiry').value = 3600;
+            document.getElementById('max_network_retries').value = 10;
+            document.getElementById('network_retry_base_delay').value = 30;
+            
+            // Clear AWS credentials
+            document.getElementById('aws_access_key_id').value = '';
+            document.getElementById('aws_secret_access_key').value = '';
+            document.getElementById('aws_region').value = 'us-east-2';
+            document.getElementById('s3_bucket_name').value = '';
+            
+            populateArrayField('allowed_audio_formats', ['mp3', 'wav', 'flac', 'm4a', 'webm']);
+            populateArrayField('allowed_video_formats', ['mp4', 'webm', 'mov', 'avi']);
+            
+            updateAudioSizeDisplay();
+            updateVideoSizeDisplay();
+            
+            showStatus('Settings reset to defaults', 'success');
+        }
+    }
+
+    function populateArrayField(fieldId, values) {
+        const container = document.getElementById(fieldId);
+        container.innerHTML = '';
+        
+        values.forEach(value => {
+            addArrayItem(fieldId, value);
+        });
+    }
+
+    function addArrayItem(fieldId, value) {
+        const container = document.getElementById(fieldId);
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'array-item';
+        
+        itemDiv.innerHTML = `
+            <input type="text" class="setting-input" value="${value}" placeholder="e.g., mp3">
+            <button class="array-remove-btn" onclick="removeArrayItem(this)">Remove</button>
+        `;
+        
+        container.appendChild(itemDiv);
+    }
+
+    function removeArrayItem(button) {
+        button.parentElement.remove();
+    }
+
+    function getArrayFieldValues(fieldId) {
+        const container = document.getElementById(fieldId);
+        const inputs = container.querySelectorAll('input');
+        return Array.from(inputs).map(input => input.value.trim()).filter(value => value);
+    }
+
+    function updateAudioSizeDisplay() {
+        const size = document.getElementById('max_audio_file_size').value;
+        document.getElementById('audio_size_display').textContent = size + ' MB';
+    }
+
+    function updateVideoSizeDisplay() {
+        const size = document.getElementById('max_video_file_size').value;
+        document.getElementById('video_size_display').textContent = size + ' MB';
+    }
+
+    function showStatus(message, type) {
+        const indicator = document.getElementById('status-indicator');
+        indicator.textContent = message;
+        indicator.className = `status-indicator ${type} show`;
+        
+        if (type !== 'info') {
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 3000);
+        }
+    }
+
+    // Keyboard shortcut for save
+    document.addEventListener('keydown', function(event) {
+        if (event.ctrlKey && event.key === 's') {
+            event.preventDefault();
+            saveSettings();
+        }
+    });
+</script>
+{% endblock %}

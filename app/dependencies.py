@@ -11,6 +11,7 @@ from app.models.log_entry import Base
 from app.services.s3 import S3Service
 from app.services.media_storage import MediaStorageService
 from app.services.openai_client import OpenAIService
+from app.services.settings_service import SettingsService, SettingsAdapter
 
 
 # Global variables for dependency injection
@@ -122,6 +123,19 @@ def get_openai_service(settings: Settings = Depends(get_settings)) -> OpenAIServ
 def get_media_storage_service(settings: Settings = Depends(get_settings)) -> MediaStorageService:
     """Get media storage service instance."""
     return MediaStorageService(settings)
+
+
+async def get_enhanced_settings(
+    env_settings: Settings = Depends(get_settings),
+    db_session: AsyncSession = Depends(get_db_session)
+) -> SettingsAdapter:
+    """Get enhanced settings that combine environment and database settings."""
+    settings_service = SettingsService(env_settings, db_session)
+    
+    # Load user preferences into cache
+    await settings_service.get_user_preferences()
+    
+    return SettingsAdapter(settings_service)
 
 
 # Cleanup function for graceful shutdown
