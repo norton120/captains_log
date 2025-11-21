@@ -112,6 +112,17 @@ async def log_detail_page(log_id: str, request: Request, db: Session = Depends(g
         except Exception as e:
             logger.warning(f"Failed to get audio URL for {log_id}: {e}")
             audio_url = None
+
+    # Get video URL if available
+    video_url = None
+    if log_entry.video_s3_key:
+        try:
+            settings = get_settings()
+            s3_service = S3Service(settings)
+            video_url = await s3_service.get_video_url(log_entry.video_s3_key)
+        except Exception as e:
+            logger.warning(f"Failed to get video URL for {log_id}: {e}")
+            video_url = None
     
     # Helper functions for template
     def format_status(status):
@@ -126,6 +137,7 @@ async def log_detail_page(log_id: str, request: Request, db: Session = Depends(g
             "request": request,
             "log": log_entry,
             "audio_url": audio_url,
+            "video_url": video_url,
             "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
             "version": "1.0.0",
             "format_duration": format_duration,

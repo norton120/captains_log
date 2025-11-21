@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from app.workflows.audio_processor import (
     AudioProcessingWorkflow,
-    UploadToS3Step,
+    StoreAudioStep,
     TranscribeAudioStep,
     GenerateEmbeddingStep,
     GenerateSummaryStep,
@@ -21,10 +21,11 @@ from app.models.log_entry import LogEntry, ProcessingStatus
 def audio_workflow(test_settings, async_db_session, mock_s3_service, mock_openai_client):
     """Create audio processing workflow for testing."""
     # Create mock services with async methods
-    s3_mock = MagicMock()
-    s3_mock.upload_audio = AsyncMock()
-    s3_mock.get_audio_url = AsyncMock()
-    s3_mock.delete_audio = AsyncMock()
+    media_storage_mock = MagicMock()
+    media_storage_mock.store_audio = AsyncMock()
+    media_storage_mock.get_audio_url = AsyncMock()
+    media_storage_mock.delete_audio = AsyncMock()
+    media_storage_mock.get_file_path_for_processing = MagicMock()
     
     openai_mock = MagicMock()
     openai_mock.transcribe_audio = AsyncMock()
@@ -34,14 +35,14 @@ def audio_workflow(test_settings, async_db_session, mock_s3_service, mock_openai
     workflow = AudioProcessingWorkflow(
         settings=test_settings,
         db_session=async_db_session,
-        s3_service=s3_mock,
+        media_storage=media_storage_mock,
         openai_service=openai_mock
     )
     return workflow
 
 
 @m.describe("Upload to S3 Step")
-class TestUploadToS3Step:
+class TestStoreAudioStep:
     """Test S3 upload workflow step."""
     
     @m.context("When executing S3 upload step successfully")
@@ -51,7 +52,7 @@ class TestUploadToS3Step:
     async def test_upload_to_s3_step_success(self, audio_workflow, sample_audio_file):
         """Should successfully execute S3 upload step."""
         # Arrange
-        step = UploadToS3Step(audio_workflow)
+        step = StoreAudioStep(audio_workflow)
         audio_workflow.s3_service.upload_audio.return_value = "audio/test-123.wav"
         
         # Act
@@ -69,7 +70,7 @@ class TestUploadToS3Step:
     async def test_upload_to_s3_step_failure(self, audio_workflow, sample_audio_file):
         """Should handle S3 upload failures in workflow step."""
         # Arrange
-        step = UploadToS3Step(audio_workflow)
+        step = StoreAudioStep(audio_workflow)
         audio_workflow.s3_service.upload_audio.side_effect = Exception("S3 error")
         
         # Act & Assert
@@ -83,7 +84,7 @@ class TestUploadToS3Step:
     async def test_upload_to_s3_step_validation(self, audio_workflow):
         """Should validate file before attempting upload."""
         # Arrange
-        step = UploadToS3Step(audio_workflow)
+        step = StoreAudioStep(audio_workflow)
         nonexistent_file = Path("/nonexistent/file.wav")
         
         # Act & Assert

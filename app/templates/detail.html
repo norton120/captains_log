@@ -495,16 +495,56 @@
      data-log-id="{{ log.id }}">
     
     <div class="main-content">
-        <!-- Audio Section -->
+        <!-- Media Section -->
         <div class="audio-section">
             <div class="audio-header">
-                <div class="audio-title">Audio Playback</div>
+                <div class="audio-title">
+                    {% if log.is_video_source and video_url %}
+                    Video Playback
+                    {% else %}
+                    Audio Playback
+                    {% endif %}
+                </div>
                 <div class="lcars-status {{ log.processing_status }}" id="audio-status">
                     {{ format_status(log.processing_status) }}
                 </div>
             </div>
             
-            {% if log.audio_s3_key %}
+            {% if log.is_video_source and video_url %}
+            <!-- Video Player -->
+            <div class="audio-controls">
+                <button class="play-button" id="play-btn" onclick="togglePlayback()">
+                    PLAY
+                </button>
+                
+                <div class="audio-timeline">
+                    <div class="timeline-track" onclick="seekAudio(event)">
+                        <div class="timeline-progress" id="timeline-progress"></div>
+                    </div>
+                    <div class="timeline-time">
+                        <span id="current-time">00:00</span>
+                        <span id="total-time">--:--</span>
+                    </div>
+                </div>
+                
+                <div class="volume-control">
+                    <span style="color: var(--lcars-blue); font-size: 14px; font-weight: bold; text-transform: uppercase;">VOL</span>
+                    <div class="volume-slider" onclick="setVolume(event)">
+                        <div class="volume-progress" id="volume-progress"></div>
+                    </div>
+                </div>
+            </div>
+            <video id="video-player" preload="metadata" style="width: 100%; max-width: 600px; border-radius: 10px; background: black;">
+                <source src="{{ video_url }}" type="video/mp4">
+                <source src="{{ video_url }}" type="video/webm">
+                Your browser does not support the video element.
+            </video>
+            <audio id="audio-player" preload="metadata" style="display: none;">
+                <source src="{{ video_url }}" type="video/mp4">
+                <source src="{{ video_url }}" type="video/webm">
+            </audio>
+            {% elif log.audio_s3_key and audio_url %}
+            <!-- Audio Player -->
             <div class="audio-controls">
                 <button class="play-button" id="play-btn" onclick="togglePlayback()">
                     PLAY
@@ -536,14 +576,32 @@
             <div class="audio-controls" style="justify-content: center; padding: 40px;">
                 <div style="color: var(--lcars-gray); font-size: 1.1em; text-align: center;">
                     {% if log.processing_status == 'failed' %}
-                    <div style="color: var(--lcars-red);">AUDIO PROCESSING FAILED</div>
+                    <div style="color: var(--lcars-red);">
+                        {% if log.is_video_source %}
+                        VIDEO PROCESSING FAILED
+                        {% else %}
+                        AUDIO PROCESSING FAILED
+                        {% endif %}
+                    </div>
                     <div style="margin-top: 10px; font-size: 0.9em;">
                         Error: {{ log.processing_error or 'Unknown error occurred' }}
                     </div>
                     {% else %}
                     <div class="loading-spinner"></div>
-                    <div style="margin-top: 15px;">PROCESSING AUDIO FILE...</div>
-                    <div style="margin-top: 5px; font-size: 0.9em;">Please wait while audio is being processed</div>
+                    <div style="margin-top: 15px;">
+                        {% if log.is_video_source %}
+                        PROCESSING VIDEO FILE...
+                        {% else %}
+                        PROCESSING AUDIO FILE...
+                        {% endif %}
+                    </div>
+                    <div style="margin-top: 5px; font-size: 0.9em;">
+                        {% if log.is_video_source %}
+                        Please wait while video is being processed
+                        {% else %}
+                        Please wait while audio is being processed
+                        {% endif %}
+                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -627,10 +685,16 @@
         <div class="status-panel">
             <div class="panel-title">Processing Status</div>
             <div class="status-indicator">
-                <div class="status-icon {{ 'completed' if log.audio_s3_key else 'processing' if log.processing_status != 'failed' else 'failed' }}"></div>
+                <div class="status-icon {{ 'completed' if (log.video_s3_key if log.is_video_source else log.audio_s3_key) else 'processing' if log.processing_status != 'failed' else 'failed' }}"></div>
                 <div class="status-text">
-                    <div class="status-label">Audio Upload</div>
-                    <div>{{ 'Complete' if log.audio_s3_key else 'Failed' if log.processing_status == 'failed' else 'Processing...' }}</div>
+                    <div class="status-label">
+                        {% if log.is_video_source %}
+                        Video Upload
+                        {% else %}
+                        Audio Upload
+                        {% endif %}
+                    </div>
+                    <div>{{ 'Complete' if (log.video_s3_key if log.is_video_source else log.audio_s3_key) else 'Failed' if log.processing_status == 'failed' else 'Processing...' }}</div>
                 </div>
             </div>
             <div class="status-indicator">
@@ -660,7 +724,7 @@
         <div class="actions-panel">
             <div class="panel-title">Actions</div>
             <div class="action-group">
-                <button class="action-button" onclick="downloadAudio()" {{ 'disabled' if not log.audio_s3_key }}>
+                <button class="action-button" onclick="downloadMedia()" {{ 'disabled' if not (log.video_s3_key if log.is_video_source else log.audio_s3_key) }}>
                     DOWNLOAD
                 </button>
                 <button class="action-button secondary" onclick="shareLog()" {{ 'disabled' if not log.transcription }}>
@@ -688,42 +752,43 @@
 
 {% block scripts %}
 <script>
-    let audio = null;
+    let mediaElement = null;
     let isPlaying = false;
     let currentVolume = 0.7;
     
     document.addEventListener('DOMContentLoaded', function() {
-        audio = document.getElementById('audio-player');
-        if (audio) {
-            setupAudioEvents();
+        // Check for video element first, then audio
+        mediaElement = document.getElementById('video-player') || document.getElementById('audio-player');
+        if (mediaElement) {
+            setupMediaEvents();
             updateVolume(currentVolume);
         }
     });
     
-    function setupAudioEvents() {
-        audio.addEventListener('loadedmetadata', function() {
-            document.getElementById('total-time').textContent = formatTime(audio.duration);
+    function setupMediaEvents() {
+        mediaElement.addEventListener('loadedmetadata', function() {
+            document.getElementById('total-time').textContent = formatTime(mediaElement.duration);
         });
         
-        audio.addEventListener('timeupdate', function() {
-            const progress = (audio.currentTime / audio.duration) * 100;
+        mediaElement.addEventListener('timeupdate', function() {
+            const progress = (mediaElement.currentTime / mediaElement.duration) * 100;
             document.getElementById('timeline-progress').style.width = progress + '%';
-            document.getElementById('current-time').textContent = formatTime(audio.currentTime);
+            document.getElementById('current-time').textContent = formatTime(mediaElement.currentTime);
         });
         
-        audio.addEventListener('ended', function() {
+        mediaElement.addEventListener('ended', function() {
             isPlaying = false;
             document.getElementById('play-btn').innerHTML = 'PLAY';
             document.getElementById('play-btn').classList.remove('playing');
         });
         
-        audio.addEventListener('play', function() {
+        mediaElement.addEventListener('play', function() {
             isPlaying = true;
             document.getElementById('play-btn').innerHTML = 'PAUSE';
             document.getElementById('play-btn').classList.add('playing');
         });
         
-        audio.addEventListener('pause', function() {
+        mediaElement.addEventListener('pause', function() {
             isPlaying = false;
             document.getElementById('play-btn').innerHTML = 'PLAY';
             document.getElementById('play-btn').classList.remove('playing');
@@ -731,28 +796,28 @@
     }
     
     function togglePlayback() {
-        if (!audio) return;
+        if (!mediaElement) return;
         
         if (isPlaying) {
-            audio.pause();
+            mediaElement.pause();
         } else {
-            audio.play();
+            mediaElement.play();
         }
     }
     
     function seekAudio(event) {
-        if (!audio) return;
+        if (!mediaElement) return;
         
         const rect = event.currentTarget.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const percentage = x / rect.width;
-        const newTime = percentage * audio.duration;
+        const newTime = percentage * mediaElement.duration;
         
-        audio.currentTime = newTime;
+        mediaElement.currentTime = newTime;
     }
     
     function setVolume(event) {
-        if (!audio) return;
+        if (!mediaElement) return;
         
         const rect = event.currentTarget.getBoundingClientRect();
         const x = event.clientX - rect.left;
@@ -764,8 +829,8 @@
     function updateVolume(volume) {
         currentVolume = Math.max(0, Math.min(1, volume));
         
-        if (audio) {
-            audio.volume = currentVolume;
+        if (mediaElement) {
+            mediaElement.volume = currentVolume;
         }
         
         const volumeProgress = document.getElementById('volume-progress');
@@ -805,7 +870,7 @@
     }
     
     // Action functions
-    function downloadAudio() {
+    function downloadMedia() {
         window.open('/api/logs/{{ log.id }}/download', '_blank');
     }
     

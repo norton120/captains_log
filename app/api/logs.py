@@ -18,15 +18,16 @@ from fastapi import (
     UploadFile,
     status
 )
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
-from app.dependencies import get_db_session, get_s3_service, get_openai_service, get_settings
-from app.models.log_entry import LogEntry, ProcessingStatus
+from app.dependencies import get_db_session, get_s3_service, get_openai_service, get_settings, get_media_storage_service
+from app.models.log_entry import LogEntry, ProcessingStatus, MediaType
 from app.services.s3 import S3Service
+from app.services.media_storage import MediaStorageService
 from app.services.openai_client import OpenAIService
 from app.services.geocoding import GeocodingService
 from app.workflows.audio_processor import AudioProcessingWorkflow
@@ -47,7 +48,12 @@ class LogEntryResponse(BaseModel):
     """Response model for log entry."""
     id: str
     created_at: datetime
-    audio_s3_key: str
+    media_type: str
+    is_video_source: bool
+    video_s3_key: Optional[str] = None
+    video_local_path: Optional[str] = None
+    audio_s3_key: Optional[str] = None
+    audio_local_path: Optional[str] = None
     transcription: Optional[str] = None
     summary: Optional[str] = None
     processing_status: str
@@ -92,7 +98,12 @@ class LogAudioResponse(BaseModel):
 class UploadResponse(BaseModel):
     """Response model for file upload."""
     id: str
-    audio_s3_key: str
+    media_type: str
+    is_video_source: bool
+    video_s3_key: Optional[str] = None
+    video_local_path: Optional[str] = None
+    audio_s3_key: Optional[str] = None
+    audio_local_path: Optional[str] = None
     processing_status: str
     created_at: datetime
     message: str
@@ -110,11 +121,20 @@ ALLOWED_AUDIO_TYPES = {
     "audio/webm"
 }
 
-ALLOWED_EXTENSIONS = {".wav", ".mp3", ".flac", ".m4a", ".webm"}
+ALLOWED_VIDEO_TYPES = {
+    "video/webm",
+    "video/mp4",
+    "video/quicktime",
+    "video/x-msvideo"
+}
+
+ALLOWED_MEDIA_TYPES = ALLOWED_AUDIO_TYPES | ALLOWED_VIDEO_TYPES
+
+ALLOWED_EXTENSIONS = {".wav", ".mp3", ".flac", ".m4a", ".webm", ".mp4", ".mov", ".avi"}
 
 
-def validate_audio_file(file: UploadFile, max_size: int) -> None:
-    """Validate uploaded audio file."""
+def validate_media_file(file: UploadFile, max_size: int, media_type: str = "audio") -> None:
+    """Validate uploaded media file (audio or video)."""
     # Check file existence
     if not file or not file.filename:
         raise HTTPException(
@@ -129,8 +149,11 @@ def validate_audio_file(file: UploadFile, max_size: int) -> None:
             detail="Empty file not allowed"
         )
     
-    if file.size > max_size:
-        max_size_mb = max_size / (1024 * 1024)
+    # Use larger limit for video files (10x audio limit)
+    max_file_size = max_size * 10 if media_type == "video" else max_size
+    
+    if file.size > max_file_size:
+        max_size_mb = max_file_size / (1024 * 1024)
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"File too large. Maximum size: {max_size_mb:.1f}MB"
@@ -144,14 +167,19 @@ def validate_audio_file(file: UploadFile, max_size: int) -> None:
             detail=f"Invalid file format. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
         )
     
+    # Validate content type based on media type
+    allowed_types = ALLOWED_VIDEO_TYPES if media_type == "video" else ALLOWED_AUDIO_TYPES
+    
     # Check content type (only if it's not a generic type and extension is invalid)
     if (file.content_type and 
-        file.content_type not in ALLOWED_AUDIO_TYPES and
+        file.content_type not in allowed_types and
+        file.content_type not in ALLOWED_MEDIA_TYPES and
         file.content_type not in ["application/octet-stream"] and  # Allow generic types
         file_ext not in ALLOWED_EXTENSIONS):  # But only if extension is also invalid
+        expected_type = "video" if media_type == "video" else "audio"
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid file format. Expected audio file, got: {file.content_type}"
+            detail=f"Invalid file format. Expected {expected_type} file, got: {file.content_type}"
         )
 
 
@@ -175,36 +203,36 @@ async def save_uploaded_file(file: UploadFile) -> Path:
         temp_file.close()
 
 
-async def start_audio_processing(
+async def start_media_processing(
     log_entry_id: UUID,
-    audio_file_path: Path,
+    media_file_path: Path,
     db_session: AsyncSession,
     settings: Settings,
-    s3_service: S3Service,
+    media_storage: MediaStorageService,
     openai_service: OpenAIService
 ) -> None:
-    """Start audio processing workflow in background."""
+    """Start media processing workflow in background (supports audio and video)."""
     try:
-        logger.info(f"Starting audio processing for log entry: {log_entry_id}")
+        logger.info(f"Starting media processing for log entry: {log_entry_id}")
         
         # Create workflow instance
         workflow = AudioProcessingWorkflow(
             settings=settings,
             db_session=db_session,
-            s3_service=s3_service,
+            media_storage=media_storage,
             openai_service=openai_service
         )
         
-        # Start processing
-        await workflow.process_audio(
+        # Start processing (handles both audio and video)
+        await workflow.process_media(
             log_entry_id=log_entry_id,
-            audio_file=audio_file_path
+            media_file=media_file_path
         )
         
-        logger.info(f"Audio processing completed for log entry: {log_entry_id}")
+        logger.info(f"Media processing completed for log entry: {log_entry_id}")
         
     except Exception as e:
-        logger.error(f"Audio processing failed for {log_entry_id}: {e}")
+        logger.error(f"Media processing failed for {log_entry_id}: {e}")
         # Update log entry with error status
         try:
             result = await db_session.get(LogEntry, log_entry_id)
@@ -219,7 +247,7 @@ async def start_audio_processing(
     finally:
         # Clean up temporary file
         try:
-            audio_file_path.unlink()
+            media_file_path.unlink()
         except:
             pass
 
@@ -227,26 +255,28 @@ async def start_audio_processing(
 # API Endpoints
 
 @router.post("/upload", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
-async def upload_audio_file(
+async def upload_media_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    media_type: str = Form("audio"),
     latitude: Optional[float] = Form(None),
     longitude: Optional[float] = Form(None),
     location_name: Optional[str] = Form(None),
     db_session: AsyncSession = Depends(get_db_session),
-    s3_service: S3Service = Depends(get_s3_service),
+    media_storage: MediaStorageService = Depends(get_media_storage_service),
     openai_service: OpenAIService = Depends(get_openai_service),
     settings: Settings = Depends(get_settings)
 ) -> UploadResponse:
     """
-    Upload audio file and start processing.
+    Upload media file (audio or video) and start processing.
     
-    - **file**: Audio file (WAV, MP3, FLAC formats supported)
+    - **file**: Media file (WAV, MP3, FLAC, MP4, WEBM formats supported)
+    - **media_type**: Type of media ("audio" or "video")
     - Returns log entry with processing status
     """
     try:
         # Validate file
-        validate_audio_file(file, settings.max_audio_file_size)
+        validate_media_file(file, settings.max_audio_file_size, media_type)
         
         # Save temporary file
         temp_file_path = await save_uploaded_file(file)
@@ -272,9 +302,17 @@ async def upload_audio_file(
             except Exception as geocoding_error:
                 logger.warning(f"Geocoding failed: {geocoding_error}, continuing without enhanced location")
         
-        # Create log entry (S3 upload will be handled by the workflow)
+        # Determine media type and video source flag
+        file_ext = Path(file.filename).suffix.lower()
+        is_video = file_ext in {'.mp4', '.webm', '.mov', '.avi'} or media_type == "video"
+        
+        # Create log entry (media storage will be handled by the workflow)
         log_entry = LogEntry(
-            audio_s3_key="",  # Will be set by workflow after upload
+            media_type=MediaType.VIDEO if is_video else MediaType.AUDIO,
+            original_filename=file.filename,
+            is_video_source=is_video,
+            audio_s3_key=None,  # Will be set by workflow after storage
+            audio_local_path=None,  # Will be set by workflow if using local storage
             processing_status=ProcessingStatus.PENDING,
             latitude=latitude,
             longitude=longitude,
@@ -292,18 +330,23 @@ async def upload_audio_file(
         
         # Start background processing
         background_tasks.add_task(
-            start_audio_processing,
+            start_media_processing,
             log_entry.id,
             temp_file_path,
             db_session,
             settings,
-            s3_service,
+            media_storage,
             openai_service
         )
         
         return UploadResponse(
             id=str(log_entry.id),
-            audio_s3_key=log_entry.audio_s3_key or "processing",
+            media_type=log_entry.media_type.value,
+            is_video_source=log_entry.is_video_source,
+            video_s3_key=log_entry.video_s3_key,
+            video_local_path=log_entry.video_local_path,
+            audio_s3_key=log_entry.audio_s3_key,
+            audio_local_path=log_entry.audio_local_path,
             processing_status=log_entry.processing_status.value,
             created_at=log_entry.created_at,
             message="File uploaded successfully. Processing started."
@@ -466,7 +509,12 @@ async def list_log_entries(
             LogEntryResponse(
                 id=str(entry.id),
                 created_at=entry.created_at,
+                media_type=entry.media_type.value,
+                is_video_source=entry.is_video_source,
+                video_s3_key=entry.video_s3_key,
+                video_local_path=entry.video_local_path,
                 audio_s3_key=entry.audio_s3_key,
+                audio_local_path=entry.audio_local_path,
                 transcription=entry.transcription,
                 summary=entry.summary,
                 processing_status=entry.processing_status.value,
@@ -523,7 +571,12 @@ async def get_log_entry(
         return LogEntryResponse(
             id=str(log_entry.id),
             created_at=log_entry.created_at,
+            media_type=log_entry.media_type.value,
+            is_video_source=log_entry.is_video_source,
+            video_s3_key=log_entry.video_s3_key,
+            video_local_path=log_entry.video_local_path,
             audio_s3_key=log_entry.audio_s3_key,
+            audio_local_path=log_entry.audio_local_path,
             transcription=log_entry.transcription,
             summary=log_entry.summary,
             processing_status=log_entry.processing_status.value,
@@ -589,7 +642,7 @@ async def get_log_status(
 async def get_log_audio(
     log_id: UUID,
     db_session: AsyncSession = Depends(get_db_session),
-    s3_service: S3Service = Depends(get_s3_service)
+    media_storage: MediaStorageService = Depends(get_media_storage_service)
 ) -> LogAudioResponse:
     """
     Get presigned URL for log audio file.
@@ -606,19 +659,17 @@ async def get_log_audio(
         
         log_entry = result
         
-        # Generate presigned URL
+        # Generate audio URL based on storage mode
         try:
-            audio_url = await s3_service.get_audio_url(log_entry.audio_s3_key)
-        except FileNotFoundError:
+            audio_url = await media_storage.get_audio_url(
+                s3_key=log_entry.audio_s3_key,
+                local_path=log_entry.audio_local_path
+            )
+        except Exception as storage_error:
+            logger.error(f"Audio URL generation failed: {storage_error}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Audio file not found"
-            )
-        except Exception as s3_error:
-            logger.error(f"S3 URL generation failed: {s3_error}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Audio access failed"
             )
         
         # Calculate expiration (presigned URLs typically expire in 1 hour)
@@ -696,3 +747,48 @@ async def delete_log_entry(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete log entry"
         ) from e
+
+
+# Media serving endpoint for local files
+@router.get("/media/local/{filename}")
+async def serve_local_media(
+    filename: str,
+    settings: Settings = Depends(get_settings)
+):
+    """Serve local media files when using local storage mode."""
+    from app.config import MediaStorageMode
+    
+    if settings.media_storage_mode != MediaStorageMode.LOCAL_WITH_S3:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Local media serving not enabled"
+        )
+    
+    if not settings.local_media_path:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Local media path not configured"
+        )
+    
+    # Security check: ensure filename doesn't contain path traversal
+    if '..' in filename or '/' in filename or '\\' in filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid filename"
+        )
+    
+    # Find the file in the local media directory
+    media_path = Path(settings.local_media_path)
+    
+    # Search for the file in subdirectories (date-based structure)
+    for file_path in media_path.rglob(filename):
+        if file_path.is_file():
+            return FileResponse(
+                path=str(file_path),
+                media_type="audio/mpeg"  # Default to audio type
+            )
+    
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Media file not found"
+    )

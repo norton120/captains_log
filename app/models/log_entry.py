@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from uuid import UUID, uuid4
 from typing import Optional
-from sqlalchemy import Column, String, Text, DateTime, Enum, Float
+from sqlalchemy import Column, String, Text, DateTime, Enum, Float, Boolean
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.ext.declarative import declarative_base
 from pgvector.sqlalchemy import Vector
@@ -19,12 +19,31 @@ class ProcessingStatus(enum.Enum):
     FAILED = "failed"
 
 
+class MediaType(enum.Enum):
+    AUDIO = "audio"
+    VIDEO = "video"
+
+
 class LogEntry(Base):
     __tablename__ = "log_entries"
     
     id = Column(PgUUID(as_uuid=True), primary_key=True, default=uuid4)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    audio_s3_key = Column(String, nullable=False)
+    
+    # Media information
+    media_type = Column(Enum(MediaType), nullable=False, default=MediaType.AUDIO)
+    original_filename = Column(String, nullable=True)
+    is_video_source = Column(Boolean, nullable=False, default=False)
+    
+    # Video storage (if video source)
+    video_s3_key = Column(String, nullable=True)
+    video_local_path = Column(String, nullable=True)
+    
+    # Audio storage (extracted from video if applicable)
+    audio_s3_key = Column(String, nullable=True)
+    audio_local_path = Column(String, nullable=True)
+    
+    # Processing results
     transcription = Column(Text, nullable=True)
     embedding = Column(Vector(1536), nullable=True)  # dimension for text-embedding-3-small
     summary = Column(Text, nullable=True)
@@ -34,6 +53,8 @@ class LogEntry(Base):
         default=ProcessingStatus.PENDING
     )
     processing_error = Column(Text, nullable=True)
+    
+    # Location information
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     location_name = Column(String, nullable=True)

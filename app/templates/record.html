@@ -8,23 +8,43 @@
 <style>
     .recording-interface {
         display: flex;
-        flex-direction: column;
-        gap: 30px;
-        max-width: 800px;
-        margin: 0 auto;
+        height: calc(100vh - 160px);
+        gap: 0;
+        margin: 20px;
     }
     
-    .waveform-container {
+    .main-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .lcars-sidebar {
+        width: 200px;
+        background: var(--lcars-gray);
+        border-radius: 0 15px 15px 0;
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        margin-left: 15px;
+        position: relative;
+    }
+    
+    .central-display {
         background: linear-gradient(45deg, rgba(255, 153, 0, 0.1), rgba(153, 153, 204, 0.1));
         border: 3px solid var(--lcars-orange);
         border-radius: 15px;
         padding: 20px;
-        height: 200px;
+        flex: 1;
         position: relative;
         overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     
-    .waveform-display {
+    .display-content {
         width: 100%;
         height: 100%;
         background-color: var(--lcars-bg);
@@ -40,8 +60,10 @@
         align-items: end;
         gap: 2px;
         height: 80%;
+        width: 100%;
         opacity: 0;
         transition: opacity 0.3s ease;
+        justify-content: center;
     }
     
     .waveform-bars.active {
@@ -56,44 +78,119 @@
         min-height: 2px;
     }
     
-    .recording-controls {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 30px;
-        padding: 30px;
-        background: rgba(153, 153, 204, 0.05);
-        border-radius: 15px;
-        border: 2px solid var(--lcars-blue);
+    #video-display {
+        width: 100%;
+        height: 100%;
+        border-radius: 8px;
+        background: var(--lcars-black);
+        object-fit: cover;
     }
     
-    .record-btn {
-        width: 120px;
-        height: 120px;
-        border-radius: 50%;
-        border: none;
-        font-size: 2.5em;
+    .recording-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 8px;
         cursor: pointer;
         transition: all 0.3s ease;
-        position: relative;
+        font-family: 'lcars', 'Helvetica Neue', 'Arial Narrow', sans-serif;
+        font-weight: bold;
+        font-size: 2em;
+        text-transform: uppercase;
+        color: var(--lcars-white);
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        z-index: 10;
+    }
+    
+    .recording-overlay:hover {
+        background: rgba(0, 0, 0, 0.5);
+    }
+    
+    .recording-overlay.transparent {
+        background: transparent;
+        color: transparent;
+    }
+    
+    .recording-overlay.transparent:hover {
+        background: transparent;
+    }
+    
+    .sidebar-section {
+        background: var(--lcars-gray);
+        border-bottom: 2px solid var(--lcars-black);
+        padding: 15px 20px;
+        font-family: 'lcars', 'Helvetica Neue', 'Arial Narrow', sans-serif;
+        font-weight: bold;
+        font-size: 16px;
+        text-transform: uppercase;
+        color: var(--lcars-black);
         display: flex;
         align-items: center;
         justify-content: center;
     }
     
-    .record-btn.ready {
-        background: radial-gradient(circle, var(--lcars-red), #aa4444);
+    .sidebar-section:first-child {
+        border-radius: 0 15px 0 0;
+    }
+    
+    .sidebar-section:last-child {
+        border-radius: 0 0 15px 0;
+        border-bottom: none;
+    }
+    
+    .sidebar-section.timer {
+        background: var(--lcars-orange);
+        font-size: 24px;
+        letter-spacing: 2px;
+        min-height: 60px;
+    }
+    
+    .sidebar-section.control-btn {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: var(--lcars-blue);
+        min-height: 50px;
+    }
+    
+    .sidebar-section.control-btn:hover:not(.disabled) {
+        filter: brightness(1.15);
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+    }
+    
+    .sidebar-section.control-btn.disabled {
+        background: #666;
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+    
+    .sidebar-section.control-btn.record-btn {
+        background: var(--lcars-red);
         color: var(--lcars-white);
     }
     
-    .record-btn.recording {
-        background: radial-gradient(circle, #ff4444, var(--lcars-red));
+    .sidebar-section.control-btn.record-btn.recording {
+        background: #ff4444;
         animation: recordingPulse 1.5s infinite;
     }
     
-    .record-btn.stopped {
-        background: radial-gradient(circle, var(--lcars-orange), #cc7700);
+    .sidebar-section.control-btn.record-btn.stopped {
+        background: var(--lcars-orange);
         color: var(--lcars-black);
+    }
+    
+    .sidebar-section.control-btn.danger {
+        background: var(--lcars-red);
+        color: white;
+    }
+    
+    .sidebar-section.control-btn.secondary {
+        background: var(--lcars-orange);
     }
     
     @keyframes recordingPulse {
@@ -111,55 +208,13 @@
         }
     }
     
-    .control-button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 15px 25px;
-        background: var(--lcars-blue);
-        border: none;
-        color: var(--lcars-black);
-        border-radius: var(--lcars-small-radius);
-        font-family: 'lcars', 'Helvetica Neue', 'Arial Narrow', sans-serif;
-        font-weight: bold;
-        text-transform: uppercase;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        font-size: 16px;
-        min-width: 120px;
-    }
-    
-    .control-button:hover {
-        filter: brightness(1.15);
-        box-shadow: 0 0 15px rgba(102, 153, 204, 0.4);
-    }
-    
-    .control-button:disabled {
-        background: var(--lcars-gray);
-        cursor: not-allowed;
-        opacity: 0.5;
-        filter: none;
-    }
-    
-    .control-button:disabled:hover {
-        box-shadow: none;
-    }
-    
-    .control-button.secondary {
-        background: var(--lcars-orange);
-    }
-    
-    .control-button.danger {
-        background: var(--lcars-red);
-        color: white;
-    }
-    
     .recording-status {
         text-align: center;
-        padding: 20px;
+        padding: 15px;
         background: rgba(255, 153, 0, 0.1);
         border-radius: 10px;
         border: 2px solid var(--lcars-orange);
+        order: -1;
     }
     
     .status-text {
@@ -210,45 +265,39 @@
         border: 2px solid var(--lcars-blue);
         color: var(--lcars-blue);
     }
+    
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="recording-interface">
-    <!-- Recording Status Panel -->
-    <div class="recording-status">
-        <div class="status-text" id="status-text">READY TO RECORD</div>
-        <div class="recording-timer" id="timer">00:00</div>
-        <div style="font-size: 0.9em; color: var(--lcars-blue);" id="instructions">
-            PRESS RECORD BUTTON TO BEGIN LOG ENTRY
+    <div class="main-content">
+        <!-- Central Display -->
+        <div class="central-display">
+            <div class="display-content">
+                <!-- Video Display (shown when video mode is selected) -->
+                <video id="video-display" autoplay muted playsinline style="display: none;"></video>
+                
+                <!-- Waveform Display (shown when audio mode is selected) -->
+                <div class="waveform-bars" id="waveform">
+                    <!-- Waveform bars will be generated by JavaScript -->
+                </div>
+                <div id="waveform-placeholder" style="display: none;"></div>
+                
+                <!-- Recording Overlay -->
+                <div class="recording-overlay" id="recording-overlay">
+                    START RECORDING
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Waveform Display -->
-    <div class="waveform-container">
-        <div class="waveform-display">
-            <div class="waveform-bars" id="waveform">
-                <!-- Waveform bars will be generated by JavaScript -->
-            </div>
-            <div id="waveform-placeholder" style="color: var(--lcars-blue); font-size: 1.2em; text-transform: uppercase;">
-                AUDIO WAVEFORM DISPLAY
-            </div>
-        </div>
-    </div>
-
-    <!-- Recording Controls -->
-    <div class="recording-controls">
-        <button class="control-button" id="pause-btn" disabled onclick="pauseRecording()">
-            PAUSE
-        </button>
-        
-        <button class="record-btn ready" id="record-btn" onclick="toggleRecording()">
-            REC
-        </button>
-        
-        <button class="control-button secondary" id="save-btn" disabled onclick="saveRecording()">
-            SAVE LOG
-        </button>
+    <!-- LCARS Sidebar -->
+    <div class="lcars-sidebar">
+        <div class="sidebar-section timer" id="timer">00:00</div>
+        <div class="sidebar-section control-btn secondary" onclick="switchMode()" id="mode-toggle">RECORD VIDEO LOG</div>
+        <div class="sidebar-section control-btn disabled" id="save-btn" onclick="saveRecording()" style="display: none;">SAVE</div>
+        <div class="sidebar-section control-btn danger" id="cancel-btn" onclick="cancelRecording()" style="display: none;">CANCEL</div>
     </div>
 
     <!-- Upload Progress -->
@@ -272,7 +321,7 @@
 
 {% block scripts %}
 <script>
-    class AudioRecorder {
+    class VoiceRecorder {
         constructor() {
             this.mediaRecorder = null;
             this.audioContext = null;
@@ -285,17 +334,20 @@
             this.pausedTime = 0;
             this.timerInterval = null;
             this.animationId = null;
+            this.currentStream = null;
+            this.isVideoMode = false;
             
-            this.recordBtn = document.getElementById('record-btn');
-            this.pauseBtn = document.getElementById('pause-btn');
             this.saveBtn = document.getElementById('save-btn');
-            this.statusText = document.getElementById('status-text');
+            this.cancelBtn = document.getElementById('cancel-btn');
+            this.modeToggle = document.getElementById('mode-toggle');
             this.timer = document.getElementById('timer');
-            this.instructions = document.getElementById('instructions');
             this.waveform = document.getElementById('waveform');
             this.waveformPlaceholder = document.getElementById('waveform-placeholder');
+            this.videoDisplay = document.getElementById('video-display');
+            this.recordingOverlay = document.getElementById('recording-overlay');
             
             this.initializeWaveform();
+            this.updateUI();
         }
         
         initializeWaveform() {
@@ -308,18 +360,132 @@
             }
         }
         
-        async startRecording() {
+        
+        async switchToVideoMode() {
+            this.isVideoMode = true;
+            this.waveform.style.display = 'none';
+            this.waveformPlaceholder.style.display = 'none';
+            this.videoDisplay.style.display = 'block';
+            this.modeToggle.textContent = 'RECORD AUDIO LOG';
+            
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user' 
+                    },
                     audio: {
                         echoCancellation: true,
                         noiseSuppression: true,
                         sampleRate: 44100
-                    } 
+                    }
                 });
                 
+                this.videoDisplay.srcObject = stream;
+                this.currentStream = stream;
+                
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                this.showAlert('Failed to access camera. Falling back to audio mode.', 'error');
+                this.switchToAudioMode();
+            }
+        }
+        
+        switchToAudioMode() {
+            this.isVideoMode = false;
+            this.videoDisplay.style.display = 'none';
+            this.waveform.style.display = 'flex';
+            this.waveformPlaceholder.style.display = 'none';
+            this.modeToggle.textContent = 'RECORD VIDEO LOG';
+            
+            // Stop video stream if active
+            if (this.currentStream) {
+                this.currentStream.getTracks().forEach(track => track.stop());
+                this.currentStream = null;
+            }
+        }
+        
+        async startRecording() {
+            // If resuming from pause
+            if (this.isPaused && this.mediaRecorder) {
+                this.mediaRecorder.resume();
+                this.isPaused = false;
+                this.isRecording = true;
+                this.pausedTime += Date.now() - this.pauseStartTime;
+                this.startTimer();
+                this.startWaveformVisualization();
+                this.updateUI();
+                return;
+            }
+            
+            try {
+                let stream;
+                
+                if (this.isVideoMode && this.currentStream) {
+                    // Use existing video stream
+                    stream = this.currentStream;
+                } else {
+                    // Get new audio stream
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            sampleRate: 44100
+                        } 
+                    });
+                }
+                
                 this.chunks = [];
-                this.mediaRecorder = new MediaRecorder(stream);
+                
+                // Determine MIME type with fallback options
+                let mimeType;
+                if (this.isVideoMode) {
+                    // Check if browser supports format testing
+                    if (typeof MediaRecorder.isTypeSupported === 'function') {
+                        // Try different video formats in order of preference
+                        if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')) {
+                            mimeType = 'video/webm;codecs=vp9,opus';
+                            console.log('Using video format: vp9 with opus');
+                        } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')) {
+                            mimeType = 'video/webm;codecs=vp8,opus';
+                            console.log('Using video format: vp8 with opus');
+                        } else if (MediaRecorder.isTypeSupported('video/webm')) {
+                            mimeType = 'video/webm';
+                            console.log('Using video format: webm default');
+                        } else {
+                            mimeType = 'video/webm';
+                            console.log('Using fallback video format: webm');
+                        }
+                    } else {
+                        // Fallback for browsers without isTypeSupported
+                        mimeType = 'video/webm';
+                        console.log('Browser does not support format testing, using default: webm');
+                    }
+                } else {
+                    mimeType = 'audio/webm';
+                }
+                
+                console.log('Creating MediaRecorder with MIME type:', mimeType);
+                console.log('Stream tracks:', stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
+                
+                let mediaRecorder;
+                try {
+                    mediaRecorder = new MediaRecorder(stream, { mimeType });
+                    console.log('MediaRecorder created successfully with options:', mediaRecorder);
+                } catch (mimeError) {
+                    console.warn('Failed to create MediaRecorder with MIME type, trying without options:', mimeError);
+                    try {
+                        mediaRecorder = new MediaRecorder(stream);
+                        console.log('MediaRecorder created with default settings:', mediaRecorder);
+                    } catch (defaultError) {
+                        console.error('Failed to create MediaRecorder even without options:', defaultError);
+                        throw new Error('MediaRecorder not supported in this browser');
+                    }
+                }
+                
+                // Assign to class property only after successful creation
+                this.mediaRecorder = mediaRecorder;
                 
                 this.mediaRecorder.ondataavailable = (event) => {
                     if (event.data.size > 0) {
@@ -328,12 +494,14 @@
                 };
                 
                 this.mediaRecorder.onstop = () => {
-                    stream.getTracks().forEach(track => track.stop());
+                    if (!this.isVideoMode) {
+                        stream.getTracks().forEach(track => track.stop());
+                    }
                     this.stopWaveformVisualization();
-                    this.updateUI(); // Update UI after recording data is available
+                    this.updateUI();
                 };
                 
-                // Set up audio context for visualization
+                // Set up audio context for visualization (works for both audio and video)
                 this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 this.analyser = this.audioContext.createAnalyser();
                 this.microphone = this.audioContext.createMediaStreamSource(stream);
@@ -342,28 +510,66 @@
                 this.analyser.fftSize = 256;
                 this.analyser.smoothingTimeConstant = 0.8;
                 
+                // Verify MediaRecorder was created properly
+                console.log('Verifying MediaRecorder:', {
+                    exists: !!this.mediaRecorder,
+                    type: typeof this.mediaRecorder,
+                    constructor: this.mediaRecorder ? this.mediaRecorder.constructor.name : 'none',
+                    hasStart: this.mediaRecorder && typeof this.mediaRecorder.start === 'function',
+                    startType: this.mediaRecorder ? typeof this.mediaRecorder.start : 'none',
+                    methods: this.mediaRecorder ? Object.getOwnPropertyNames(this.mediaRecorder) : 'none',
+                    prototype: this.mediaRecorder ? Object.getOwnPropertyNames(Object.getPrototypeOf(this.mediaRecorder)) : 'none'
+                });
+                
+                if (!this.mediaRecorder) {
+                    throw new Error('MediaRecorder is null or undefined');
+                }
+                
+                if (typeof this.mediaRecorder.start !== 'function') {
+                    throw new Error(`MediaRecorder.start is not a function, it is: ${typeof this.mediaRecorder.start}`);
+                }
+                
+                console.log('About to call start() on MediaRecorder:', this.mediaRecorder);
+                console.log('MediaRecorder state:', this.mediaRecorder.state);
+                console.log('MediaRecorder stream:', this.mediaRecorder.stream);
+                
+                // Add a small delay to ensure MediaRecorder is ready
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                console.log('After delay - MediaRecorder state:', this.mediaRecorder.state);
                 this.mediaRecorder.start();
+                console.log('MediaRecorder.start() called successfully');
                 this.isRecording = true;
                 this.startTime = Date.now();
                 this.startTimer();
                 this.startWaveformVisualization();
                 this.updateUI();
                 
-                this.showAlert('Recording started', 'success');
+                const recordingType = this.isVideoMode ? 'video' : 'audio';
+                this.showAlert(`${recordingType} recording started`, 'success');
                 
             } catch (error) {
                 console.error('Error starting recording:', error);
-                this.showAlert('Failed to access microphone. Please check permissions.', 'error');
+                
+                if (error.message === 'No supported video format available') {
+                    this.showAlert('Video recording not supported in this browser. Switching to audio mode.', 'error');
+                    this.switchToAudioMode();
+                    return;
+                }
+                
+                const deviceType = this.isVideoMode ? 'camera' : 'microphone';
+                this.showAlert(`Failed to start recording: ${error.message}`, 'error');
             }
         }
         
         stopRecording() {
             if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
-                this.mediaRecorder.stop();
+                this.mediaRecorder.pause();
             }
             
             this.isRecording = false;
-            this.isPaused = false;
+            this.isPaused = true;
+            this.pauseStartTime = Date.now();
             this.stopTimer();
             this.updateUI();
         }
@@ -444,14 +650,25 @@
         }
         
         async saveRecording() {
+            // First stop the recording if it's still going
+            if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+                this.mediaRecorder.stop();
+            }
+            
             if (this.chunks.length === 0) {
-                this.showAlert('No audio data to save', 'error');
+                const mediaType = this.isVideoMode ? 'video' : 'audio';
+                this.showAlert(`No ${mediaType} data to save`, 'error');
                 return;
             }
             
-            const audioBlob = new Blob(this.chunks, { type: 'audio/webm' });
+            const mimeType = this.isVideoMode ? 'video/webm' : 'audio/webm';
+            const extension = this.isVideoMode ? '.webm' : '.webm';
+            const filename = this.isVideoMode ? `recording${extension}` : `recording${extension}`;
+            
+            const mediaBlob = new Blob(this.chunks, { type: mimeType });
             const formData = new FormData();
-            formData.append('file', audioBlob, 'recording.webm');
+            formData.append('file', mediaBlob, filename);
+            formData.append('media_type', this.isVideoMode ? 'video' : 'audio');
             
             // Get geolocation
             try {
@@ -479,7 +696,8 @@
                 
                 if (response.ok) {
                     const result = await response.json();
-                    this.showAlert(`Log entry saved! ID: ${result.id}`, 'success');
+                    const mediaType = this.isVideoMode ? 'video' : 'audio';
+                    this.showAlert(`${mediaType} log entry saved! ID: ${result.id}`, 'success');
                     
                     // Redirect to log detail page after 2 seconds
                     setTimeout(() => {
@@ -508,37 +726,45 @@
             this.updateUI();
         }
         
+        cancelRecording() {
+            if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+                this.mediaRecorder.stop();
+            }
+            
+            // Clean up streams
+            if (this.currentStream && !this.isVideoMode) {
+                this.currentStream.getTracks().forEach(track => track.stop());
+                this.currentStream = null;
+            }
+            
+            this.stopWaveformVisualization();
+            this.resetRecorder();
+            this.showAlert('Recording cancelled', 'info');
+        }
+        
         updateUI() {
             if (this.isRecording && !this.isPaused) {
-                this.recordBtn.className = 'record-btn recording';
-                this.recordBtn.innerHTML = 'STOP';
-                this.statusText.textContent = 'RECORDING IN PROGRESS';
-                this.instructions.textContent = 'CLICK TO STOP RECORDING';
-                this.pauseBtn.disabled = false;
-                this.saveBtn.disabled = true;
-            } else if (this.isPaused) {
-                this.recordBtn.className = 'record-btn stopped';
-                this.recordBtn.innerHTML = 'STOP';
-                this.statusText.textContent = 'RECORDING PAUSED';
-                this.instructions.textContent = 'CLICK PAUSE TO RESUME';
-                this.pauseBtn.textContent = 'RESUME';
-                this.saveBtn.disabled = true;
-            } else if (this.chunks.length > 0) {
-                this.recordBtn.className = 'record-btn ready';
-                this.recordBtn.innerHTML = 'REC';
-                this.statusText.textContent = 'RECORDING COMPLETE';
-                this.instructions.textContent = 'SAVE LOG OR RECORD NEW ENTRY';
-                this.pauseBtn.disabled = true;
-                this.pauseBtn.textContent = 'PAUSE';
-                this.saveBtn.disabled = false;
+                // Currently recording - overlay is transparent, click to stop
+                this.recordingOverlay.classList.add('transparent');
+                this.recordingOverlay.textContent = '';
+                this.recordingOverlay.onclick = () => this.stopRecording();
+                this.cancelBtn.style.display = 'block';
+                this.saveBtn.style.display = 'none';
+            } else if (this.isPaused || this.chunks.length > 0) {
+                // Paused/stopped - overlay shows resume, save button visible
+                this.recordingOverlay.classList.remove('transparent');
+                this.recordingOverlay.textContent = 'RESUME RECORDING';
+                this.recordingOverlay.onclick = () => this.startRecording();
+                this.cancelBtn.style.display = 'block';
+                this.saveBtn.style.display = 'block';
+                this.saveBtn.classList.remove('disabled');
             } else {
-                this.recordBtn.className = 'record-btn ready';
-                this.recordBtn.innerHTML = 'REC';
-                this.statusText.textContent = 'READY TO RECORD';
-                this.instructions.textContent = 'PRESS RECORD BUTTON TO BEGIN LOG ENTRY';
-                this.pauseBtn.disabled = true;
-                this.pauseBtn.textContent = 'PAUSE';
-                this.saveBtn.disabled = true;
+                // Ready to start - overlay shows start
+                this.recordingOverlay.classList.remove('transparent');
+                this.recordingOverlay.textContent = 'START RECORDING';
+                this.recordingOverlay.onclick = () => this.startRecording();
+                this.cancelBtn.style.display = 'none';
+                this.saveBtn.style.display = 'none';
             }
         }
         
@@ -627,12 +853,14 @@
     let recorder;
     
     document.addEventListener('DOMContentLoaded', function() {
-        recorder = new AudioRecorder();
+        recorder = new VoiceRecorder();
     });
     
     function toggleRecording() {
         if (recorder.isRecording) {
             recorder.stopRecording();
+        } else if (recorder.isPaused || recorder.chunks.length > 0) {
+            recorder.startRecording();
         } else {
             recorder.startRecording();
         }
@@ -644,6 +872,18 @@
     
     function saveRecording() {
         recorder.saveRecording();
+    }
+    
+    function cancelRecording() {
+        recorder.cancelRecording();
+    }
+    
+    function switchMode() {
+        if (recorder.isVideoMode) {
+            recorder.switchToAudioMode();
+        } else {
+            recorder.switchToVideoMode();
+        }
     }
     
     // Handle keyboard shortcuts

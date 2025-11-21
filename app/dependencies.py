@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.config import Settings
 from app.models.log_entry import Base
 from app.services.s3 import S3Service
+from app.services.media_storage import MediaStorageService
 from app.services.openai_client import OpenAIService
 
 
@@ -116,6 +117,11 @@ def get_s3_service(settings: Settings = Depends(get_settings)) -> S3Service:
 def get_openai_service(settings: Settings = Depends(get_settings)) -> OpenAIService:
     """Get OpenAI service instance.""" 
     return OpenAIService(settings)
+
+
+def get_media_storage_service(settings: Settings = Depends(get_settings)) -> MediaStorageService:
+    """Get media storage service instance."""
+    return MediaStorageService(settings)
 
 
 # Cleanup function for graceful shutdown
