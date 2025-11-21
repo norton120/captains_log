@@ -14,6 +14,9 @@ docker compose run --rm test
 # Run specific tests
 docker compose run --rm test pytest tests/test_specific.py -v
 
+# Generate database migrations (NEVER hand-write migrations)
+docker compose run --rm --profile=tools make_migrations
+
 # Access at http://captains-log.localhost
 ```
 

@@ -29,6 +29,24 @@ services:
         condition: service_healthy
     command: alembic upgrade head
 
+  make_migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
+      - ./.env:/app/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://captain:defiant@db:5432/captains_log
+    depends_on:
+      db:
+        condition: service_healthy
+    command: alembic revision --autogenerate -m "Auto-generated migration"
+    profiles:
+      - tools
+
   app:
     build:
       context: .
