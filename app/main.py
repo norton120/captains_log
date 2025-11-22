@@ -31,6 +31,51 @@ async def lifespan(app: FastAPI):
     """Handle application lifespan events."""
     # Startup
     logger.info("Starting Captain's Log application...")
+
+    # Load OAuth credentials from database and update settings if needed
+    try:
+        from app.config import settings
+        from app.api.auth import register_oauth_routes
+
+        db_session = None
+        credentials_loaded = False
+
+        try:
+            async for session in get_db_session():
+                db_session = session
+                break
+
+            if db_session:
+                preferences = await get_or_create_user_preferences(db_session)
+
+                # Update settings with database OAuth credentials if env vars are not set
+                if not settings.google_oauth_client_id and preferences.google_oauth_client_id:
+                    settings.google_oauth_client_id = preferences.google_oauth_client_id
+                    settings.google_oauth_client_secret = preferences.google_oauth_client_secret
+                    logger.info("Loaded Google OAuth credentials from database")
+                    credentials_loaded = True
+
+                if not settings.github_oauth_client_id and preferences.github_oauth_client_id:
+                    settings.github_oauth_client_id = preferences.github_oauth_client_id
+                    settings.github_oauth_client_secret = preferences.github_oauth_client_secret
+                    logger.info("Loaded GitHub OAuth credentials from database")
+                    credentials_loaded = True
+
+                if not settings.facebook_oauth_client_id and preferences.facebook_oauth_client_id:
+                    settings.facebook_oauth_client_id = preferences.facebook_oauth_client_id
+                    settings.facebook_oauth_client_secret = preferences.facebook_oauth_client_secret
+                    logger.info("Loaded Facebook OAuth credentials from database")
+                    credentials_loaded = True
+
+                # Re-register OAuth routes with updated credentials
+                if credentials_loaded:
+                    logger.info("Re-registering OAuth routes with database credentials")
+                    register_oauth_routes()
+        except Exception as e:
+            logger.warning(f"Could not load OAuth credentials from database: {e}")
+    except Exception as e:
+        logger.warning(f"Error during startup OAuth credential loading: {e}")
+
     yield
     # Shutdown
     logger.info("Shutting down Captain's Log application...")
@@ -376,10 +421,19 @@ async def login_page(request: Request, db_session: AsyncSession = Depends(get_db
     user_count = result.scalar()
     allow_registration = user_count == 0 or settings.allow_new_user_registration
 
-    # Check which OAuth providers are configured
-    google_oauth_enabled = bool(settings.google_oauth_client_id and settings.google_oauth_client_secret)
-    github_oauth_enabled = bool(settings.github_oauth_client_id and settings.github_oauth_client_secret)
-    facebook_oauth_enabled = bool(settings.facebook_oauth_client_id and settings.facebook_oauth_client_secret)
+    # Check which OAuth providers are configured (check both env and database)
+    google_oauth_enabled = bool(
+        (preferences.google_oauth_client_id and preferences.google_oauth_client_secret) or
+        (settings.google_oauth_client_id and settings.google_oauth_client_secret)
+    )
+    github_oauth_enabled = bool(
+        (preferences.github_oauth_client_id and preferences.github_oauth_client_secret) or
+        (settings.github_oauth_client_id and settings.github_oauth_client_secret)
+    )
+    facebook_oauth_enabled = bool(
+        (preferences.facebook_oauth_client_id and preferences.facebook_oauth_client_secret) or
+        (settings.facebook_oauth_client_id and settings.facebook_oauth_client_secret)
+    )
 
     return templates.TemplateResponse(
         "login.html",
@@ -413,10 +467,19 @@ async def signup_page(request: Request, db_session: AsyncSession = Depends(get_d
     is_first_user = user_count == 0
     allow_registration = is_first_user or settings.allow_new_user_registration
 
-    # Check which OAuth providers are configured
-    google_oauth_enabled = bool(settings.google_oauth_client_id and settings.google_oauth_client_secret)
-    github_oauth_enabled = bool(settings.github_oauth_client_id and settings.github_oauth_client_secret)
-    facebook_oauth_enabled = bool(settings.facebook_oauth_client_id and settings.facebook_oauth_client_secret)
+    # Check which OAuth providers are configured (check both env and database)
+    google_oauth_enabled = bool(
+        (preferences.google_oauth_client_id and preferences.google_oauth_client_secret) or
+        (settings.google_oauth_client_id and settings.google_oauth_client_secret)
+    )
+    github_oauth_enabled = bool(
+        (preferences.github_oauth_client_id and preferences.github_oauth_client_secret) or
+        (settings.github_oauth_client_id and settings.github_oauth_client_secret)
+    )
+    facebook_oauth_enabled = bool(
+        (preferences.facebook_oauth_client_id and preferences.facebook_oauth_client_secret) or
+        (settings.facebook_oauth_client_id and settings.facebook_oauth_client_secret)
+    )
 
     return templates.TemplateResponse(
         "signup.html",

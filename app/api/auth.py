@@ -160,39 +160,50 @@ router.include_router(
     tags=["auth"],
 )
 
-# OAuth routes - only add if credentials are configured
-google_oauth_client = get_google_oauth_client()
-if google_oauth_client:
-    router.include_router(
-        fastapi_users.get_oauth_router(
-            google_oauth_client,
-            auth_backend,
-            settings.secret_key,
-        ),
-        prefix="/auth/google",
-        tags=["auth", "oauth"],
-    )
+def register_oauth_routes():
+    """
+    Register OAuth routes for configured providers.
 
-github_oauth_client = get_github_oauth_client()
-if github_oauth_client:
-    router.include_router(
-        fastapi_users.get_oauth_router(
-            github_oauth_client,
-            auth_backend,
-            settings.secret_key,
-        ),
-        prefix="/auth/github",
-        tags=["auth", "oauth"],
-    )
+    This function should be called after loading OAuth credentials from the database
+    to ensure all configured providers are properly registered.
+    """
+    # OAuth routes - only add if credentials are configured
+    google_oauth_client = get_google_oauth_client()
+    if google_oauth_client:
+        router.include_router(
+            fastapi_users.get_oauth_router(
+                google_oauth_client,
+                auth_backend,
+                settings.secret_key,
+            ),
+            prefix="/auth/google",
+            tags=["auth", "oauth"],
+        )
 
-facebook_oauth_client = get_facebook_oauth_client()
-if facebook_oauth_client:
-    router.include_router(
-        fastapi_users.get_oauth_router(
-            facebook_oauth_client,
-            auth_backend,
-            settings.secret_key,
-        ),
-        prefix="/auth/facebook",
-        tags=["auth", "oauth"],
-    )
+    github_oauth_client = get_github_oauth_client()
+    if github_oauth_client:
+        router.include_router(
+            fastapi_users.get_oauth_router(
+                github_oauth_client,
+                auth_backend,
+                settings.secret_key,
+            ),
+            prefix="/auth/github",
+            tags=["auth", "oauth"],
+        )
+
+    facebook_oauth_client = get_facebook_oauth_client()
+    if facebook_oauth_client:
+        router.include_router(
+            fastapi_users.get_oauth_router(
+                facebook_oauth_client,
+                auth_backend,
+                settings.secret_key,
+            ),
+            prefix="/auth/facebook",
+            tags=["auth", "oauth"],
+        )
+
+
+# Call this immediately to register any OAuth routes configured via environment variables
+register_oauth_routes()
