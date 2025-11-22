@@ -6,7 +6,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
-from app.dependencies import get_current_user
 
 
 @pytest.mark.asyncio
@@ -61,40 +60,3 @@ class TestUserModel:
         repr_str = repr(user)
         assert "User" in repr_str
         assert user.username in repr_str
-
-
-@pytest.mark.asyncio
-class TestGenericUserFixture:
-    """Tests for generic user fixture and authentication dependency."""
-
-    async def test_generic_user_exists(self, async_db_session: AsyncSession):
-        """Test that a generic user can be created and retrieved."""
-        # Create generic user
-        generic_user = User(username="generic_user", email="generic@captainslog.local")
-        async_db_session.add(generic_user)
-        await async_db_session.commit()
-        await async_db_session.refresh(generic_user)
-
-        # Verify it exists
-        result = await async_db_session.execute(select(User).where(User.username == "generic_user"))
-        user = result.scalar_one()
-
-        assert user is not None
-        assert user.username == "generic_user"
-        assert user.email == "generic@captainslog.local"
-
-    async def test_get_current_user_returns_generic_user(self, async_db_session: AsyncSession):
-        """Test that get_current_user dependency returns the generic user."""
-        # First, create the generic user
-        generic_user = User(username="generic_user", email="generic@captainslog.local")
-        async_db_session.add(generic_user)
-        await async_db_session.commit()
-        await async_db_session.refresh(generic_user)
-
-        # Now test the dependency
-        current_user = await get_current_user(async_db_session)
-
-        assert current_user is not None
-        assert current_user.username == "generic_user"
-        assert current_user.email == "generic@captainslog.local"
-        assert current_user.id == generic_user.id

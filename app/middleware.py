@@ -22,19 +22,24 @@ class InitializationCheckMiddleware(BaseHTTPMiddleware):
     to the settings page with an initialization flag.
 
     Whitelisted routes that don't require initialization:
-    - /auth/* (authentication routes)
+    - /api/auth/* (authentication routes)
+    - /login (login page)
+    - /signup (signup page)
     - /settings (settings page)
     - /api/settings/* (settings API)
     - /health (health check)
     - /static/* (static assets)
+    - /docs, /openapi.json, /redoc (API documentation)
     """
 
     WHITELISTED_PATHS = [
-        "/auth/",
-        "/settings",
-        "/api/settings/",
-        "/health",
-        "/static/",
+        "/api/auth/",  # Authentication routes (login, register, OAuth)
+        "/login",  # Login page
+        "/signup",  # Signup page
+        "/settings",  # Settings page (accessible during initialization)
+        "/api/settings/",  # Settings API (accessible during initialization)
+        "/health",  # Health check
+        "/static/",  # Static assets
         "/docs",  # FastAPI docs
         "/openapi.json",  # FastAPI OpenAPI spec
         "/redoc",  # FastAPI redoc
@@ -71,6 +76,52 @@ class InitializationCheckMiddleware(BaseHTTPMiddleware):
             pass
 
         # Proceed with the request
+        return await call_next(request)
+
+
+class AuthenticationMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to require authentication for all routes except whitelisted ones.
+
+    Redirects unauthenticated users to the login page.
+
+    Whitelisted routes that don't require authentication:
+    - /api/auth/* (authentication routes)
+    - /login (login page)
+    - /signup (signup page)
+    - /health (health check)
+    - /static/* (static assets)
+    - /docs, /openapi.json, /redoc (API documentation)
+    """
+
+    WHITELISTED_PATHS = [
+        "/api/auth/",  # Authentication routes (login, register, OAuth)
+        "/login",  # Login page
+        "/signup",  # Signup page
+        "/health",  # Health check
+        "/static/",  # Static assets
+        "/docs",  # FastAPI docs
+        "/openapi.json",  # FastAPI OpenAPI spec
+        "/redoc",  # FastAPI redoc
+    ]
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """Check if user is authenticated and redirect if needed."""
+        path = request.url.path
+
+        # Skip check for whitelisted paths
+        if any(path.startswith(wp) for wp in self.WHITELISTED_PATHS):
+            return await call_next(request)
+
+        # Check if user is authenticated via request.state.user (set by UserContextMiddleware)
+        user = getattr(request.state, "user", None)
+
+        if not user:
+            # User is not authenticated, redirect to login
+            logger.info(f"Unauthenticated access to {path}, redirecting to /login")
+            return RedirectResponse(url=f"/login?next={path}", status_code=302)
+
+        # User is authenticated, proceed with the request
         return await call_next(request)
 
 

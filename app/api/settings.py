@@ -156,7 +156,9 @@ async def get_or_create_user_preferences(db_session: AsyncSession) -> UserPrefer
 
 
 @router.get("/preferences", response_model=UserPreferencesResponse)
-async def get_user_preferences(db_session: AsyncSession = Depends(get_db_session)) -> UserPreferencesResponse:
+async def get_user_preferences(
+    db_session: AsyncSession = Depends(get_db_session),
+) -> UserPreferencesResponse:
     """
     Get current user preferences.
     """
@@ -215,7 +217,8 @@ async def get_user_preferences(db_session: AsyncSession = Depends(get_db_session
 
 @router.put("/preferences", response_model=UserPreferencesResponse)
 async def update_user_preferences(
-    update_request: UserPreferencesUpdateRequest, db_session: AsyncSession = Depends(get_db_session)
+    update_request: UserPreferencesUpdateRequest,
+    db_session: AsyncSession = Depends(get_db_session),
 ) -> UserPreferencesResponse:
     """
     Update user preferences.
@@ -288,7 +291,9 @@ async def update_user_preferences(
 
 
 @router.get("/", response_model=Dict[str, SettingResponse])
-async def get_settings(db_session: AsyncSession = Depends(get_db_session)) -> Dict[str, SettingResponse]:
+async def get_settings(
+    db_session: AsyncSession = Depends(get_db_session),
+) -> Dict[str, SettingResponse]:
     """
     Get all custom settings.
 
@@ -314,7 +319,10 @@ async def get_settings(db_session: AsyncSession = Depends(get_db_session)) -> Di
 
 
 @router.get("/{setting_key}", response_model=SettingResponse)
-async def get_setting(setting_key: str, db_session: AsyncSession = Depends(get_db_session)) -> SettingResponse:
+async def get_setting(
+    setting_key: str,
+    db_session: AsyncSession = Depends(get_db_session),
+) -> SettingResponse:
     """
     Get a specific setting by key.
 
@@ -343,7 +351,9 @@ async def get_setting(setting_key: str, db_session: AsyncSession = Depends(get_d
 
 @router.put("/{setting_key}", response_model=SettingResponse)
 async def update_setting(
-    setting_key: str, update_request: SettingUpdateRequest, db_session: AsyncSession = Depends(get_db_session)
+    setting_key: str,
+    update_request: SettingUpdateRequest,
+    db_session: AsyncSession = Depends(get_db_session),
 ) -> SettingResponse:
     """
     Update or create a setting.
@@ -387,7 +397,10 @@ async def update_setting(
 
 
 @router.delete("/{setting_key}")
-async def delete_setting(setting_key: str, db_session: AsyncSession = Depends(get_db_session)) -> Dict[str, str]:
+async def delete_setting(
+    setting_key: str,
+    db_session: AsyncSession = Depends(get_db_session),
+) -> Dict[str, str]:
     """
     Delete a setting.
 
@@ -419,7 +432,9 @@ async def delete_setting(setting_key: str, db_session: AsyncSession = Depends(ge
 
 
 @router.get("/failed-logs/count")
-async def get_failed_logs_count(db_session: AsyncSession = Depends(get_db_session)) -> Dict[str, Any]:
+async def get_failed_logs_count(
+    db_session: AsyncSession = Depends(get_db_session),
+) -> Dict[str, Any]:
     """
     Get count of failed or stuck log entries.
 
@@ -466,7 +481,9 @@ async def get_failed_logs_count(db_session: AsyncSession = Depends(get_db_sessio
 
 
 @router.get("/initialization-status")
-async def get_initialization_status(db_session: AsyncSession = Depends(get_db_session)) -> Dict[str, Any]:
+async def get_initialization_status(
+    db_session: AsyncSession = Depends(get_db_session),
+) -> Dict[str, Any]:
     """
     Get initialization status for the application.
 

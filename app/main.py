@@ -18,7 +18,7 @@ from app.api.auth import router as auth_router
 from app.dependencies import close_db_connection, get_db, get_db_session
 from app.models.log_entry import LogEntry
 from app.api.settings import get_or_create_user_preferences
-from app.middleware import InitializationCheckMiddleware, UserContextMiddleware
+from app.middleware import InitializationCheckMiddleware, UserContextMiddleware, AuthenticationMiddleware
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -75,8 +75,10 @@ app.add_middleware(
 
 # Add middlewares
 # Note: Middlewares are executed in reverse order of addition
-app.add_middleware(UserContextMiddleware)
-app.add_middleware(InitializationCheckMiddleware)
+# Execution order (first to last): InitializationCheckMiddleware -> UserContextMiddleware -> AuthenticationMiddleware
+app.add_middleware(AuthenticationMiddleware)  # Runs THIRD - checks if user is authenticated
+app.add_middleware(UserContextMiddleware)  # Runs SECOND - sets request.state.user
+app.add_middleware(InitializationCheckMiddleware)  # Runs FIRST - checks initialization
 
 # Include API routers
 app.include_router(auth_router, prefix="/api")
@@ -87,7 +89,9 @@ app.include_router(status_router, prefix="/api/status", tags=["status"])
 
 @app.get("/")
 async def index_page(
-    request: Request, db: Session = Depends(get_db), db_session: AsyncSession = Depends(get_db_session)
+    request: Request,
+    db: Session = Depends(get_db),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Main log listing page."""
     preferences = await get_or_create_user_preferences(db_session)
@@ -105,7 +109,10 @@ async def index_page(
 
 
 @app.get("/record")
-async def record_page(request: Request, db_session: AsyncSession = Depends(get_db_session)):
+async def record_page(
+    request: Request,
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Recording page."""
     preferences = await get_or_create_user_preferences(db_session)
     return templates.TemplateResponse(
@@ -122,7 +129,10 @@ async def record_page(request: Request, db_session: AsyncSession = Depends(get_d
 
 
 @app.get("/settings")
-async def settings_page(request: Request, db_session: AsyncSession = Depends(get_db_session)):
+async def settings_page(
+    request: Request,
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Settings page."""
     preferences = await get_or_create_user_preferences(db_session)
     return templates.TemplateResponse(
@@ -139,7 +149,10 @@ async def settings_page(request: Request, db_session: AsyncSession = Depends(get
 
 
 @app.get("/search")
-async def search_page(request: Request, db_session: AsyncSession = Depends(get_db_session)):
+async def search_page(
+    request: Request,
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Search page."""
     preferences = await get_or_create_user_preferences(db_session)
     return templates.TemplateResponse(
@@ -156,7 +169,11 @@ async def search_page(request: Request, db_session: AsyncSession = Depends(get_d
 
 
 @app.get("/map")
-async def map_page(request: Request, db: Session = Depends(get_db), db_session: AsyncSession = Depends(get_db_session)):
+async def map_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Map view page showing all logs with location data."""
     import json
     from sqlalchemy import and_
@@ -219,7 +236,10 @@ async def map_page(request: Request, db: Session = Depends(get_db), db_session: 
 
 
 @app.get("/status")
-async def status_page(request: Request, db_session: AsyncSession = Depends(get_db_session)):
+async def status_page(
+    request: Request,
+    db_session: AsyncSession = Depends(get_db_session),
+):
     """Status page showing system health and processing queue."""
     preferences = await get_or_create_user_preferences(db_session)
     return templates.TemplateResponse(
@@ -237,7 +257,10 @@ async def status_page(request: Request, db_session: AsyncSession = Depends(get_d
 
 @app.get("/logs/{log_id}")
 async def log_detail_page(
-    log_id: str, request: Request, db: Session = Depends(get_db), db_session: AsyncSession = Depends(get_db_session)
+    log_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Log detail page."""
     from app.dependencies import get_settings
