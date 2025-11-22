@@ -257,12 +257,16 @@
 
     .upload-progress {
         display: none;
-        margin-top: 20px;
+        padding: 15px;
+        background: rgba(153, 153, 204, 0.2);
+        border: 2px solid var(--lcars-blue);
+        border-radius: 10px;
+        margin-bottom: 10px;
     }
 
     .progress-container {
         position: relative;
-        margin: 20px 0;
+        margin: 10px 0;
     }
 
     #alerts {
@@ -312,7 +316,21 @@
 <div class="recording-interface">
     <div class="main-content">
         <!-- Alerts -->
-        <div id="alerts"></div>
+        <div id="alerts">
+            <!-- Upload Progress -->
+            <div class="upload-progress" id="upload-progress">
+                <h3 style="color: var(--lcars-blue); margin: 0 0 10px 0; font-size: 1em; text-transform: uppercase;">PROCESSING LOG ENTRY</h3>
+                <div class="progress-container">
+                    <div class="lcars-progress">
+                        <div class="lcars-progress-bar" id="progress-bar" style="width: 0%"></div>
+                        <div class="lcars-progress-text" id="progress-text">0%</div>
+                    </div>
+                </div>
+                <div style="font-size: 0.8em; color: var(--lcars-blue); margin-top: 5px;" id="progress-status">
+                    Preparing upload...
+                </div>
+            </div>
+        </div>
 
         <!-- Central Display -->
         <div class="central-display">
@@ -342,20 +360,6 @@
         <div class="sidebar-section control-btn danger" id="cancel-btn" onclick="cancelRecording()" style="display: none;">CANCEL</div>
         <div class="sidebar-section lcars-thin"></div>
         <div class="sidebar-section lcars-taper">
-        </div>
-    </div>
-
-    <!-- Upload Progress -->
-    <div class="upload-progress" id="upload-progress">
-        <h3 style="color: var(--lcars-blue);">PROCESSING LOG ENTRY</h3>
-        <div class="progress-container">
-            <div class="lcars-progress">
-                <div class="lcars-progress-bar" id="progress-bar" style="width: 0%"></div>
-                <div class="lcars-progress-text" id="progress-text">0%</div>
-            </div>
-        </div>
-        <div style="font-size: 0.9em; color: var(--lcars-blue); margin-top: 10px;" id="progress-status">
-            Preparing upload...
         </div>
     </div>
 </div>
