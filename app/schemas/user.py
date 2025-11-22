@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -9,7 +10,7 @@ class UserRead(schemas.BaseUser[UUID]):
     """Schema for reading user data."""
 
     username: str
-    created_at: Optional[str] = None
+    created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
