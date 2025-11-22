@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+
+{% block title %}System Status - {{ app_name or "Captain's Log" }}{% endblock %}
+
+{% block page_title %}SYSTEM STATUS{% endblock %}
+
+{% block head %}
+<style>
+    .status-container {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+
+    .status-section {
+        background: linear-gradient(135deg, rgba(255, 153, 0, 0.05), rgba(153, 153, 204, 0.05));
+        border: 2px solid var(--lcars-orange);
+        border-radius: 15px;
+        padding: 25px;
+        position: relative;
+    }
+
+    .status-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 5px;
+        height: 100%;
+        background: var(--lcars-orange);
+    }
+
+    .status-section h2 {
+        color: var(--lcars-orange);
+        font-size: 1.4em;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .status-section h2::after {
+        content: '';
+        flex: 1;
+        height: 2px;
+        background: var(--lcars-orange);
+        opacity: 0.3;
+    }
+
+    .connectivity-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+    }
+
+    .connectivity-item {
+        background: rgba(153, 153, 204, 0.1);
+        border: 2px solid var(--lcars-blue);
+        border-radius: 10px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: all 0.3s ease;
+    }
+
+    .connectivity-item:hover {
+        border-color: var(--lcars-orange);
+        box-shadow: 0 0 15px rgba(255, 153, 0, 0.3);
+    }
+
+    .connectivity-label {
+        font-weight: bold;
+        color: var(--lcars-blue);
+        text-transform: uppercase;
+        font-size: 1.1em;
+    }
+
+    .connectivity-status {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 0.9em;
+    }
+
+    .connectivity-status.online {
+        background: var(--lcars-green);
+        color: var(--lcars-black);
+    }
+
+    .connectivity-status.offline {
+        background: var(--lcars-red);
+        color: var(--lcars-white);
+    }
+
+    .status-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+
+    .status-table thead {
+        background: rgba(255, 153, 0, 0.2);
+        border-bottom: 2px solid var(--lcars-orange);
+    }
+
+    .status-table th {
+        padding: 12px;
+        text-align: left;
+        color: var(--lcars-orange);
+        text-transform: uppercase;
+        font-size: 0.9em;
+    }
+
+    .status-table td {
+        padding: 12px;
+        border-bottom: 1px solid rgba(153, 153, 204, 0.3);
+        color: var(--lcars-white);
+    }
+
+    .status-table tbody tr:hover {
+        background: rgba(255, 153, 0, 0.1);
+    }
+
+    .count-badge {
+        background: var(--lcars-blue);
+        color: var(--lcars-black);
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-weight: bold;
+        font-size: 1.1em;
+    }
+
+    .count-badge.warning {
+        background: var(--lcars-orange);
+    }
+
+    .count-badge.error {
+        background: var(--lcars-red);
+        color: var(--lcars-white);
+    }
+
+    .refresh-button {
+        background: linear-gradient(135deg, var(--lcars-orange), var(--lcars-red));
+        border: none;
+        color: var(--lcars-black);
+        padding: 12px 24px;
+        border-radius: 20px;
+        font-family: inherit;
+        font-weight: bold;
+        text-transform: uppercase;
+        cursor: pointer;
+        font-size: 1em;
+        transition: all 0.3s ease;
+        margin-top: 20px;
+    }
+
+    .refresh-button:hover {
+        background: linear-gradient(135deg, var(--lcars-red), var(--lcars-purple));
+        box-shadow: 0 0 20px rgba(204, 102, 102, 0.5);
+    }
+
+    .status-timestamp {
+        color: var(--lcars-gray);
+        font-size: 0.9em;
+        text-align: right;
+        margin-top: 10px;
+    }
+
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255, 153, 0, 0.3);
+        border-top-color: var(--lcars-orange);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+
+    .summary-item {
+        background: rgba(153, 153, 204, 0.1);
+        border: 2px solid var(--lcars-blue);
+        border-radius: 10px;
+        padding: 15px;
+        text-align: center;
+    }
+
+    .summary-label {
+        color: var(--lcars-gray);
+        font-size: 0.8em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    .summary-value {
+        color: var(--lcars-orange);
+        font-size: 1.8em;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="status-container">
+    <!-- Internet Connectivity Section -->
+    <div class="status-section">
+        <h2>Internet Connectivity</h2>
+        <div class="connectivity-grid" id="connectivity-grid">
+            <div class="connectivity-item">
+                <div class="connectivity-label">OpenAI</div>
+                <div class="connectivity-status" id="openai-status">
+                    <span class="loading-spinner"></span>
+                </div>
+            </div>
+            <div class="connectivity-item">
+                <div class="connectivity-label">AWS S3</div>
+                <div class="connectivity-status" id="aws-status">
+                    <span class="loading-spinner"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Processing Queue Section -->
+    <div class="status-section">
+        <h2>Processing Queue</h2>
+
+        <div class="summary-grid" id="queue-summary">
+            <div class="summary-item">
+                <div class="summary-label">Total Processing</div>
+                <div class="summary-value" id="total-processing">-</div>
+            </div>
+        </div>
+
+        <table class="status-table" id="status-table">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th>Count</th>
+                </tr>
+            </thead>
+            <tbody id="status-table-body">
+                <tr>
+                    <td colspan="2" style="text-align: center; padding: 40px;">
+                        <span class="loading-spinner"></span> Loading status information...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <button class="refresh-button" onclick="loadStatus()">
+            Refresh Status
+        </button>
+
+        <div class="status-timestamp" id="status-timestamp" data-testid="status-timestamp">
+            Last updated: -
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Load status on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStatus();
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadStatus, 30000);
+    });
+
+    async function loadStatus() {
+        try {
+            const response = await fetch('/api/status');
+            if (!response.ok) throw new Error('Failed to load status');
+
+            const data = await response.json();
+
+            // Update connectivity status
+            updateConnectivityStatus('openai-status', data.internet_connectivity.openai_accessible);
+            updateConnectivityStatus('aws-status', data.internet_connectivity.aws_accessible);
+
+            // Update processing queue
+            updateProcessingQueue(data.processing_queue);
+
+            // Update timestamp
+            const timestamp = new Date(data.timestamp);
+            document.getElementById('status-timestamp').textContent =
+                `Last updated: ${timestamp.toLocaleString()}`;
+
+        } catch (error) {
+            console.error('Error loading status:', error);
+            showError();
+        }
+    }
+
+    function updateConnectivityStatus(elementId, isAccessible) {
+        const element = document.getElementById(elementId);
+        element.textContent = isAccessible ? 'Connected' : 'Disconnected';
+        element.className = `connectivity-status ${isAccessible ? 'online' : 'offline'}`;
+    }
+
+    function updateProcessingQueue(queueData) {
+        // Update total processing
+        document.getElementById('total-processing').textContent = queueData.total_processing;
+
+        // Update table
+        const tbody = document.getElementById('status-table-body');
+        tbody.innerHTML = '';
+
+        const statuses = [
+            { key: 'pending', label: 'Pending' },
+            { key: 'transcribing', label: 'Transcribing' },
+            { key: 'vectorizing', label: 'Vectorizing' },
+            { key: 'summarizing', label: 'Summarizing' },
+            { key: 'completed', label: 'Completed' },
+            { key: 'failed', label: 'Failed' }
+        ];
+
+        statuses.forEach(status => {
+            const count = queueData.by_status[status.key] || 0;
+            const row = document.createElement('tr');
+
+            let badgeClass = 'count-badge';
+            if (status.key === 'failed' && count > 0) {
+                badgeClass += ' error';
+            } else if (['pending', 'transcribing', 'vectorizing', 'summarizing'].includes(status.key) && count > 0) {
+                badgeClass += ' warning';
+            }
+
+            row.innerHTML = `
+                <td style="text-transform: uppercase; font-weight: bold; color: var(--lcars-blue);">${status.label}</td>
+                <td><span class="${badgeClass}">${count}</span></td>
+            `;
+
+            tbody.appendChild(row);
+        });
+    }
+
+    function showError() {
+        document.getElementById('openai-status').textContent = 'Error';
+        document.getElementById('openai-status').className = 'connectivity-status offline';
+        document.getElementById('aws-status').textContent = 'Error';
+        document.getElementById('aws-status').className = 'connectivity-status offline';
+
+        const tbody = document.getElementById('status-table-body');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="2" style="text-align: center; padding: 40px; color: var(--lcars-red);">
+                    Failed to load status information
+                </td>
+            </tr>
+        `;
+    }
+</script>
+{% endblock %}

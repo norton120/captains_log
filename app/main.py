@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.logs import router as logs_router
 from app.api.settings import router as settings_router
+from app.api.status import router as status_router
 from app.dependencies import close_db_connection, get_db, get_db_session
 from app.models.log_entry import LogEntry
 from app.api.settings import get_or_create_user_preferences
@@ -62,6 +63,7 @@ app.add_middleware(
 # Include API routers
 app.include_router(logs_router)
 app.include_router(settings_router)
+app.include_router(status_router, prefix="/api/status", tags=["status"])
 
 
 @app.get("/")
@@ -189,6 +191,23 @@ async def map_page(request: Request, db: Session = Depends(get_db), db_session: 
             "default_lat": avg_lat,
             "default_lon": avg_lon,
             "default_zoom": default_zoom,
+            "app_name": preferences.app_name,
+            "vessel_name": preferences.vessel_name,
+            "vessel_designation": preferences.vessel_designation
+        }
+    )
+
+
+@app.get("/status")
+async def status_page(request: Request, db_session: AsyncSession = Depends(get_db_session)):
+    """Status page showing system health and processing queue."""
+    preferences = await get_or_create_user_preferences(db_session)
+    return templates.TemplateResponse(
+        "status.html",
+        {
+            "request": request,
+            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
+            "version": "1.0.0",
             "app_name": preferences.app_name,
             "vessel_name": preferences.vessel_name,
             "vessel_designation": preferences.vessel_designation

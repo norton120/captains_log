@@ -432,3 +432,24 @@ class S3Service:
             Key=s3_key
         )
         return response
+
+    async def check_connectivity(self) -> bool:
+        """
+        Check if S3 bucket is accessible.
+
+        Returns:
+            True if S3 bucket is accessible, False otherwise
+        """
+        try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                self._check_bucket_access_sync
+            )
+            return True
+        except Exception:
+            return False
+
+    def _check_bucket_access_sync(self) -> None:
+        """Check S3 bucket access synchronously."""
+        self.s3_client.head_bucket(Bucket=self.settings.s3_bucket_name)

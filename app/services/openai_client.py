@@ -577,3 +577,13 @@ class OpenAIService:
         except Exception as e:
             logger.warning(f"OpenAI health check failed: {e}")
             return False
+
+    async def check_connectivity(self) -> bool:
+        """
+        Check if OpenAI API is accessible.
+        Alias for health_check.
+
+        Returns:
+            True if API is accessible, False otherwise
+        """
+        return await self.health_check()
