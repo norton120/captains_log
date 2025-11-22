@@ -82,6 +82,10 @@ class LogEntryResponse(BaseModel):
     weather_conditions: Optional[str] = None
     weather_forecast: Optional[str] = None
     weather_captured_at: Optional[datetime] = None
+    weather_relative_humidity_pct: Optional[float] = None
+    weather_dew_point_f: Optional[float] = None
+    weather_precipitation_probability_pct: Optional[float] = None
+    weather_precipitation_amount_in: Optional[float] = None
 
     class Config:
         from_attributes = True
@@ -365,7 +369,11 @@ async def upload_media_file(
                         'weather_visibility_nm': weather_conditions.get('visibility_nm'),
                         'weather_conditions': weather_conditions.get('conditions'),
                         'weather_forecast': weather_conditions.get('forecast'),
-                        'weather_captured_at': captured_at
+                        'weather_captured_at': captured_at,
+                        'weather_relative_humidity_pct': weather_conditions.get('relative_humidity_pct'),
+                        'weather_dew_point_f': weather_conditions.get('dew_point_f'),
+                        'weather_precipitation_probability_pct': weather_conditions.get('precipitation_probability_pct'),
+                        'weather_precipitation_amount_in': weather_conditions.get('precipitation_amount_in')
                     }
                     logger.info(f"Captured weather data: {len([k for k, v in weather_data.items() if v is not None])} fields")
             except Exception as weather_error:

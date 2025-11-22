@@ -74,7 +74,7 @@ class LogEntry(Base):
     
     # Weather/Marine conditions at time of log
     weather_air_temp_f = Column(Float, nullable=True)
-    weather_water_temp_f = Column(Float, nullable=True)  
+    weather_water_temp_f = Column(Float, nullable=True)
     weather_wind_speed_kts = Column(Float, nullable=True)
     weather_wind_direction_deg = Column(Float, nullable=True)
     weather_wind_gust_kts = Column(Float, nullable=True)
@@ -85,6 +85,10 @@ class LogEntry(Base):
     weather_conditions = Column(String, nullable=True)  # "Clear", "Overcast", etc.
     weather_forecast = Column(Text, nullable=True)  # Short text forecast
     weather_captured_at = Column(DateTime, nullable=True)  # When weather data was captured
+    weather_relative_humidity_pct = Column(Float, nullable=True)  # Relative humidity percentage
+    weather_dew_point_f = Column(Float, nullable=True)  # Dew point temperature in Fahrenheit
+    weather_precipitation_probability_pct = Column(Float, nullable=True)  # Probability of precipitation percentage
+    weather_precipitation_amount_in = Column(Float, nullable=True)  # Quantitative precipitation in inches
     
     def __repr__(self):
         return f"<LogEntry(id={self.id}, created_at={self.created_at}, status={self.processing_status.value})>"

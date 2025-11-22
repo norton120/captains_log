@@ -823,6 +823,30 @@
                 <span class="info-value">{{ "%.1f nm"|format(log.weather_visibility_nm) }}</span>
             </div>
             {% endif %}
+            {% if log.weather_relative_humidity_pct %}
+            <div class="info-item">
+                <span class="info-label">Humidity</span>
+                <span class="info-value">{{ "%.1f%%"|format(log.weather_relative_humidity_pct) }}</span>
+            </div>
+            {% endif %}
+            {% if log.weather_dew_point_f %}
+            <div class="info-item">
+                <span class="info-label">Dew Point</span>
+                <span class="info-value">{{ "%.1f°F"|format(log.weather_dew_point_f) }}</span>
+            </div>
+            {% endif %}
+            {% if log.weather_precipitation_probability_pct %}
+            <div class="info-item">
+                <span class="info-label">Precip. Chance</span>
+                <span class="info-value">{{ "%.0f%%"|format(log.weather_precipitation_probability_pct) }}</span>
+            </div>
+            {% endif %}
+            {% if log.weather_precipitation_amount_in %}
+            <div class="info-item">
+                <span class="info-label">Precip. Amount</span>
+                <span class="info-value">{{ "%.2f in"|format(log.weather_precipitation_amount_in) }}</span>
+            </div>
+            {% endif %}
             {% if log.weather_forecast %}
             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(153, 153, 204, 0.3);">
                 <div class="info-label" style="margin-bottom: 8px;">Forecast</div>

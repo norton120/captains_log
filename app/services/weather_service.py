@@ -47,29 +47,44 @@ class NOAAWeatherService:
                 # Get the grid point information
                 points_url = f"{self.weather_api_base}/points/{latitude:.4f},{longitude:.4f}"
                 headers = {"User-Agent": "Captain's Log Marine Weather Service"}
-                
+
                 response = await client.get(points_url, headers=headers)
                 if response.status_code != 200:
                     logger.warning(f"Weather API points request failed: {response.status_code}")
                     return None
-                
+
                 points_data = response.json()
                 properties = points_data.get("properties", {})
-                
-                # Get the forecast grid data URL
+
+                # Get both the grid data URL and the simple forecast URL
                 forecast_grid_url = properties.get("forecastGridData")
+                forecast_url = properties.get("forecast")
+
                 if not forecast_grid_url:
                     logger.warning("No forecast grid data URL available")
                     return None
-                
-                # Get the detailed grid forecast
+
+                # Get the detailed grid forecast (for numerical data)
                 forecast_response = await client.get(forecast_grid_url, headers=headers)
                 if forecast_response.status_code != 200:
                     logger.warning(f"Forecast grid request failed: {forecast_response.status_code}")
                     return None
-                
-                return forecast_response.json()
-                
+
+                grid_data = forecast_response.json()
+
+                # Also get the simple forecast (for human-readable conditions like "Sunny")
+                if forecast_url:
+                    try:
+                        simple_forecast_response = await client.get(forecast_url, headers=headers)
+                        if simple_forecast_response.status_code == 200:
+                            simple_forecast = simple_forecast_response.json()
+                            # Add the simple forecast periods to the grid data
+                            grid_data["simpleForecast"] = simple_forecast
+                    except Exception as e:
+                        logger.warning(f"Error fetching simple forecast: {e}")
+
+                return grid_data
+
         except Exception as e:
             logger.error(f"Error getting weather forecast: {e}")
             return None
@@ -210,7 +225,11 @@ class NOAAWeatherService:
             "barometric_pressure_mb": None,
             "visibility_nm": None,
             "conditions": None,
-            "forecast": None
+            "forecast": None,
+            "relative_humidity_pct": None,
+            "dew_point_f": None,
+            "precipitation_probability_pct": None,
+            "precipitation_amount_in": None
         }
         
         # Prioritize observational data from stations
@@ -220,10 +239,21 @@ class NOAAWeatherService:
                 if key in station_data and station_data[key] is not None:
                     combined[key] = station_data[key]
         
+        # Extract simple forecast conditions first (human-readable terms like "Sunny", "Cloudy")
+        if forecast_data and "simpleForecast" in forecast_data:
+            try:
+                periods = forecast_data["simpleForecast"].get("properties", {}).get("periods", [])
+                if periods and len(periods) > 0:
+                    short_forecast = periods[0].get("shortForecast")
+                    if short_forecast:
+                        combined["conditions"] = short_forecast
+            except Exception as e:
+                logger.warning(f"Error extracting simple forecast: {e}")
+
         # Extract data from forecast if available
         if forecast_data and forecast_data.get("properties"):
             properties = forecast_data["properties"]
-            
+
             # Try to extract current or near-term forecast values
             # This is simplified - the actual NWS grid data structure is complex
             try:
@@ -264,7 +294,53 @@ class NOAAWeatherService:
                         # Convert meters to nautical miles
                         vis_m = vis_values[0].get("value", 0)
                         combined["visibility_nm"] = round(vis_m * 0.000539957, 1) if vis_m else None
-                
+
+                # Relative Humidity
+                if "relativeHumidity" in properties:
+                    humidity_values = properties["relativeHumidity"].get("values", [])
+                    if humidity_values:
+                        humidity_pct = humidity_values[0].get("value", 0)
+                        combined["relative_humidity_pct"] = round(humidity_pct, 1) if humidity_pct else None
+
+                # Dew Point
+                if "dewpoint" in properties:
+                    dewpoint_values = properties["dewpoint"].get("values", [])
+                    if dewpoint_values:
+                        # Convert Celsius to Fahrenheit
+                        dewpoint_c = dewpoint_values[0].get("value", 0)
+                        combined["dew_point_f"] = round((dewpoint_c * 9/5) + 32, 1) if dewpoint_c else None
+
+                # Precipitation Probability
+                if "probabilityOfPrecipitation" in properties:
+                    precip_prob_values = properties["probabilityOfPrecipitation"].get("values", [])
+                    if precip_prob_values:
+                        precip_prob = precip_prob_values[0].get("value", 0)
+                        combined["precipitation_probability_pct"] = round(precip_prob, 1) if precip_prob else None
+
+                # Quantitative Precipitation
+                if "quantitativePrecipitation" in properties:
+                    precip_values = properties["quantitativePrecipitation"].get("values", [])
+                    if precip_values:
+                        # Convert mm to inches (1 mm = 0.0393701 inches)
+                        precip_mm = precip_values[0].get("value", 0)
+                        combined["precipitation_amount_in"] = round(precip_mm * 0.0393701, 2) if precip_mm else None
+
+                # Fallback: try to extract weather conditions from the complex weather array
+                # if simple forecast wasn't available
+                if combined["conditions"] is None and "weather" in properties:
+                    weather_values = properties["weather"].get("values", [])
+                    if weather_values:
+                        # Extract weather conditions from the array
+                        weather_data = weather_values[0].get("value", [])
+                        if weather_data and len(weather_data) > 0:
+                            # Get the first weather phenomenon
+                            conditions_list = []
+                            for wx in weather_data:
+                                if "weather" in wx:
+                                    conditions_list.append(wx["weather"])
+                            if conditions_list:
+                                combined["conditions"] = ", ".join(conditions_list)
+
             except Exception as e:
                 logger.warning(f"Error parsing forecast data: {e}")
         
