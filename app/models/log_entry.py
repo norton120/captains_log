@@ -39,7 +39,7 @@ class LogEntry(Base):
     media_type = Column(Enum(MediaType), nullable=False, default=MediaType.AUDIO)
     original_filename = Column(String, nullable=True)
     is_video_source = Column(Boolean, nullable=False, default=False)
-    
+
     # Log classification
     log_type = Column(Enum(LogType), nullable=False, default=LogType.SHIP)
     
@@ -56,8 +56,8 @@ class LogEntry(Base):
     embedding = Column(Vector(1536), nullable=True)  # dimension for text-embedding-3-small
     summary = Column(Text, nullable=True)
     processing_status = Column(
-        Enum(ProcessingStatus), 
-        nullable=False, 
+        Enum(ProcessingStatus),
+        nullable=False,
         default=ProcessingStatus.PENDING
     )
     processing_error = Column(Text, nullable=True)

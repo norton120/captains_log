@@ -51,8 +51,8 @@ class UserPreferences(Base):
     
     # Media storage preferences
     media_storage_mode = Column(
-        Enum(MediaStorageMode), 
-        nullable=False, 
+        Enum(MediaStorageMode),
+        nullable=False,
         default=MediaStorageMode.S3_ONLY
     )
     local_media_path = Column(String(500), nullable=True, default="./media")

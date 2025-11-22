@@ -21,6 +21,8 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./app:/app/app
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
       - ./.env:/app/.env
     environment:
       DATABASE_URL: postgresql+asyncpg://captain:defiant@db:5432/captains_log
