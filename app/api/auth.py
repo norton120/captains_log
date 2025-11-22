@@ -98,11 +98,11 @@ async def login(
 @router.post("/auth/jwt/logout")
 async def logout(
     user: User = Depends(fastapi_users.current_user(active=True)),
-    strategy=Depends(auth_backend.get_strategy),
 ):
     """Logout endpoint."""
     # Return response that clears the authentication cookie
-    return await auth_backend.get_logout_response()
+    from app.auth import cookie_transport
+    return await cookie_transport.get_logout_response()
 
 
 # Custom registration endpoint with toggle check
