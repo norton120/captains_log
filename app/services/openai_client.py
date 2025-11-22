@@ -37,7 +37,7 @@ class ClassificationError(Exception):
 
 class OpenAIService:
     """Service for OpenAI API interactions."""
-    
+
     def __init__(self, settings: Settings):
         """Initialize OpenAI service with configuration."""
         self.settings = settings
@@ -48,26 +48,26 @@ class OpenAIService:
         # Validate API key is set
         if not settings.openai_api_key:
             raise ValueError("OpenAI API key is required")
-    
+
     @property
     def client(self) -> OpenAI:
         """Lazy-loaded synchronous OpenAI client."""
         if self._client is None:
             self._client = OpenAI(api_key=self.settings.openai_api_key)
         return self._client
-    
+
     @client.setter
     def client(self, value: OpenAI) -> None:
         """Allow setting client for testing."""
         self._client = value
-    
+
     @property
     def async_client(self) -> AsyncOpenAI:
         """Lazy-loaded asynchronous OpenAI client."""
         if self._async_client is None:
             self._async_client = AsyncOpenAI(api_key=self.settings.openai_api_key)
         return self._async_client
-    
+
     @async_client.setter
     def async_client(self, value: AsyncOpenAI) -> None:
         """Allow setting async client for testing."""
@@ -84,7 +84,7 @@ class OpenAIService:
     def audio_chunker(self, value: AudioChunker) -> None:
         """Allow setting audio chunker for testing."""
         self._audio_chunker = value
-    
+
     def _validate_audio_file(self, audio_file: Path, check_size: bool = True) -> bool:
         """
         Validate audio file for transcription.
@@ -122,7 +122,7 @@ class OpenAIService:
                 return True
 
         return False
-    
+
     async def transcribe_audio(
         self,
         audio_file: Path,
@@ -178,7 +178,7 @@ class OpenAIService:
                 raise TranscriptionError(f"Invalid audio file: {error_msg}")
             else:
                 raise TranscriptionError(f"Transcription failed: {error_msg}")
-    
+
     async def _transcribe_audio_direct(
         self,
         audio_file: Path,
@@ -335,17 +335,17 @@ class OpenAIService:
             # Ensure file is closed
             if 'file' in params:
                 params['file'].close()
-    
+
     async def generate_embedding(self, text: str) -> List[float]:
         """
         Generate embedding vector for text using OpenAI.
-        
+
         Args:
             text: Text to generate embedding for
-            
+
         Returns:
             List of floats representing the embedding vector
-            
+
         Raises:
             EmbeddingError: If embedding generation fails
         """
@@ -353,32 +353,32 @@ class OpenAIService:
             # Validate input
             if not text or not text.strip():
                 raise EmbeddingError("Empty text provided for embedding")
-            
+
             # Truncate text if too long (OpenAI has token limits)
             text = self._truncate_text_for_embedding(text.strip())
-            
+
             # Generate embedding
             response = await self.async_client.embeddings.create(
                 model=self.settings.openai_model_embedding,
                 input=text,
                 encoding_format="float"
             )
-            
+
             # Extract embedding from response
             embedding = response.data[0].embedding
-            
+
             # Validate embedding
             if not embedding or len(embedding) == 0:
                 raise EmbeddingError("Empty embedding returned from OpenAI")
-            
+
             logger.info(f"Generated embedding: {len(embedding)} dimensions")
             return embedding
-            
+
         except EmbeddingError:
             raise
         except Exception as e:
             error_msg = str(e)
-            
+
             # Handle specific OpenAI errors
             if "rate limit" in error_msg.lower():
                 raise EmbeddingError(f"Rate limit exceeded: {error_msg}")
@@ -388,41 +388,41 @@ class OpenAIService:
                 raise EmbeddingError(f"Text too long: {error_msg}")
             else:
                 raise EmbeddingError(f"Embedding generation failed: {error_msg}")
-    
+
     def _truncate_text_for_embedding(self, text: str, max_tokens: int = 8000) -> str:
         """Truncate text to fit within token limits."""
         # Rough estimate: 1 token ≈ 4 characters for English text
         max_chars = max_tokens * 4
-        
+
         if len(text) <= max_chars:
             return text
-        
+
         # Truncate at word boundary
         truncated = text[:max_chars]
         last_space = truncated.rfind(' ')
         if last_space > max_chars * 0.8:  # Don't cut too much
             truncated = truncated[:last_space]
-        
+
         logger.warning(f"Text truncated from {len(text)} to {len(truncated)} characters")
         return truncated
-    
+
     async def generate_summary(
-        self, 
+        self,
         transcription: str,
         instructions: Optional[str] = None,
         max_length: int = 75
     ) -> str:
         """
         Generate a summary of the transcription using OpenAI.
-        
+
         Args:
             transcription: Text to summarize
             instructions: Custom instructions for summarization
             max_length: Maximum length of summary in words
-            
+
         Returns:
             Generated summary
-            
+
         Raises:
             SummaryError: If summary generation fails
         """
@@ -430,16 +430,16 @@ class OpenAIService:
             # Validate input
             if not transcription or not transcription.strip():
                 raise SummaryError("Empty transcription provided for summary")
-            
+
             # Skip summarization for very short text
             word_count = len(transcription.split())
             if word_count < 20:
                 logger.info("Transcription too short for summarization, returning original")
                 return transcription.strip()
-            
+
             # Prepare system prompt
             system_prompt = self._build_summary_prompt(instructions, max_length)
-            
+
             # Generate summary
             response = await self.async_client.chat.completions.create(
                 model=self.settings.openai_model_chat,
@@ -450,23 +450,23 @@ class OpenAIService:
                 temperature=0.1,
                 max_tokens=max_length * 2  # Allow some buffer for token count
             )
-            
+
             # Extract summary
             summary = response.choices[0].message.content
-            
+
             # Validate result
             if not summary or not summary.strip():
                 raise SummaryError("Empty summary returned from OpenAI")
-            
+
             summary = summary.strip()
             logger.info(f"Generated summary: {len(summary)} characters from {len(transcription)} character transcription")
             return summary
-            
+
         except SummaryError:
             raise
         except Exception as e:
             error_msg = str(e)
-            
+
             # Handle specific OpenAI errors
             if "rate limit" in error_msg.lower():
                 raise SummaryError(f"Rate limit exceeded: {error_msg}")
@@ -476,25 +476,20 @@ class OpenAIService:
                 raise SummaryError(f"Text too long for summarization: {error_msg}")
             else:
                 raise SummaryError(f"Summary generation failed: {error_msg}")
-    
+
     def _build_summary_prompt(self, instructions: Optional[str], max_length: int) -> str:
         """Build system prompt for summarization in TNG computer style."""
         base_prompt = (
-            "Generate ship log summary in Starfleet computer format. "
-            f"Maximum {max_length} words. Use precise, clinical language. "
-            "Report critical events, environmental conditions, and navigation status. "
-            "No contractions. No emotional language. State facts only. "
-            "Use terminology: position, heading, environmental systems, structural integrity, operations. "
-            "Format: Status reports and operational summaries.\n\n"
+            "Generate a concise one to two sentence summary of the following ship log transcription."
         )
-        
+
         if instructions:
             base_prompt += f"Additional parameters: {instructions}\n\n"
-        
-        base_prompt += "Return summary data only."
-        
+
+        base_prompt += "Return summary content only."
+
         return base_prompt
-    
+
     async def classify_log_type(self, transcription: str) -> str:
         """
         Classify log entry as PERSONAL or SHIP based on transcription.
@@ -553,25 +548,25 @@ class OpenAIService:
             logger.error(f"Log classification failed: {error_msg}")
             # Default to SHIP on error
             return "SHIP"
-    
+
     async def get_token_count(self, text: str) -> int:
         """
         Estimate token count for text (approximate).
-        
+
         Args:
             text: Text to count tokens for
-            
+
         Returns:
             Approximate token count
         """
         # Very rough approximation: 1 token ≈ 4 characters for English
         # For more accurate counting, you'd need tiktoken library
         return len(text) // 4
-    
+
     async def health_check(self) -> bool:
         """
         Check if OpenAI API is accessible.
-        
+
         Returns:
             True if API is accessible, False otherwise
         """
