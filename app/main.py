@@ -115,6 +115,70 @@ async def settings_page(request: Request, db_session: AsyncSession = Depends(get
     )
 
 
+@app.get("/map")
+async def map_page(request: Request, db: Session = Depends(get_db), db_session: AsyncSession = Depends(get_db_session)):
+    """Map view page showing all logs with location data."""
+    import json
+    from sqlalchemy import and_
+
+    preferences = await get_or_create_user_preferences(db_session)
+
+    # Query all logs that have location data
+    logs_with_location = db.query(LogEntry).filter(
+        and_(
+            LogEntry.latitude.isnot(None),
+            LogEntry.longitude.isnot(None)
+        )
+    ).all()
+
+    # Convert logs to JSON-serializable format
+    logs_data = []
+    for log in logs_with_location:
+        logs_data.append({
+            'id': str(log.id),
+            'created_at': log.created_at.isoformat(),
+            'latitude': log.latitude,
+            'longitude': log.longitude,
+            'location_name': log.location_name,
+            'location_city': log.location_city,
+            'location_state': log.location_state,
+            'location_country': log.location_country,
+            'body_of_water': log.body_of_water,
+            'nearest_port': log.nearest_port,
+            'log_type': log.log_type.value,
+            'summary': log.summary,
+            'weather_conditions': log.weather_conditions
+        })
+
+    # Calculate default map center (average of all locations or default)
+    if logs_data:
+        avg_lat = sum(log['latitude'] for log in logs_data) / len(logs_data)
+        avg_lon = sum(log['longitude'] for log in logs_data) / len(logs_data)
+        default_zoom = 6
+    else:
+        # Default to San Francisco Bay area
+        avg_lat = 37.7749
+        avg_lon = -122.4194
+        default_zoom = 10
+
+    return templates.TemplateResponse(
+        "map.html",
+        {
+            "request": request,
+            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
+            "version": "1.0.0",
+            "logs_json": json.dumps(logs_data),
+            "log_count": len(logs_data),
+            "default_lat": avg_lat,
+            "default_lon": avg_lon,
+            "default_zoom": default_zoom,
+            "app_name": preferences.app_name,
+            "vessel_name": preferences.vessel_name,
+            "vessel_designation": preferences.vessel_designation
+        }
+    )
+
+
 @app.get("/logs/{log_id}")
 async def log_detail_page(log_id: str, request: Request, db: Session = Depends(get_db), db_session: AsyncSession = Depends(get_db_session)):
     """Log detail page."""

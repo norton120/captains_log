@@ -8,7 +8,7 @@ services:
     volumes:
       - ./.data/pg_data:/var/lib/postgresql/data
     ports:
-      - "${OFFSET_PREFIX:-0}5432:5432"
+      - "${PORT_OFFSET:-0}5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U captain -d captains_log"]
       interval: 5s
@@ -70,7 +70,7 @@ services:
         condition: service_completed_successfully
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
-      - "${OFFSET_PREFIX:-0}8081:8000"
+      - "${PORT_OFFSET:-0}8082:8000"
 
   test:
     build:
@@ -91,7 +91,7 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - "${OFFSET_PREFIX:-0}80:80"
+      - "${PORT_OFFSET:-0}81:80"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
