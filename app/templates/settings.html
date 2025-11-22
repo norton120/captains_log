@@ -474,6 +474,18 @@
                 <input type="password" class="setting-input" id="google_oauth_client_secret" placeholder="Leave empty to use environment">
             </div>
 
+            <div class="setting-item" style="grid-column: 1 / -1;">
+                <div style="background: rgba(153, 153, 204, 0.1); border: 2px solid var(--lcars-blue); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                    <div style="color: var(--lcars-blue); font-weight: bold; margin-bottom: 8px;">ℹ️ GitHub OAuth Setup</div>
+                    <div style="color: var(--lcars-white); font-size: 0.9em;">
+                        To allow users to login with GitHub, you need to create an OAuth App in your GitHub account.<br>
+                        Visit <a href="https://github.com/settings/developers" target="_blank" style="color: var(--lcars-orange); text-decoration: underline;">GitHub Developer Settings</a> to create and get your app credentials.<br><br>
+                        <strong>Authorization callback URL:</strong> <code id="github-callback-url" style="background: rgba(0, 0, 0, 0.3); padding: 4px 8px; border-radius: 4px; color: var(--lcars-orange); font-family: monospace;">https://your-domain.com/api/auth/github/callback</code>
+                        <button onclick="copyGitHubCallbackUrl()" style="background: var(--lcars-orange); border: none; color: var(--lcars-black); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; margin-left: 10px; font-weight: bold;">COPY</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="setting-item">
                 <div class="setting-label">GitHub OAuth Client ID</div>
                 <div class="setting-description">GitHub OAuth App Client ID from GitHub Developer Settings</div>
@@ -610,6 +622,9 @@
         // Add file size display updates
         document.getElementById('max_audio_file_size').addEventListener('input', updateAudioSizeDisplay);
         document.getElementById('max_video_file_size').addEventListener('input', updateVideoSizeDisplay);
+
+        // Set GitHub callback URL based on current domain
+        updateGitHubCallbackUrl();
     });
 
     // Warn user about unsaved changes
@@ -1057,6 +1072,25 @@
     function closeFailedJobsModal() {
         document.getElementById('failed-jobs-modal').style.display = 'none';
         loadFailedJobsCount(); // Refresh count when closing
+    }
+
+    // GitHub OAuth callback URL helpers
+    function updateGitHubCallbackUrl() {
+        const callbackUrl = `${window.location.protocol}//${window.location.host}/api/auth/github/callback`;
+        const callbackUrlElement = document.getElementById('github-callback-url');
+        if (callbackUrlElement) {
+            callbackUrlElement.textContent = callbackUrl;
+        }
+    }
+
+    function copyGitHubCallbackUrl() {
+        const callbackUrl = document.getElementById('github-callback-url').textContent;
+        navigator.clipboard.writeText(callbackUrl).then(() => {
+            showStatus('Callback URL copied to clipboard!', 'success');
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            showStatus('Failed to copy URL', 'error');
+        });
     }
 </script>
 {% endblock %}
