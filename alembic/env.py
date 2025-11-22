@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parents[1]))
 from app.config import settings
 from app.models.log_entry import Base
 from app.models.settings import Setting, UserPreferences
+from app.models.user import User  # noqa: F401 - imported to ensure User table is in metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

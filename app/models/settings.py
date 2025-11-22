@@ -79,6 +79,7 @@ class UserPreferences(Base):
     aws_secret_access_key = Column(String(255), nullable=True)
     aws_region = Column(String(50), nullable=True, default="us-east-2")
     s3_bucket_name = Column(String(255), nullable=True)
+    s3_base_url = Column(String(500), nullable=True)  # Custom S3 endpoint (e.g., MinIO)
     s3_audio_prefix = Column(String(100), nullable=False, default="audio/")
     s3_video_prefix = Column(String(100), nullable=False, default="video/")
     s3_presigned_url_expiry = Column(Integer, nullable=False, default=3600)

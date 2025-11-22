@@ -257,6 +257,99 @@ class SettingsService:
         """DBOS database URL always comes from environment."""
         return self.env_settings.dbos_database_url
 
+    @property
+    def s3_base_url(self) -> Optional[str]:
+        """S3 base URL from preferences for custom endpoints (e.g., MinIO)."""
+        if self._cached_preferences and self._cached_preferences.s3_base_url:
+            return self._cached_preferences.s3_base_url
+        return None
+
+    async def get_initialization_status(self) -> Dict[str, Any]:
+        """
+        Check if all required settings are configured for app initialization.
+
+        Returns:
+            dict with:
+                - is_complete: bool indicating if initialization is complete
+                - missing_settings: list of missing required settings
+                - details: dict with details about each required setting
+        """
+        await self.get_user_preferences()  # Ensure preferences are loaded
+
+        missing_settings = []
+        details = {}
+
+        # Check OpenAI API key (required, environment only)
+        if not self.openai_api_key:
+            missing_settings.append("openai_api_key")
+            details["openai_api_key"] = {
+                "name": "OpenAI API Key",
+                "source": "environment",
+                "required": True,
+                "present": False
+            }
+        else:
+            details["openai_api_key"] = {
+                "name": "OpenAI API Key",
+                "source": "environment",
+                "required": True,
+                "present": True
+            }
+
+        # Check AWS credentials (either env OR db, at least one method required)
+        aws_creds_present = bool(
+            (self.aws_access_key_id and self.aws_secret_access_key) or
+            # Check if running in AWS with IAM role (env vars from boto would be set)
+            self.env_settings.aws_access_key_id
+        )
+
+        if not aws_creds_present:
+            missing_settings.append("aws_credentials")
+            details["aws_credentials"] = {
+                "name": "AWS Credentials",
+                "source": "environment or database",
+                "required": True,
+                "present": False,
+                "message": "Either set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in environment, or configure them in database settings"
+            }
+        else:
+            source = "environment" if self.env_settings.aws_access_key_id else "database"
+            details["aws_credentials"] = {
+                "name": "AWS Credentials",
+                "source": source,
+                "required": True,
+                "present": True
+            }
+
+        # Check S3 bucket name
+        if not self.s3_bucket_name:
+            missing_settings.append("s3_bucket_name")
+            details["s3_bucket_name"] = {
+                "name": "S3 Bucket Name",
+                "source": "environment or database",
+                "required": True,
+                "present": False
+            }
+        else:
+            source = "environment" if self.env_settings.s3_bucket_name == self.s3_bucket_name else "database"
+            details["s3_bucket_name"] = {
+                "name": "S3 Bucket Name",
+                "source": source,
+                "required": True,
+                "present": True
+            }
+
+        return {
+            "is_complete": len(missing_settings) == 0,
+            "missing_settings": missing_settings,
+            "details": details
+        }
+
+    async def is_initialization_complete(self) -> bool:
+        """Quick check if initialization is complete."""
+        status = await self.get_initialization_status()
+        return status["is_complete"]
+
 
 class SettingsAdapter:
     """Adapter to make SettingsService compatible with existing Settings interface."""

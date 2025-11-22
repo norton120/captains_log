@@ -18,6 +18,7 @@ from app.api.auth import router as auth_router
 from app.dependencies import close_db_connection, get_db, get_db_session
 from app.models.log_entry import LogEntry
 from app.api.settings import get_or_create_user_preferences
+from app.middleware import InitializationCheckMiddleware
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -58,6 +59,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add initialization check middleware
+app.add_middleware(InitializationCheckMiddleware)
 
 # Include API routers
 app.include_router(auth_router, prefix="/api")

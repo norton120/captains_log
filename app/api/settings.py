@@ -51,6 +51,7 @@ class UserPreferencesResponse(BaseModel):
     aws_secret_access_key: Optional[str] = None
     aws_region: Optional[str] = None
     s3_bucket_name: Optional[str] = None
+    s3_base_url: Optional[str] = None
     s3_audio_prefix: str
     s3_video_prefix: str
     s3_presigned_url_expiry: int
@@ -97,6 +98,7 @@ class UserPreferencesUpdateRequest(BaseModel):
     aws_secret_access_key: Optional[str] = Field(None, max_length=255)
     aws_region: Optional[str] = Field(None, max_length=50)
     s3_bucket_name: Optional[str] = Field(None, max_length=255)
+    s3_base_url: Optional[str] = Field(None, max_length=500)
     s3_audio_prefix: Optional[str] = Field(None, min_length=1, max_length=100)
     s3_video_prefix: Optional[str] = Field(None, min_length=1, max_length=100)
     s3_presigned_url_expiry: Optional[int] = Field(None, gt=0, le=604800)
@@ -186,6 +188,7 @@ async def get_user_preferences(db_session: AsyncSession = Depends(get_db_session
             aws_secret_access_key=preferences.aws_secret_access_key,
             aws_region=preferences.aws_region,
             s3_bucket_name=preferences.s3_bucket_name,
+            s3_base_url=preferences.s3_base_url,
             s3_audio_prefix=preferences.s3_audio_prefix,
             s3_video_prefix=preferences.s3_video_prefix,
             s3_presigned_url_expiry=preferences.s3_presigned_url_expiry,
@@ -246,6 +249,7 @@ async def update_user_preferences(
             aws_secret_access_key=preferences.aws_secret_access_key,
             aws_region=preferences.aws_region,
             s3_bucket_name=preferences.s3_bucket_name,
+            s3_base_url=preferences.s3_base_url,
             s3_audio_prefix=preferences.s3_audio_prefix,
             s3_video_prefix=preferences.s3_video_prefix,
             s3_presigned_url_expiry=preferences.s3_presigned_url_expiry,
@@ -433,5 +437,41 @@ async def get_failed_logs_count(db_session: AsyncSession = Depends(get_db_sessio
     except Exception as e:
         logger.error(f"Failed to get failed logs count: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve failed logs count"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve failed logs count"
+        ) from e
+
+
+@router.get("/initialization-status")
+async def get_initialization_status(
+    db_session: AsyncSession = Depends(get_db_session)
+) -> Dict[str, Any]:
+    """
+    Get initialization status for the application.
+
+    Checks if all required settings are configured:
+    - OpenAI API key (from environment)
+    - AWS credentials (from environment or database)
+    - S3 bucket name (from environment or database)
+
+    Returns:
+        - is_complete: bool indicating if initialization is complete
+        - missing_settings: list of missing required settings
+        - details: dict with details about each required setting
+    """
+    try:
+        from app.services.settings_service import SettingsService
+        from app.config import settings as env_settings
+
+        settings_service = SettingsService(env_settings, db_session)
+
+        status = await settings_service.get_initialization_status()
+
+        return status
+
+    except Exception as e:
+        logger.error(f"Failed to get initialization status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve initialization status"
         ) from e

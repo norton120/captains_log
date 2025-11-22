@@ -263,7 +263,20 @@
 
 {% block content %}
 <div class="settings-container">
-    
+
+    <!-- Initialization Status Banner (shown only in init mode) -->
+    <div id="init-banner" style="display: none; background: linear-gradient(135deg, rgba(204, 0, 0, 0.2), rgba(255, 153, 0, 0.2)); border: 3px solid var(--lcars-orange); border-radius: 15px; padding: 25px; margin-bottom: 30px;">
+        <div style="color: var(--lcars-orange); font-size: 1.8em; font-weight: bold; margin-bottom: 15px; text-transform: uppercase;">
+            ⚠️ INITIALIZATION REQUIRED
+        </div>
+        <div style="color: var(--lcars-white); font-size: 1.1em; margin-bottom: 20px;">
+            Please configure the following required settings to use the application:
+        </div>
+        <div id="init-checklist" style="display: flex; flex-direction: column; gap: 12px;">
+            <!-- Checklist items will be populated by JavaScript -->
+        </div>
+    </div>
+
     <!-- Application Settings -->
     <div class="settings-section">
         <h2>Application Settings</h2>
@@ -403,8 +416,9 @@
         <div style="background: rgba(255, 153, 0, 0.1); border: 2px solid var(--lcars-orange); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
             <div style="color: var(--lcars-orange); font-weight: bold; margin-bottom: 8px;">⚠️ SECURITY NOTICE</div>
             <div style="color: var(--lcars-white); font-size: 0.9em;">
-                AWS credentials stored here will override environment variables. Leave empty to use environment settings.
-                These credentials are stored in the database and should only be used in secure environments.
+                <strong>Credentials are stored in PLAINTEXT in the database.</strong><br><br>
+                AWS credentials stored here will override environment variables. Leave empty to use environment settings (recommended for production).<br><br>
+                Database credentials should only be used in secure, local-only environments. For production deployments, use environment variables or IAM roles.
             </div>
         </div>
         <div class="settings-grid">
@@ -439,17 +453,23 @@
         <h2>S3 Configuration</h2>
         <div class="settings-grid">
             <div class="setting-item">
+                <div class="setting-label">S3 Base URL</div>
+                <div class="setting-description">Optional: Custom S3 endpoint (e.g., MinIO). Leave empty for AWS S3.</div>
+                <input type="text" class="setting-input" id="s3_base_url" placeholder="https://minio.example.com">
+            </div>
+
+            <div class="setting-item">
                 <div class="setting-label">Audio Prefix</div>
                 <div class="setting-description">S3 prefix for audio files</div>
                 <input type="text" class="setting-input" id="s3_audio_prefix" placeholder="audio/">
             </div>
-            
+
             <div class="setting-item">
                 <div class="setting-label">Video Prefix</div>
                 <div class="setting-description">S3 prefix for video files</div>
                 <input type="text" class="setting-input" id="s3_video_prefix" placeholder="video/">
             </div>
-            
+
             <div class="setting-item">
                 <div class="setting-label">Presigned URL Expiry</div>
                 <div class="setting-description">How long presigned URLs remain valid (seconds)</div>
@@ -512,15 +532,41 @@
 {% block scripts %}
 <script>
     let currentSettings = {};
+    let formDirty = false;
+    let initializationStatus = null;
+
+    // Check if we're in initialization mode
+    const urlParams = new URLSearchParams(window.location.search);
+    const isInitMode = urlParams.get('init') === 'true';
 
     // Load settings on page load
     document.addEventListener('DOMContentLoaded', function() {
         loadSettings();
         loadFailedJobsCount();
 
+        if (isInitMode) {
+            loadInitializationStatus();
+        }
+
+        // Track form changes for dirty state
+        const formInputs = document.querySelectorAll('.setting-input, input, select, textarea');
+        formInputs.forEach(input => {
+            input.addEventListener('change', () => formDirty = true);
+            input.addEventListener('input', () => formDirty = true);
+        });
+
         // Add file size display updates
         document.getElementById('max_audio_file_size').addEventListener('input', updateAudioSizeDisplay);
         document.getElementById('max_video_file_size').addEventListener('input', updateVideoSizeDisplay);
+    });
+
+    // Warn user about unsaved changes
+    window.addEventListener('beforeunload', function(e) {
+        if (formDirty) {
+            e.preventDefault();
+            e.returnValue = '';
+            return '';
+        }
     });
 
     async function loadSettings() {
@@ -557,6 +603,7 @@
             document.getElementById('aws_secret_access_key').value = settings.aws_secret_access_key || '';
             document.getElementById('aws_region').value = settings.aws_region || '';
             document.getElementById('s3_bucket_name').value = settings.s3_bucket_name || '';
+            document.getElementById('s3_base_url').value = settings.s3_base_url || '';
             
             // Populate array fields
             populateArrayField('allowed_audio_formats', settings.allowed_audio_formats || ['mp3', 'wav', 'flac']);
@@ -573,10 +620,95 @@
         }
     }
 
+    async function loadInitializationStatus() {
+        try {
+            const response = await fetch('/api/settings/initialization-status');
+            if (!response.ok) throw new Error('Failed to load initialization status');
+
+            initializationStatus = await response.json();
+
+            if (!initializationStatus.is_complete) {
+                // Show banner
+                document.getElementById('init-banner').style.display = 'block';
+
+                // Populate checklist
+                const checklist = document.getElementById('init-checklist');
+                checklist.innerHTML = '';
+
+                for (const [key, detail] of Object.entries(initializationStatus.details)) {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.style.cssText = 'display: flex; align-items: center; gap: 12px; padding: 10px; background: rgba(0, 0, 0, 0.3); border-radius: 8px;';
+
+                    const icon = document.createElement('span');
+                    icon.style.cssText = 'font-size: 1.5em; min-width: 30px;';
+                    icon.textContent = detail.present ? '✅' : '❌';
+
+                    const textDiv = document.createElement('div');
+                    textDiv.style.cssText = 'flex: 1;';
+
+                    const nameSpan = document.createElement('div');
+                    nameSpan.style.cssText = detail.present ? 'color: var(--lcars-blue); font-weight: bold;' : 'color: var(--lcars-orange); font-weight: bold;';
+                    nameSpan.textContent = detail.name;
+
+                    const sourceSpan = document.createElement('div');
+                    sourceSpan.style.cssText = 'color: var(--lcars-gray); font-size: 0.9em;';
+                    sourceSpan.textContent = detail.message || `Source: ${detail.source}`;
+
+                    textDiv.appendChild(nameSpan);
+                    textDiv.appendChild(sourceSpan);
+
+                    itemDiv.appendChild(icon);
+                    itemDiv.appendChild(textDiv);
+                    checklist.appendChild(itemDiv);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading initialization status:', error);
+        }
+    }
+
+    function validateRequiredSettings() {
+        if (!isInitMode) return true;  // Only validate in init mode
+
+        if (!initializationStatus) return true;  // No status loaded yet
+
+        if (!initializationStatus.is_complete) {
+            // Check if any of the missing settings are now filled
+            const awsKeyId = document.getElementById('aws_access_key_id').value;
+            const awsSecretKey = document.getElementById('aws_secret_access_key').value;
+            const s3Bucket = document.getElementById('s3_bucket_name').value;
+
+            const hasAwsCreds = awsKeyId && awsSecretKey;
+            const hasBucket = s3Bucket;
+
+            const missingSettings = initializationStatus.missing_settings || [];
+
+            // Check if critical settings are still missing
+            if (missingSettings.includes('aws_credentials') && !hasAwsCreds) {
+                showStatus('AWS credentials are required (Access Key ID and Secret Key)', 'error');
+                return false;
+            }
+
+            if (missingSettings.includes('s3_bucket_name') && !hasBucket) {
+                showStatus('S3 Bucket Name is required', 'error');
+                return false;
+            }
+
+            // OpenAI key can only be set via environment, so we can't validate it here
+        }
+
+        return true;
+    }
+
     async function saveSettings() {
         try {
+            // Validate required settings before saving
+            if (!validateRequiredSettings()) {
+                return;
+            }
+
             showStatus('Saving settings...', 'info');
-            
+
             const settings = {
                 app_name: document.getElementById('app_name').value,
                 vessel_name: document.getElementById('vessel_name').value,
@@ -600,6 +732,7 @@
                 aws_secret_access_key: document.getElementById('aws_secret_access_key').value || null,
                 aws_region: document.getElementById('aws_region').value || null,
                 s3_bucket_name: document.getElementById('s3_bucket_name').value || null,
+                s3_base_url: document.getElementById('s3_base_url').value || null,
                 allowed_audio_formats: getArrayFieldValues('allowed_audio_formats'),
                 allowed_video_formats: getArrayFieldValues('allowed_video_formats')
             };
@@ -613,9 +746,21 @@
             });
             
             if (!response.ok) throw new Error('Failed to save settings');
-            
+
+            formDirty = false;  // Clear dirty flag on successful save
             showStatus('Settings saved successfully', 'success');
-            
+
+            // If in init mode, reload initialization status to see if we're done
+            if (isInitMode) {
+                await loadInitializationStatus();
+                if (initializationStatus && initializationStatus.is_complete) {
+                    showStatus('Initialization complete! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                }
+            }
+
         } catch (error) {
             console.error('Error saving settings:', error);
             showStatus('Failed to save settings', 'error');
