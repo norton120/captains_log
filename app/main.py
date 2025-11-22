@@ -115,6 +115,23 @@ async def settings_page(request: Request, db_session: AsyncSession = Depends(get
     )
 
 
+@app.get("/search")
+async def search_page(request: Request, db_session: AsyncSession = Depends(get_db_session)):
+    """Search page."""
+    preferences = await get_or_create_user_preferences(db_session)
+    return templates.TemplateResponse(
+        "search.html",
+        {
+            "request": request,
+            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
+            "version": "1.0.0",
+            "app_name": preferences.app_name,
+            "vessel_name": preferences.vessel_name,
+            "vessel_designation": preferences.vessel_designation
+        }
+    )
+
+
 @app.get("/map")
 async def map_page(request: Request, db: Session = Depends(get_db), db_session: AsyncSession = Depends(get_db_session)):
     """Map view page showing all logs with location data."""

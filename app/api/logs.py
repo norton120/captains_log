@@ -646,6 +646,182 @@ async def list_log_entries(
         ) from e
 
 
+@router.get("/search")
+async def search_logs(
+    request: Request,
+    query: str = Query(..., description="Search query text"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of results"),
+    db_session: AsyncSession = Depends(get_db_session),
+    openai_service: OpenAIService = Depends(get_openai_service)
+):
+    """
+    Perform vector similarity search on log entries.
+
+    - **query**: Search text to vectorize and search
+    - **limit**: Maximum number of results to return (default 10, max 50)
+    """
+    try:
+        # Check if this is an HTMX request
+        is_htmx = request.headers.get("HX-Request") == "true"
+
+        # Generate embedding for the search query
+        try:
+            query_embedding = await openai_service.generate_embedding(query)
+        except Exception as embedding_error:
+            logger.error(f"Failed to generate embedding for search query: {embedding_error}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to process search query"
+            )
+
+        # Perform vector similarity search using pgvector's cosine distance operator
+        # The <=> operator computes cosine distance (lower is more similar)
+        # We order by distance ascending to get the most similar results first
+        from sqlalchemy import text
+
+        similarity_query = select(LogEntry).where(
+            LogEntry.embedding.isnot(None)
+        ).order_by(
+            LogEntry.embedding.cosine_distance(query_embedding)
+        ).limit(limit)
+
+        result = await db_session.execute(similarity_query)
+        log_entries = result.scalars().all()
+
+        # For HTMX requests, return HTML
+        if is_htmx:
+            # Helper functions for template
+            def format_timestamp(dt):
+                return dt.strftime("%H:%M")
+
+            def format_date(dt):
+                return dt.strftime("%Y-%m-%d")
+
+            def format_display_date(date_str):
+                from datetime import date as dt_date
+                date_obj = dt_date.fromisoformat(date_str)
+                today = dt_date.today()
+                yesterday = today - timedelta(days=1)
+
+                if date_obj == today:
+                    return "TODAY"
+                elif date_obj == yesterday:
+                    return "YESTERDAY"
+                else:
+                    return date_obj.strftime("%A, %B %d, %Y").upper()
+
+            def format_location(log):
+                from app.services.geocoding import format_location_simple
+
+                if log.location_name:
+                    if log.latitude and log.longitude:
+                        return f"{log.latitude:.4f}°, {log.longitude:.4f}° | {log.location_name}"
+                    return log.location_name
+                elif log.latitude and log.longitude:
+                    return format_location_simple(
+                        log.latitude,
+                        log.longitude,
+                        log.location_city,
+                        log.location_state,
+                        log.location_country
+                    )
+                return "Unknown"
+
+            def format_status(status):
+                return status.value.replace('_', ' ').upper()
+
+            def format_uuid_short(uuid_obj):
+                return str(uuid_obj)[:8]
+
+            # Group logs by date
+            from collections import defaultdict
+            grouped_logs = defaultdict(list)
+
+            for entry in log_entries:
+                date_key = entry.created_at.date().isoformat()
+                grouped_logs[date_key].append(entry)
+
+            grouped_logs = dict(grouped_logs)
+
+            # Render template
+            from jinja2 import Environment, FileSystemLoader
+            import os
+
+            template_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
+            env = Environment(loader=FileSystemLoader(template_dir))
+            template = env.get_template("fragments/search_results.html")
+
+            html_content = template.render(
+                request=request,
+                logs=log_entries,
+                grouped_logs=grouped_logs,
+                query=query,
+                format_timestamp=format_timestamp,
+                format_date=format_date,
+                format_display_date=format_display_date,
+                format_location=format_location,
+                format_status=format_status,
+                format_uuid_short=format_uuid_short
+            )
+
+            return HTMLResponse(content=html_content)
+
+        # For JSON API requests, return JSON
+        items = [
+            LogEntryResponse(
+                id=str(entry.id),
+                created_at=entry.created_at,
+                media_type=entry.media_type.value,
+                is_video_source=entry.is_video_source,
+                log_type=entry.log_type.value,
+                video_s3_key=entry.video_s3_key,
+                video_local_path=entry.video_local_path,
+                audio_s3_key=entry.audio_s3_key,
+                audio_local_path=entry.audio_local_path,
+                transcription=entry.transcription,
+                summary=entry.summary,
+                processing_status=entry.processing_status.value,
+                processing_error=entry.processing_error,
+                latitude=entry.latitude,
+                longitude=entry.longitude,
+                location_name=entry.location_name,
+                location_city=entry.location_city,
+                location_state=entry.location_state,
+                location_country=entry.location_country,
+                body_of_water=entry.body_of_water,
+                nearest_port=entry.nearest_port,
+                weather_air_temp_f=entry.weather_air_temp_f,
+                weather_water_temp_f=entry.weather_water_temp_f,
+                weather_wind_speed_kts=entry.weather_wind_speed_kts,
+                weather_wind_direction_deg=entry.weather_wind_direction_deg,
+                weather_wind_gust_kts=entry.weather_wind_gust_kts,
+                weather_wave_height_ft=entry.weather_wave_height_ft,
+                weather_wave_period_sec=entry.weather_wave_period_sec,
+                weather_barometric_pressure_mb=entry.weather_barometric_pressure_mb,
+                weather_visibility_nm=entry.weather_visibility_nm,
+                weather_conditions=entry.weather_conditions,
+                weather_forecast=entry.weather_forecast,
+                weather_captured_at=entry.weather_captured_at
+            )
+            for entry in log_entries
+        ]
+
+        return {
+            "query": query,
+            "results": items,
+            "count": len(items)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Search failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Search operation failed"
+        ) from e
+
+
 @router.get("/{log_id}", response_model=LogEntryResponse)
 async def get_log_entry(
     log_id: UUID,
@@ -1064,29 +1240,29 @@ async def serve_local_media(
 ):
     """Serve local media files when using local storage mode."""
     from app.config import MediaStorageMode
-    
+
     if settings.media_storage_mode != MediaStorageMode.LOCAL_WITH_S3:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Local media serving not enabled"
         )
-    
+
     if not settings.local_media_path:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Local media path not configured"
         )
-    
+
     # Security check: ensure filename doesn't contain path traversal
     if '..' in filename or '/' in filename or '\\' in filename:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid filename"
         )
-    
+
     # Find the file in the local media directory
     media_path = Path(settings.local_media_path)
-    
+
     # Search for the file in subdirectories (date-based structure)
     for file_path in media_path.rglob(filename):
         if file_path.is_file():
@@ -1094,7 +1270,7 @@ async def serve_local_media(
                 path=str(file_path),
                 media_type="audio/mpeg"  # Default to audio type
             )
-    
+
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Media file not found"

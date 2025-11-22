@@ -1,0 +1,45 @@
+{% if logs|length == 0 %}
+    <div class="empty-state">
+        <h3>NO RESULTS FOUND</h3>
+        <p>No log entries match your search query "{{ query }}".</p>
+        <p>Try different search terms or check if logs have been fully processed.</p>
+    </div>
+{% else %}
+    <div class="search-results-header">
+        <h3>SEARCH RESULTS FOR "{{ query }}"</h3>
+        <p>Found {{ logs|length }} matching entries</p>
+    </div>
+    {% for date, entries in grouped_logs.items() %}
+        <div class="date-group">
+            <div class="date-header">
+                <span>{{ format_display_date(date) }}</span>
+                <span class="date-count">{{ entries|length }} entries</span>
+            </div>
+            <div class="log-entries">
+                {% for log in entries %}
+                    <div class="log-entry" data-log-id="{{ log.id }}" onclick="viewLog('{{ log.id }}')">
+                        <div class="log-header">
+                            <div class="log-timestamp">{{ format_timestamp(log.created_at) }}
+                                <span class="media-type-tag {{ log.media_type.value }}">{{ log.media_type.value.upper() }}</span>
+                                <span class="log-type-tag {{ log.log_type.value }}">{{ log.log_type.value.upper() }}</span>
+                            </div>
+                            <div class="log-status {{ log.processing_status.value }}">{{ format_status(log.processing_status) }}</div>
+                        </div>
+
+                        <div class="log-summary {% if not log.summary %}placeholder{% endif %}">
+                            {{ log.summary or 'Processing in progress...' }}
+                        </div>
+
+                        <div class="log-metadata">
+                            <span><strong>Created:</strong> {{ format_date(log.created_at) }}</span>
+                            {% if log.location_name or (log.latitude and log.longitude) %}
+                                <span><strong>Location:</strong> {{ format_location(log) }}</span>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
+{% endif %}
