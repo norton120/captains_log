@@ -741,3 +741,168 @@ class TestAPIIntegrationScenarios:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["audio_url"] == "https://valid-presigned-url.com/audio.wav"
+
+
+@m.describe("POST /api/logs/{log_id}/retry")
+class TestLogRetryEndpoint:
+    """Test retry endpoint for failed or stuck log processing."""
+
+    @m.context("When retrying a failed log entry")
+    @m.it("resets status and restarts processing")
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    @pytest.mark.unit
+    async def test_retry_failed_log_success(self, api_client, log_entry_factory, tmp_path):
+        """Should successfully retry a failed log entry."""
+        # Arrange - Create local audio file for retry
+        audio_file = tmp_path / "failed_audio.wav"
+        audio_file.write_bytes(b"test audio content")
+
+        log_entry = await log_entry_factory(
+            processing_status=ProcessingStatus.FAILED,
+            processing_error="Transcription timeout",
+            audio_s3_key="test/failed_audio.wav",
+            audio_local_path=str(audio_file)
+        )
+
+        # Act
+        response = await api_client.post(f"/api/logs/{log_entry.id}/retry")
+
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["id"] == str(log_entry.id)
+        assert data["status"] == ProcessingStatus.PENDING.value
+        assert "retry started successfully" in data["message"].lower()
+
+    @m.context("When retrying a log stuck in transcribing status")
+    @m.it("successfully retries the stuck job")
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    @pytest.mark.unit
+    async def test_retry_stuck_transcribing_log(self, api_client, log_entry_factory, tmp_path):
+        """Should successfully retry a log stuck in transcribing status."""
+        # Arrange - Create local audio file for retry
+        audio_file = tmp_path / "stuck_audio.wav"
+        audio_file.write_bytes(b"test audio content")
+
+        log_entry = await log_entry_factory(
+            processing_status=ProcessingStatus.TRANSCRIBING,
+            audio_s3_key="test/stuck_audio.wav",
+            audio_local_path=str(audio_file)
+        )
+
+        # Act
+        response = await api_client.post(f"/api/logs/{log_entry.id}/retry")
+
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["id"] == str(log_entry.id)
+
+    @m.context("When retrying a completed log entry")
+    @m.it("returns error that retry is not needed")
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    @pytest.mark.unit
+    async def test_retry_completed_log_error(self, api_client, log_entry_factory):
+        """Should reject retry of already completed log entry."""
+        # Arrange
+        log_entry = await log_entry_factory(
+            processing_status=ProcessingStatus.COMPLETED,
+            audio_s3_key="test/completed_audio.wav"
+        )
+
+        # Act
+        response = await api_client.post(f"/api/logs/{log_entry.id}/retry")
+
+        # Assert
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        data = response.json()
+        assert "already completed" in data["detail"].lower()
+
+    @m.context("When retrying a pending log entry")
+    @m.it("returns error that retry is not applicable")
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    @pytest.mark.unit
+    async def test_retry_pending_log_error(self, api_client, log_entry_factory):
+        """Should reject retry of pending log entry."""
+        # Arrange
+        log_entry = await log_entry_factory(
+            processing_status=ProcessingStatus.PENDING,
+            audio_s3_key="test/pending_audio.wav"
+        )
+
+        # Act
+        response = await api_client.post(f"/api/logs/{log_entry.id}/retry")
+
+        # Assert
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        data = response.json()
+        assert "cannot be retried" in data["detail"].lower()
+
+    @m.context("When retrying a log with no audio file")
+    @m.it("returns error about missing audio")
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    @pytest.mark.unit
+    async def test_retry_log_no_audio_error(self, api_client, log_entry_factory):
+        """Should reject retry when no audio file is available."""
+        # Arrange
+        log_entry = await log_entry_factory(
+            processing_status=ProcessingStatus.FAILED,
+            audio_s3_key=None,
+            audio_local_path=None
+        )
+
+        # Act
+        response = await api_client.post(f"/api/logs/{log_entry.id}/retry")
+
+        # Assert
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        data = response.json()
+        assert "no audio file" in data["detail"].lower()
+
+    @m.context("When retrying a non-existent log")
+    @m.it("returns not found error")
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    @pytest.mark.unit
+    async def test_retry_nonexistent_log_error(self, api_client):
+        """Should return 404 for non-existent log entry."""
+        # Arrange
+        fake_id = uuid4()
+
+        # Act
+        response = await api_client.post(f"/api/logs/{fake_id}/retry")
+
+        # Assert
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        data = response.json()
+        assert "not found" in data["detail"].lower()
+
+    @m.context("When retrying with local audio file")
+    @m.it("uses local file path instead of downloading")
+    @pytest.mark.asyncio
+    @pytest.mark.api
+    @pytest.mark.unit
+    async def test_retry_with_local_audio_file(self, api_client, log_entry_factory, tmp_path):
+        """Should use local audio file when available."""
+        # Arrange
+        audio_file = tmp_path / "test_audio.wav"
+        audio_file.write_bytes(b"test audio content")
+
+        log_entry = await log_entry_factory(
+            processing_status=ProcessingStatus.FAILED,
+            audio_local_path=str(audio_file),
+            audio_s3_key="test/backup_audio.wav"
+        )
+
+        # Act
+        response = await api_client.post(f"/api/logs/{log_entry.id}/retry")
+
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["id"] == str(log_entry.id)

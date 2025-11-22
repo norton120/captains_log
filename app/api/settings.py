@@ -366,27 +366,27 @@ async def delete_setting(
 ) -> Dict[str, str]:
     """
     Delete a setting.
-    
+
     - **setting_key**: The key of the setting to delete
     """
     try:
         query = select(Setting).where(Setting.key == setting_key)
         result = await db_session.execute(query)
         setting = result.scalar_one_or_none()
-        
+
         if not setting:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Setting '{setting_key}' not found"
             )
-        
+
         await db_session.delete(setting)
         await db_session.commit()
-        
+
         logger.info(f"Deleted setting '{setting_key}'")
-        
+
         return {"message": f"Setting '{setting_key}' deleted successfully"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -395,4 +395,55 @@ async def delete_setting(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete setting '{setting_key}'"
+        ) from e
+
+
+@router.get("/failed-logs/count")
+async def get_failed_logs_count(
+    db_session: AsyncSession = Depends(get_db_session)
+) -> Dict[str, Any]:
+    """
+    Get count of failed or stuck log entries.
+
+    Returns counts for logs in FAILED, TRANSCRIBING, VECTORIZING, or SUMMARIZING status.
+    """
+    try:
+        from app.models.log_entry import LogEntry, ProcessingStatus
+        from sqlalchemy import func, or_
+
+        # Query for failed/stuck logs
+        query = select(func.count(LogEntry.id)).where(
+            or_(
+                LogEntry.processing_status == ProcessingStatus.FAILED,
+                LogEntry.processing_status == ProcessingStatus.TRANSCRIBING,
+                LogEntry.processing_status == ProcessingStatus.VECTORIZING,
+                LogEntry.processing_status == ProcessingStatus.SUMMARIZING
+            )
+        )
+
+        result = await db_session.execute(query)
+        total_count = result.scalar()
+
+        # Get counts by status
+        status_counts = {}
+        for status in [ProcessingStatus.FAILED, ProcessingStatus.TRANSCRIBING,
+                      ProcessingStatus.VECTORIZING, ProcessingStatus.SUMMARIZING]:
+            status_query = select(func.count(LogEntry.id)).where(
+                LogEntry.processing_status == status
+            )
+            status_result = await db_session.execute(status_query)
+            count = status_result.scalar()
+            if count > 0:
+                status_counts[status.value] = count
+
+        return {
+            "total": total_count,
+            "by_status": status_counts
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get failed logs count: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve failed logs count"
         ) from e

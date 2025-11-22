@@ -221,6 +221,7 @@ async def log_entry_factory(async_db_session):
     
     async def _create_log_entry(
         audio_s3_key: str = "test/audio.wav",
+        audio_local_path: str = None,
         transcription: str = None,
         summary: str = None,
         processing_status: ProcessingStatus = ProcessingStatus.PENDING,
@@ -228,6 +229,7 @@ async def log_entry_factory(async_db_session):
     ) -> LogEntry:
         entry = LogEntry(
             audio_s3_key=audio_s3_key,
+            audio_local_path=audio_local_path,
             transcription=transcription,
             summary=summary,
             processing_status=processing_status,

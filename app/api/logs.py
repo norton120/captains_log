@@ -856,6 +856,139 @@ async def update_log_type(
         ) from e
 
 
+@router.post("/{log_id}/retry")
+async def retry_log_processing(
+    log_id: UUID,
+    background_tasks: BackgroundTasks,
+    db_session: AsyncSession = Depends(get_db_session),
+    media_storage: MediaStorageService = Depends(get_media_storage_service),
+    openai_service: OpenAIService = Depends(get_openai_service),
+    settings: Settings = Depends(get_settings)
+) -> dict:
+    """
+    Retry processing for a failed or stuck log entry.
+
+    This endpoint will re-run the transcription workflow for log entries that are:
+    - In FAILED status
+    - Stuck in TRANSCRIBING, VECTORIZING, or SUMMARIZING status
+
+    - **log_id**: UUID of the log entry to retry
+    """
+    try:
+        # Get the log entry
+        result = await db_session.get(LogEntry, log_id)
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Log entry not found"
+            )
+
+        log_entry = result
+
+        # Check if the log entry needs retry
+        retryable_statuses = {
+            ProcessingStatus.FAILED,
+            ProcessingStatus.TRANSCRIBING,
+            ProcessingStatus.VECTORIZING,
+            ProcessingStatus.SUMMARIZING
+        }
+
+        if log_entry.processing_status == ProcessingStatus.COMPLETED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Log entry is already completed and does not need retry"
+            )
+
+        if log_entry.processing_status not in retryable_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Log entry in {log_entry.processing_status.value} status cannot be retried"
+            )
+
+        # Check if we have the necessary media files
+        if not log_entry.audio_s3_key and not log_entry.audio_local_path:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No audio file found for this log entry"
+            )
+
+        # Reset status to PENDING and clear error
+        log_entry.processing_status = ProcessingStatus.PENDING
+        log_entry.processing_error = None
+        await db_session.commit()
+        await db_session.refresh(log_entry)
+
+        # Get the audio file path
+        # Try local path first, then download from S3 if needed
+        media_file_path = None
+        temp_file_created = False
+
+        if log_entry.audio_local_path and Path(log_entry.audio_local_path).exists():
+            media_file_path = Path(log_entry.audio_local_path)
+        elif log_entry.audio_s3_key:
+            # Download from S3 to temporary file
+            try:
+                s3_service = S3Service(settings)
+                audio_url = await s3_service.get_audio_url(log_entry.audio_s3_key)
+
+                # Download to temp file
+                import aiohttp
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav', prefix='retry_')
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(audio_url) as response:
+                        if response.status != 200:
+                            raise Exception(f"Failed to download audio from S3: {response.status}")
+
+                        async for chunk in response.content.iter_chunked(8192):
+                            temp_file.write(chunk)
+
+                temp_file.close()
+                media_file_path = Path(temp_file.name)
+                temp_file_created = True
+
+            except Exception as download_error:
+                logger.error(f"Failed to download audio for retry: {download_error}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to retrieve audio file for retry"
+                )
+
+        if not media_file_path:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Could not locate audio file for retry"
+            )
+
+        # Start background processing
+        background_tasks.add_task(
+            start_media_processing,
+            log_entry.id,
+            media_file_path,
+            db_session,
+            settings,
+            media_storage,
+            openai_service,
+            use_resilient_processing=settings.enable_resilient_processing
+        )
+
+        logger.info(f"Retry processing queued for log entry: {log_id}")
+
+        return {
+            "message": "Processing retry started successfully",
+            "id": str(log_id),
+            "status": log_entry.processing_status.value
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to retry log processing {log_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retry log processing"
+        ) from e
+
+
 @router.delete("/{log_id}")
 async def delete_log_entry(
     log_id: UUID,
@@ -864,7 +997,7 @@ async def delete_log_entry(
 ) -> dict:
     """
     Delete a log entry and its associated audio file.
-    
+
     - **log_id**: UUID of the log entry to delete
     """
     logger.info(f"Starting delete operation for log entry: {log_id}")
@@ -878,16 +1011,16 @@ async def delete_log_entry(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Log entry not found"
             )
-        
+
         log_entry = result
         audio_s3_key = log_entry.audio_s3_key  # Store for S3 cleanup after DB deletion
-        
+
         # Delete from database first
         await db_session.delete(log_entry)
         await db_session.commit()
-        
+
         logger.info(f"Successfully deleted log entry from database: {log_id}")
-        
+
         # Delete from S3 after successful DB deletion
         if audio_s3_key:
             try:
@@ -896,9 +1029,9 @@ async def delete_log_entry(
             except Exception as s3_error:
                 logger.warning(f"Failed to delete S3 file {audio_s3_key}: {s3_error}")
                 # S3 deletion failure doesn't affect the API response since DB deletion succeeded
-        
+
         return {"message": "Log entry deleted successfully", "id": str(log_id)}
-        
+
     except HTTPException:
         logger.info(f"HTTPException caught for {log_id}, re-raising")
         raise
