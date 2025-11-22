@@ -192,6 +192,18 @@ async def get_user_preferences(db_session: AsyncSession = Depends(get_db_session
             s3_audio_prefix=preferences.s3_audio_prefix,
             s3_video_prefix=preferences.s3_video_prefix,
             s3_presigned_url_expiry=preferences.s3_presigned_url_expiry,
+            # Authentication settings
+            allow_new_user_registration=preferences.allow_new_user_registration,
+            secret_key=preferences.secret_key,
+            session_cookie_name=preferences.session_cookie_name,
+            session_max_age=preferences.session_max_age,
+            # OAuth settings
+            google_oauth_client_id=preferences.google_oauth_client_id,
+            google_oauth_client_secret=preferences.google_oauth_client_secret,
+            facebook_oauth_client_id=preferences.facebook_oauth_client_id,
+            facebook_oauth_client_secret=preferences.facebook_oauth_client_secret,
+            github_oauth_client_id=preferences.github_oauth_client_id,
+            github_oauth_client_secret=preferences.github_oauth_client_secret,
         )
 
     except Exception as e:
@@ -253,6 +265,18 @@ async def update_user_preferences(
             s3_audio_prefix=preferences.s3_audio_prefix,
             s3_video_prefix=preferences.s3_video_prefix,
             s3_presigned_url_expiry=preferences.s3_presigned_url_expiry,
+            # Authentication settings
+            allow_new_user_registration=preferences.allow_new_user_registration,
+            secret_key=preferences.secret_key,
+            session_cookie_name=preferences.session_cookie_name,
+            session_max_age=preferences.session_max_age,
+            # OAuth settings
+            google_oauth_client_id=preferences.google_oauth_client_id,
+            google_oauth_client_secret=preferences.google_oauth_client_secret,
+            facebook_oauth_client_id=preferences.facebook_oauth_client_id,
+            facebook_oauth_client_secret=preferences.facebook_oauth_client_secret,
+            github_oauth_client_id=preferences.github_oauth_client_id,
+            github_oauth_client_secret=preferences.github_oauth_client_secret,
         )
 
     except Exception as e:
@@ -437,15 +461,12 @@ async def get_failed_logs_count(db_session: AsyncSession = Depends(get_db_sessio
     except Exception as e:
         logger.error(f"Failed to get failed logs count: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve failed logs count"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve failed logs count"
         ) from e
 
 
 @router.get("/initialization-status")
-async def get_initialization_status(
-    db_session: AsyncSession = Depends(get_db_session)
-) -> Dict[str, Any]:
+async def get_initialization_status(db_session: AsyncSession = Depends(get_db_session)) -> Dict[str, Any]:
     """
     Get initialization status for the application.
 
@@ -472,6 +493,5 @@ async def get_initialization_status(
     except Exception as e:
         logger.error(f"Failed to get initialization status: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve initialization status"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve initialization status"
         ) from e

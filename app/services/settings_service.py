@@ -264,6 +264,50 @@ class SettingsService:
             return self._cached_preferences.s3_base_url
         return None
 
+    # OAuth/SSO settings (database first, then environment)
+
+    @property
+    def google_oauth_client_id(self) -> Optional[str]:
+        """Google OAuth Client ID from preferences or environment."""
+        if self._cached_preferences and self._cached_preferences.google_oauth_client_id:
+            return self._cached_preferences.google_oauth_client_id
+        return self.env_settings.google_oauth_client_id
+
+    @property
+    def google_oauth_client_secret(self) -> Optional[str]:
+        """Google OAuth Client Secret from preferences or environment."""
+        if self._cached_preferences and self._cached_preferences.google_oauth_client_secret:
+            return self._cached_preferences.google_oauth_client_secret
+        return self.env_settings.google_oauth_client_secret
+
+    @property
+    def github_oauth_client_id(self) -> Optional[str]:
+        """GitHub OAuth Client ID from preferences or environment."""
+        if self._cached_preferences and self._cached_preferences.github_oauth_client_id:
+            return self._cached_preferences.github_oauth_client_id
+        return self.env_settings.github_oauth_client_id
+
+    @property
+    def github_oauth_client_secret(self) -> Optional[str]:
+        """GitHub OAuth Client Secret from preferences or environment."""
+        if self._cached_preferences and self._cached_preferences.github_oauth_client_secret:
+            return self._cached_preferences.github_oauth_client_secret
+        return self.env_settings.github_oauth_client_secret
+
+    @property
+    def facebook_oauth_client_id(self) -> Optional[str]:
+        """Facebook OAuth Client ID from preferences or environment."""
+        if self._cached_preferences and self._cached_preferences.facebook_oauth_client_id:
+            return self._cached_preferences.facebook_oauth_client_id
+        return self.env_settings.facebook_oauth_client_id
+
+    @property
+    def facebook_oauth_client_secret(self) -> Optional[str]:
+        """Facebook OAuth Client Secret from preferences or environment."""
+        if self._cached_preferences and self._cached_preferences.facebook_oauth_client_secret:
+            return self._cached_preferences.facebook_oauth_client_secret
+        return self.env_settings.facebook_oauth_client_secret
+
     async def get_initialization_status(self) -> Dict[str, Any]:
         """
         Check if all required settings are configured for app initialization.
@@ -286,19 +330,20 @@ class SettingsService:
                 "name": "OpenAI API Key",
                 "source": "environment",
                 "required": True,
-                "present": False
+                "present": False,
             }
         else:
             details["openai_api_key"] = {
                 "name": "OpenAI API Key",
                 "source": "environment",
                 "required": True,
-                "present": True
+                "present": True,
             }
 
         # Check AWS credentials (either env OR db, at least one method required)
         aws_creds_present = bool(
-            (self.aws_access_key_id and self.aws_secret_access_key) or
+            (self.aws_access_key_id and self.aws_secret_access_key)
+            or
             # Check if running in AWS with IAM role (env vars from boto would be set)
             self.env_settings.aws_access_key_id
         )
@@ -310,7 +355,7 @@ class SettingsService:
                 "source": "environment or database",
                 "required": True,
                 "present": False,
-                "message": "Either set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in environment, or configure them in database settings"
+                "message": "Either set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in environment, or configure them in database settings",
             }
         else:
             source = "environment" if self.env_settings.aws_access_key_id else "database"
@@ -318,7 +363,7 @@ class SettingsService:
                 "name": "AWS Credentials",
                 "source": source,
                 "required": True,
-                "present": True
+                "present": True,
             }
 
         # Check S3 bucket name
@@ -328,22 +373,13 @@ class SettingsService:
                 "name": "S3 Bucket Name",
                 "source": "environment or database",
                 "required": True,
-                "present": False
+                "present": False,
             }
         else:
             source = "environment" if self.env_settings.s3_bucket_name == self.s3_bucket_name else "database"
-            details["s3_bucket_name"] = {
-                "name": "S3 Bucket Name",
-                "source": source,
-                "required": True,
-                "present": True
-            }
+            details["s3_bucket_name"] = {"name": "S3 Bucket Name", "source": source, "required": True, "present": True}
 
-        return {
-            "is_complete": len(missing_settings) == 0,
-            "missing_settings": missing_settings,
-            "details": details
-        }
+        return {"is_complete": len(missing_settings) == 0, "missing_settings": missing_settings, "details": details}
 
     async def is_initialization_complete(self) -> bool:
         """Quick check if initialization is complete."""

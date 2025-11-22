@@ -1,4 +1,5 @@
 """Middleware for application initialization and security."""
+
 import logging
 from typing import Callable
 from fastapi import Request, Response
@@ -51,6 +52,7 @@ class InitializationCheckMiddleware(BaseHTTPMiddleware):
         try:
             # Create a new database session for this request
             from app.database import async_session_maker
+
             async with async_session_maker() as db_session:
                 settings_service = SettingsService(env_settings, db_session)
 

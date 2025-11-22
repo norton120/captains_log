@@ -448,6 +448,58 @@
         </div>
     </div>
 
+    <!-- OAuth/SSO Configuration -->
+    <div class="settings-section">
+        <h2>OAuth/SSO Configuration</h2>
+        <div style="background: rgba(255, 153, 0, 0.1); border: 2px solid var(--lcars-orange); border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+            <div style="color: var(--lcars-orange); font-weight: bold; margin-bottom: 8px;">⚠️ SECURITY NOTICE</div>
+            <div style="color: var(--lcars-white); font-size: 0.9em;">
+                <strong>OAuth credentials are stored in PLAINTEXT in the database.</strong><br><br>
+                Configure Single Sign-On (SSO) providers here to allow users to login with Google, GitHub, or Facebook.<br><br>
+                OAuth credentials stored here will override environment variables. Leave empty to use environment settings (recommended for production).<br><br>
+                Database credentials should only be used in secure, local-only environments. For production deployments, use environment variables.<br><br>
+                <strong>Note:</strong> After saving OAuth settings, you must restart the application for changes to take effect.
+            </div>
+        </div>
+        <div class="settings-grid">
+            <div class="setting-item">
+                <div class="setting-label">Google OAuth Client ID</div>
+                <div class="setting-description">Google OAuth 2.0 Client ID from Google Cloud Console</div>
+                <input type="text" class="setting-input" id="google_oauth_client_id" placeholder="Leave empty to use environment">
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-label">Google OAuth Client Secret</div>
+                <div class="setting-description">Google OAuth 2.0 Client Secret from Google Cloud Console</div>
+                <input type="password" class="setting-input" id="google_oauth_client_secret" placeholder="Leave empty to use environment">
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-label">GitHub OAuth Client ID</div>
+                <div class="setting-description">GitHub OAuth App Client ID from GitHub Developer Settings</div>
+                <input type="text" class="setting-input" id="github_oauth_client_id" placeholder="Leave empty to use environment">
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-label">GitHub OAuth Client Secret</div>
+                <div class="setting-description">GitHub OAuth App Client Secret from GitHub Developer Settings</div>
+                <input type="password" class="setting-input" id="github_oauth_client_secret" placeholder="Leave empty to use environment">
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-label">Facebook OAuth Client ID</div>
+                <div class="setting-description">Facebook App ID from Facebook Developer Console</div>
+                <input type="text" class="setting-input" id="facebook_oauth_client_id" placeholder="Leave empty to use environment">
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-label">Facebook OAuth Client Secret</div>
+                <div class="setting-description">Facebook App Secret from Facebook Developer Console</div>
+                <input type="password" class="setting-input" id="facebook_oauth_client_secret" placeholder="Leave empty to use environment">
+            </div>
+        </div>
+    </div>
+
     <!-- S3 Settings -->
     <div class="settings-section">
         <h2>S3 Configuration</h2>
@@ -604,7 +656,15 @@
             document.getElementById('aws_region').value = settings.aws_region || '';
             document.getElementById('s3_bucket_name').value = settings.s3_bucket_name || '';
             document.getElementById('s3_base_url').value = settings.s3_base_url || '';
-            
+
+            // OAuth/SSO credentials (optional)
+            document.getElementById('google_oauth_client_id').value = settings.google_oauth_client_id || '';
+            document.getElementById('google_oauth_client_secret').value = settings.google_oauth_client_secret || '';
+            document.getElementById('github_oauth_client_id').value = settings.github_oauth_client_id || '';
+            document.getElementById('github_oauth_client_secret').value = settings.github_oauth_client_secret || '';
+            document.getElementById('facebook_oauth_client_id').value = settings.facebook_oauth_client_id || '';
+            document.getElementById('facebook_oauth_client_secret').value = settings.facebook_oauth_client_secret || '';
+
             // Populate array fields
             populateArrayField('allowed_audio_formats', settings.allowed_audio_formats || ['mp3', 'wav', 'flac']);
             populateArrayField('allowed_video_formats', settings.allowed_video_formats || ['mp4', 'webm', 'mov']);
@@ -733,6 +793,13 @@
                 aws_region: document.getElementById('aws_region').value || null,
                 s3_bucket_name: document.getElementById('s3_bucket_name').value || null,
                 s3_base_url: document.getElementById('s3_base_url').value || null,
+                // OAuth/SSO credentials (send empty string as null for optional fields)
+                google_oauth_client_id: document.getElementById('google_oauth_client_id').value || null,
+                google_oauth_client_secret: document.getElementById('google_oauth_client_secret').value || null,
+                github_oauth_client_id: document.getElementById('github_oauth_client_id').value || null,
+                github_oauth_client_secret: document.getElementById('github_oauth_client_secret').value || null,
+                facebook_oauth_client_id: document.getElementById('facebook_oauth_client_id').value || null,
+                facebook_oauth_client_secret: document.getElementById('facebook_oauth_client_secret').value || null,
                 allowed_audio_formats: getArrayFieldValues('allowed_audio_formats'),
                 allowed_video_formats: getArrayFieldValues('allowed_video_formats')
             };
@@ -793,7 +860,15 @@
             document.getElementById('aws_secret_access_key').value = '';
             document.getElementById('aws_region').value = 'us-east-2';
             document.getElementById('s3_bucket_name').value = '';
-            
+
+            // Clear OAuth/SSO credentials
+            document.getElementById('google_oauth_client_id').value = '';
+            document.getElementById('google_oauth_client_secret').value = '';
+            document.getElementById('github_oauth_client_id').value = '';
+            document.getElementById('github_oauth_client_secret').value = '';
+            document.getElementById('facebook_oauth_client_id').value = '';
+            document.getElementById('facebook_oauth_client_secret').value = '';
+
             populateArrayField('allowed_audio_formats', ['mp3', 'wav', 'flac', 'm4a', 'webm']);
             populateArrayField('allowed_video_formats', ['mp4', 'webm', 'mov', 'avi']);
             
