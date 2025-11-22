@@ -10,6 +10,7 @@ from openai.types.audio import Transcription
 from openai.types.chat import ChatCompletion
 
 from app.config import Settings
+from app.services.audio_chunker import AudioChunker, AudioChunkingError
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,8 @@ class OpenAIService:
         self.settings = settings
         self._client = None
         self._async_client = None
-        
+        self._audio_chunker = None
+
         # Validate API key is set
         if not settings.openai_api_key:
             raise ValueError("OpenAI API key is required")
@@ -70,20 +72,36 @@ class OpenAIService:
     def async_client(self, value: AsyncOpenAI) -> None:
         """Allow setting async client for testing."""
         self._async_client = value
+
+    @property
+    def audio_chunker(self) -> AudioChunker:
+        """Lazy-loaded audio chunker."""
+        if self._audio_chunker is None:
+            self._audio_chunker = AudioChunker(max_chunk_size_mb=20)
+        return self._audio_chunker
+
+    @audio_chunker.setter
+    def audio_chunker(self, value: AudioChunker) -> None:
+        """Allow setting audio chunker for testing."""
+        self._audio_chunker = value
     
-    def _validate_audio_file(self, audio_file: Path) -> None:
-        """Validate audio file for transcription."""
+    def _validate_audio_file(self, audio_file: Path, check_size: bool = True) -> bool:
+        """
+        Validate audio file for transcription.
+
+        Args:
+            audio_file: Path to audio file
+            check_size: Whether to check file size (returns True if too large instead of raising)
+
+        Returns:
+            True if file needs chunking (too large), False otherwise
+
+        Raises:
+            TranscriptionError: If file is invalid
+        """
         if not audio_file.exists():
             raise TranscriptionError(f"Audio file not found: {audio_file}")
-        
-        # Check file size (use configured max size, default OpenAI limit is 25MB)
-        file_size = audio_file.stat().st_size
-        max_size = min(self.settings.max_audio_file_size, 25 * 1024 * 1024)  # Use settings or 25MB limit
-        if file_size > max_size:
-            size_mb = file_size / (1024 * 1024)
-            max_mb = max_size / (1024 * 1024)
-            raise TranscriptionError(f"File too large: {size_mb:.1f}MB > {max_mb:.1f}MB")
-        
+
         # Check file format
         allowed_extensions = {'.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm'}
         if audio_file.suffix.lower() not in allowed_extensions:
@@ -91,9 +109,22 @@ class OpenAIService:
                 f"Unsupported audio format: {audio_file.suffix}. "
                 f"Allowed formats: {', '.join(allowed_extensions)}"
             )
+
+        # Check file size (use configured max size, default OpenAI limit is 25MB)
+        if check_size:
+            file_size = audio_file.stat().st_size
+            max_size = min(self.settings.max_audio_file_size, 25 * 1024 * 1024)  # Use settings or 25MB limit
+            if file_size > max_size:
+                # Return True to indicate file needs chunking
+                size_mb = file_size / (1024 * 1024)
+                max_mb = max_size / (1024 * 1024)
+                logger.info(f"File too large: {size_mb:.1f}MB > {max_mb:.1f}MB - will use chunking")
+                return True
+
+        return False
     
     async def transcribe_audio(
-        self, 
+        self,
         audio_file: Path,
         language: Optional[str] = None,
         prompt: Optional[str] = None,
@@ -101,57 +132,43 @@ class OpenAIService:
     ) -> str:
         """
         Transcribe audio file using OpenAI Whisper.
-        
+
+        For files larger than 25MB, automatically chunks the audio into smaller
+        segments, transcribes each chunk, and reassembles the full transcript.
+
         Args:
             audio_file: Path to audio file to transcribe
             language: ISO-639-1 language code (optional)
             prompt: Optional prompt to guide transcription
             temperature: Sampling temperature (0-1)
-            
+
         Returns:
             Transcribed text
-            
+
         Raises:
             TranscriptionError: If transcription fails
         """
         try:
-            # Validate audio file
-            self._validate_audio_file(audio_file)
-            
-            # Prepare transcription parameters
-            transcription_params = {
-                "model": self.settings.openai_model_whisper,
-                "file": open(audio_file, "rb"),
-                "temperature": temperature,
-                "response_format": "text"
-            }
-            
-            if language:
-                transcription_params["language"] = language
-            
-            if prompt:
-                transcription_params["prompt"] = prompt
-            
-            # Run transcription in thread pool to avoid blocking
-            loop = asyncio.get_event_loop()
-            transcription = await loop.run_in_executor(
-                None,
-                self._transcribe_sync,
-                transcription_params
-            )
-            
-            # Validate result
-            if not transcription or not transcription.strip():
-                raise TranscriptionError("Empty transcription result")
-            
-            logger.info(f"Successfully transcribed audio: {len(transcription)} characters")
-            return transcription.strip()
-            
+            # Validate audio file and check if chunking is needed
+            needs_chunking = self._validate_audio_file(audio_file, check_size=True)
+
+            if needs_chunking:
+                # Use chunked transcription for large files
+                logger.info("Using chunked transcription for large audio file")
+                return await self._transcribe_audio_chunked(
+                    audio_file, language, prompt, temperature
+                )
+            else:
+                # Use direct transcription for normal-sized files
+                return await self._transcribe_audio_direct(
+                    audio_file, language, prompt, temperature
+                )
+
         except TranscriptionError:
             raise
         except Exception as e:
             error_msg = str(e)
-            
+
             # Handle specific OpenAI errors
             if "rate limit" in error_msg.lower():
                 raise TranscriptionError(f"Rate limit exceeded: {error_msg}")
@@ -161,7 +178,59 @@ class OpenAIService:
                 raise TranscriptionError(f"Invalid audio file: {error_msg}")
             else:
                 raise TranscriptionError(f"Transcription failed: {error_msg}")
-        
+    
+    async def _transcribe_audio_direct(
+        self,
+        audio_file: Path,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
+        temperature: float = 0.0
+    ) -> str:
+        """
+        Transcribe audio file directly using OpenAI Whisper (for normal-sized files).
+
+        Args:
+            audio_file: Path to audio file to transcribe
+            language: ISO-639-1 language code (optional)
+            prompt: Optional prompt to guide transcription
+            temperature: Sampling temperature (0-1)
+
+        Returns:
+            Transcribed text
+
+        Raises:
+            TranscriptionError: If transcription fails
+        """
+        try:
+            # Prepare transcription parameters
+            transcription_params = {
+                "model": self.settings.openai_model_whisper,
+                "file": open(audio_file, "rb"),
+                "temperature": temperature,
+                "response_format": "text"
+            }
+
+            if language:
+                transcription_params["language"] = language
+
+            if prompt:
+                transcription_params["prompt"] = prompt
+
+            # Run transcription in thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            transcription = await loop.run_in_executor(
+                None,
+                self._transcribe_sync,
+                transcription_params
+            )
+
+            # Validate result
+            if not transcription or not transcription.strip():
+                raise TranscriptionError("Empty transcription result")
+
+            logger.info(f"Successfully transcribed audio: {len(transcription)} characters")
+            return transcription.strip()
+
         finally:
             # Ensure file is closed
             try:
@@ -169,7 +238,88 @@ class OpenAIService:
                     transcription_params['file'].close()
             except:
                 pass
-    
+
+    async def _transcribe_audio_chunked(
+        self,
+        audio_file: Path,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
+        temperature: float = 0.0
+    ) -> str:
+        """
+        Transcribe large audio file by chunking it into smaller segments.
+
+        Args:
+            audio_file: Path to audio file to transcribe
+            language: ISO-639-1 language code (optional)
+            prompt: Optional prompt to guide transcription
+            temperature: Sampling temperature (0-1)
+
+        Returns:
+            Transcribed text assembled from all chunks
+
+        Raises:
+            TranscriptionError: If transcription fails
+        """
+        chunk_files = []
+        try:
+            # Chunk the audio file
+            logger.info(f"Chunking audio file: {audio_file}")
+            chunk_files = await self.audio_chunker.chunk_audio_file(audio_file)
+
+            if not chunk_files:
+                raise TranscriptionError("Failed to create audio chunks")
+
+            logger.info(f"Created {len(chunk_files)} chunks, transcribing each...")
+
+            # Transcribe each chunk
+            transcriptions = []
+            for i, chunk_file in enumerate(chunk_files):
+                logger.info(f"Transcribing chunk {i+1}/{len(chunk_files)}")
+
+                # Use previous chunk's transcription as prompt for context continuity
+                chunk_prompt = prompt
+                if i > 0 and transcriptions:
+                    # Use last ~100 characters of previous transcription as context
+                    prev_text = transcriptions[-1].strip()
+                    if len(prev_text) > 100:
+                        chunk_prompt = prev_text[-100:]
+                    else:
+                        chunk_prompt = prev_text
+
+                # Transcribe this chunk
+                chunk_transcription = await self._transcribe_audio_direct(
+                    chunk_file,
+                    language=language,
+                    prompt=chunk_prompt,
+                    temperature=temperature
+                )
+
+                transcriptions.append(chunk_transcription)
+                logger.info(f"Chunk {i+1} transcribed: {len(chunk_transcription)} characters")
+
+            # Assemble full transcription
+            full_transcription = " ".join(transcriptions)
+
+            logger.info(
+                f"Successfully transcribed chunked audio: "
+                f"{len(chunk_files)} chunks, {len(full_transcription)} total characters"
+            )
+
+            return full_transcription.strip()
+
+        except AudioChunkingError as e:
+            raise TranscriptionError(f"Audio chunking failed: {str(e)}")
+        except TranscriptionError:
+            raise
+        except Exception as e:
+            raise TranscriptionError(f"Chunked transcription failed: {str(e)}")
+        finally:
+            # Clean up chunk files
+            if chunk_files:
+                logger.info(f"Cleaning up {len(chunk_files)} chunk files")
+                AudioChunker.cleanup_chunks(chunk_files)
+
     def _transcribe_sync(self, params: dict) -> str:
         """Synchronous transcription call."""
         try:

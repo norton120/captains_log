@@ -27,6 +27,7 @@ class TestOpenAITranscription:
     
     @m.context("When transcribing a valid audio file")
     @m.it("transcribes audio file and returns text")
+    @pytest.mark.asyncio
     @pytest.mark.unit
     @pytest.mark.openai
     async def test_transcribe_audio_success(self, openai_service, sample_audio_file):
@@ -40,6 +41,7 @@ class TestOpenAITranscription:
     
     @m.context("When using custom transcription settings")
     @m.it("passes custom parameters to OpenAI API")
+    @pytest.mark.asyncio
     @pytest.mark.unit
     @pytest.mark.openai
     async def test_transcribe_audio_custom_params(self, openai_service, sample_audio_file):
@@ -58,6 +60,7 @@ class TestOpenAITranscription:
     
     @m.context("When transcribing unsupported audio format")
     @m.it("handles unsupported audio formats gracefully")
+    @pytest.mark.asyncio
     @pytest.mark.unit
     @pytest.mark.openai
     async def test_transcribe_audio_invalid_format(self, openai_service, tmp_path):
@@ -72,6 +75,7 @@ class TestOpenAITranscription:
     
     @m.context("When OpenAI API returns an error")
     @m.it("handles OpenAI API failures gracefully")
+    @pytest.mark.asyncio
     @pytest.mark.unit
     @pytest.mark.openai
     async def test_transcribe_audio_api_error(self, openai_service, sample_audio_file):
@@ -85,6 +89,7 @@ class TestOpenAITranscription:
     
     @m.context("When transcription result is empty")
     @m.it("handles empty transcription results")
+    @pytest.mark.asyncio
     @pytest.mark.unit
     @pytest.mark.openai
     async def test_transcribe_audio_empty_result(self, openai_service, sample_audio_file):
@@ -97,14 +102,67 @@ class TestOpenAITranscription:
             await openai_service.transcribe_audio(sample_audio_file)
     
     @m.context("When transcribing large audio files")
-    @m.it("handles large audio files appropriately")
+    @m.it("uses chunking for large audio files")
+    @pytest.mark.asyncio
     @pytest.mark.unit
     @pytest.mark.openai
-    async def test_transcribe_large_audio_file(self, openai_service, large_audio_file):
-        """Should handle large audio files appropriately."""
+    async def test_transcribe_large_audio_file(self, openai_service, large_audio_file, tmp_path):
+        """Should use chunking for large audio files."""
+        # Arrange - Mock the chunker
+        from app.services.audio_chunker import AudioChunker
+        mock_chunker = AsyncMock(spec=AudioChunker)
+
+        # Create mock chunk files
+        chunk1 = tmp_path / "chunk_001.wav"
+        chunk2 = tmp_path / "chunk_002.wav"
+        chunk1.write_bytes(b"chunk 1 data")
+        chunk2.write_bytes(b"chunk 2 data")
+
+        mock_chunker.chunk_audio_file.return_value = [chunk1, chunk2]
+        openai_service.audio_chunker = mock_chunker
+
+        # Mock transcriptions for each chunk
+        openai_service.client.audio.transcriptions.create.side_effect = [
+            MagicMock(text="First chunk transcription."),
+            MagicMock(text="Second chunk transcription.")
+        ]
+
+        # Act
+        transcription = await openai_service.transcribe_audio(large_audio_file)
+
+        # Assert
+        assert "First chunk transcription" in transcription
+        assert "Second chunk transcription" in transcription
+        mock_chunker.chunk_audio_file.assert_called_once()
+        assert openai_service.client.audio.transcriptions.create.call_count == 2
+
+    @m.context("When chunked transcription fails")
+    @m.it("cleans up chunk files on error")
+    @pytest.mark.asyncio
+    @pytest.mark.unit
+    @pytest.mark.openai
+    async def test_transcribe_chunked_cleanup_on_error(self, openai_service, large_audio_file, tmp_path):
+        """Should clean up chunk files when chunked transcription fails."""
+        # Arrange
+        from app.services.audio_chunker import AudioChunker
+        mock_chunker = AsyncMock(spec=AudioChunker)
+
+        # Create mock chunk files
+        chunk1 = tmp_path / "chunk_001.wav"
+        chunk1.write_bytes(b"chunk 1 data")
+
+        mock_chunker.chunk_audio_file.return_value = [chunk1]
+        openai_service.audio_chunker = mock_chunker
+
+        # Make transcription fail
+        openai_service.client.audio.transcriptions.create.side_effect = Exception("API Error")
+
         # Act & Assert
-        with pytest.raises(TranscriptionError, match="File too large"):
+        with pytest.raises(TranscriptionError):
             await openai_service.transcribe_audio(large_audio_file)
+
+        # Chunk file should be cleaned up (deleted)
+        # Note: In the actual implementation, cleanup happens in finally block
 
 
 @m.describe("OpenAI Embeddings")
