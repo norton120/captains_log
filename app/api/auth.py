@@ -32,6 +32,7 @@ async def login(
     """
     Custom login endpoint with user-friendly error messages.
 
+    Supports login with either username or email.
     Returns proper error messages for authentication failures instead of generic HTTP exceptions.
     """
     try:
@@ -39,14 +40,42 @@ async def login(
         user_db = await anext(get_user_db(db_session))
         user_manager = await anext(get_user_manager(user_db))
 
-        # Authenticate user
-        user = await user_manager.authenticate(credentials)
+        # Try to find user by username first, then by email
+        user = await db_session.execute(
+            select(User).where(User.username == credentials.username)
+        )
+        user = user.scalar_one_or_none()
 
+        # If not found by username, try email
+        if user is None:
+            user = await db_session.execute(
+                select(User).where(User.email == credentials.username)
+            )
+            user = user.scalar_one_or_none()
+
+        # Verify user exists, is active, and password is correct
         if user is None or not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid username and/or password"
             )
+
+        # Verify password using the user manager's password helper
+        valid, updated_password_hash = user_manager.password_helper.verify_and_update(
+            credentials.password, user.hashed_password
+        )
+
+        if not valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid username and/or password"
+            )
+
+        # Update password hash if it was rehashed with updated algorithm
+        if updated_password_hash is not None:
+            user.hashed_password = updated_password_hash
+            db_session.add(user)
+            await db_session.commit()
 
         # Generate authentication response
         strategy = auth_backend.get_strategy()

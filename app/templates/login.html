@@ -13,13 +13,13 @@
 
     <form id="login-form" style="max-width: 500px;">
         <div class="form-group" style="margin-bottom: 20px;">
-            <label for="username" style="display: block; margin-bottom: 5px; color: var(--lcars-orange);">USERNAME</label>
+            <label for="email" style="display: block; margin-bottom: 5px; color: var(--lcars-orange);">EMAIL</label>
             <input
-                type="text"
-                id="username"
-                name="username"
+                type="email"
+                id="email"
+                name="email"
                 required
-                autocomplete="username"
+                autocomplete="email"
                 style="width: 100%; padding: 10px; background: #000; color: var(--lcars-orange); border: 2px solid var(--lcars-orange); border-radius: 10px; font-family: 'Antonio', sans-serif;">
         </div>
 
@@ -94,7 +94,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     errorDiv.style.display = 'none';
 
     const formData = new FormData();
-    formData.append('username', document.getElementById('username').value);
+    formData.append('username', document.getElementById('email').value);
     formData.append('password', document.getElementById('password').value);
 
     try {
