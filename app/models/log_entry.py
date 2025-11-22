@@ -2,9 +2,10 @@ import enum
 from datetime import datetime
 from uuid import UUID, uuid4
 from typing import Optional
-from sqlalchemy import Column, String, Text, DateTime, Enum, Float, Boolean
+from sqlalchemy import Column, String, Text, DateTime, Enum, Float, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 
 Base = declarative_base()
@@ -31,9 +32,13 @@ class LogType(enum.Enum):
 
 class LogEntry(Base):
     __tablename__ = "log_entries"
-    
+
     id = Column(PgUUID(as_uuid=True), primary_key=True, default=uuid4)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    # User relationship
+    user_id = Column(PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    user = relationship("User", back_populates="authored_logs")
     
     # Media information
     media_type = Column(Enum(MediaType), nullable=False, default=MediaType.AUDIO)

@@ -5,15 +5,29 @@ from datetime import datetime
 from uuid import uuid4
 
 from app.models.log_entry import LogEntry, ProcessingStatus
+from app.models.user import User
+
+
+class UserFactory(factory.Factory):
+    """Factory for creating User instances."""
+
+    class Meta:
+        model = User
+
+    id = factory.LazyFunction(uuid4)
+    username = factory.Sequence(lambda n: f"testuser{n}")
+    email = factory.Sequence(lambda n: f"test{n}@example.com")
+    created_at = factory.LazyFunction(datetime.utcnow)
 
 
 class LogEntryFactory(factory.Factory):
     """Factory for creating LogEntry instances."""
-    
+
     class Meta:
         model = LogEntry
-    
+
     id = factory.LazyFunction(uuid4)
+    user_id = factory.LazyFunction(uuid4)  # Default to a random UUID; tests should override with actual user
     created_at = factory.LazyFunction(datetime.utcnow)
     audio_s3_key = factory.Sequence(lambda n: f"audio/test-entry-{n}.wav")
     transcription = Faker("text", max_nb_chars=500)

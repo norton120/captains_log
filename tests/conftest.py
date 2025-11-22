@@ -26,6 +26,7 @@ if str(current_dir) not in sys.path:
 
 from app.config import Settings
 from app.models.log_entry import Base, LogEntry, ProcessingStatus
+from app.models.user import User
 from app.main import app
 
 
@@ -213,13 +214,31 @@ def test_client(test_settings, async_db_session):
         yield client
 
 
+# User fixture
+@pytest_asyncio.fixture
+async def test_user(async_db_session):
+    """Create a test user for use in tests."""
+    user = User(
+        username="testuser",
+        email="testuser@example.com"
+    )
+    async_db_session.add(user)
+    await async_db_session.commit()
+    await async_db_session.refresh(user)
+    yield user
+    # Cleanup
+    await async_db_session.delete(user)
+    await async_db_session.commit()
+
+
 # Log entry factories
 @pytest_asyncio.fixture
-async def log_entry_factory(async_db_session):
+async def log_entry_factory(async_db_session, test_user):
     """Factory for creating test log entries."""
     created_entries = []
-    
+
     async def _create_log_entry(
+        user_id: str = None,
         audio_s3_key: str = "test/audio.wav",
         audio_local_path: str = None,
         transcription: str = None,
@@ -228,6 +247,7 @@ async def log_entry_factory(async_db_session):
         processing_error: str = None,
     ) -> LogEntry:
         entry = LogEntry(
+            user_id=user_id or test_user.id,
             audio_s3_key=audio_s3_key,
             audio_local_path=audio_local_path,
             transcription=transcription,
@@ -240,9 +260,9 @@ async def log_entry_factory(async_db_session):
         await async_db_session.refresh(entry)
         created_entries.append(entry)
         return entry
-    
+
     yield _create_log_entry
-    
+
     # Cleanup
     for entry in created_entries:
         await async_db_session.delete(entry)

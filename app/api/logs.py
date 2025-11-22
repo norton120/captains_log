@@ -24,8 +24,9 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
-from app.dependencies import get_db_session, get_s3_service, get_openai_service, get_settings, get_media_storage_service
+from app.dependencies import get_db_session, get_s3_service, get_openai_service, get_settings, get_media_storage_service, get_current_user, verify_log_ownership
 from app.models.log_entry import LogEntry, ProcessingStatus, MediaType, LogType
+from app.models.user import User
 from app.services.s3 import S3Service
 from app.services.media_storage import MediaStorageService
 from app.services.openai_client import OpenAIService
@@ -306,6 +307,7 @@ async def upload_media_file(
     latitude: Optional[float] = Form(None),
     longitude: Optional[float] = Form(None),
     location_name: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_db_session),
     media_storage: MediaStorageService = Depends(get_media_storage_service),
     openai_service: OpenAIService = Depends(get_openai_service),
@@ -385,6 +387,7 @@ async def upload_media_file(
         
         # Create log entry (media storage will be handled by the workflow)
         log_entry = LogEntry(
+            user_id=current_user.id,
             media_type=MediaType.VIDEO if is_video else MediaType.AUDIO,
             original_filename=file.filename,
             is_video_source=is_video,
@@ -450,6 +453,7 @@ async def list_log_entries(
     search: Optional[str] = Query(None, description="Search query"),
     start_date: Optional[datetime] = Query(None, description="Start date filter"),
     end_date: Optional[datetime] = Query(None, description="End date filter"),
+    current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_db_session)
 ):
     """
@@ -467,11 +471,16 @@ async def list_log_entries(
     try:
         # Check if this is an HTMX request
         is_htmx = request.headers.get("HX-Request") == "true"
-        
-        # Build query
-        query = select(LogEntry).order_by(desc(LogEntry.created_at))
-        count_query = select(func.count(LogEntry.id))
-        
+
+        # Build query - filter PERSONAL logs by current user, but show all SHIP logs
+        from sqlalchemy import or_
+        user_filter = or_(
+            LogEntry.log_type == LogType.SHIP,  # All users can see ship's logs
+            LogEntry.user_id == current_user.id  # Only owner can see personal logs
+        )
+        query = select(LogEntry).where(user_filter).order_by(desc(LogEntry.created_at))
+        count_query = select(func.count(LogEntry.id)).where(user_filter)
+
         # Apply filters
         if status_filter:
             query = query.where(LogEntry.processing_status == status_filter)
@@ -651,6 +660,7 @@ async def search_logs(
     request: Request,
     query: str = Query(..., description="Search query text"),
     limit: int = Query(10, ge=1, le=50, description="Maximum number of results"),
+    current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_db_session),
     openai_service: OpenAIService = Depends(get_openai_service)
 ):
@@ -677,9 +687,15 @@ async def search_logs(
         # Perform vector similarity search using pgvector's cosine distance operator
         # The <=> operator computes cosine distance (lower is more similar)
         # We order by distance ascending to get the most similar results first
-        from sqlalchemy import text
+        # Filter PERSONAL logs by current user, but show all SHIP logs
+        from sqlalchemy import text, or_
 
+        user_filter = or_(
+            LogEntry.log_type == LogType.SHIP,  # All users can see ship's logs
+            LogEntry.user_id == current_user.id  # Only owner can see personal logs
+        )
         similarity_query = select(LogEntry).where(
+            user_filter,
             LogEntry.embedding.isnot(None)
         ).order_by(
             LogEntry.embedding.cosine_distance(query_embedding)
@@ -825,11 +841,12 @@ async def search_logs(
 @router.get("/{log_id}", response_model=LogEntryResponse)
 async def get_log_entry(
     log_id: UUID,
+    current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_db_session)
 ) -> LogEntryResponse:
     """
     Get detailed information about a specific log entry.
-    
+
     - **log_id**: UUID of the log entry
     """
     try:
@@ -839,9 +856,13 @@ async def get_log_entry(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Log entry not found"
             )
-        
+
         log_entry = result
-        
+
+        # Verify ownership for PERSONAL logs only (SHIP logs are accessible to all)
+        if log_entry.log_type == LogType.PERSONAL:
+            verify_log_ownership(log_entry, current_user)
+
         return LogEntryResponse(
             id=str(log_entry.id),
             created_at=log_entry.created_at,
@@ -891,11 +912,12 @@ async def get_log_entry(
 @router.get("/{log_id}/status", response_model=LogStatusResponse)
 async def get_log_status(
     log_id: UUID,
+    current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_db_session)
 ) -> LogStatusResponse:
     """
     Get processing status of a log entry.
-    
+
     - **log_id**: UUID of the log entry
     """
     try:
@@ -905,9 +927,13 @@ async def get_log_status(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Log entry not found"
             )
-        
+
         log_entry = result
-        
+
+        # Verify ownership for PERSONAL logs only (SHIP logs are accessible to all)
+        if log_entry.log_type == LogType.PERSONAL:
+            verify_log_ownership(log_entry, current_user)
+
         return LogStatusResponse(
             id=str(log_entry.id),
             processing_status=log_entry.processing_status.value,
@@ -928,12 +954,13 @@ async def get_log_status(
 @router.get("/{log_id}/audio", response_model=LogAudioResponse)
 async def get_log_audio(
     log_id: UUID,
+    current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_db_session),
     media_storage: MediaStorageService = Depends(get_media_storage_service)
 ) -> LogAudioResponse:
     """
     Get presigned URL for log audio file.
-    
+
     - **log_id**: UUID of the log entry
     """
     try:
@@ -943,9 +970,13 @@ async def get_log_audio(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Log entry not found"
             )
-        
+
         log_entry = result
-        
+
+        # Verify ownership for PERSONAL logs only (SHIP logs are accessible to all)
+        if log_entry.log_type == LogType.PERSONAL:
+            verify_log_ownership(log_entry, current_user)
+
         # Generate audio URL based on storage mode
         try:
             audio_url = await media_storage.get_audio_url(
@@ -981,11 +1012,12 @@ async def get_log_audio(
 async def update_log_type(
     log_id: UUID,
     update_request: LogTypeUpdateRequest,
+    current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_db_session)
 ) -> LogTypeUpdateResponse:
     """
     Update the log type of a log entry.
-    
+
     - **log_id**: UUID of the log entry to update
     - **log_type**: New log type ("PERSONAL" or "SHIP")
     """
@@ -997,9 +1029,12 @@ async def update_log_type(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Log entry not found"
             )
-        
+
         log_entry = result
-        
+
+        # Verify ownership - only owner can modify logs
+        verify_log_ownership(log_entry, current_user)
+
         # Convert string to enum
         try:
             new_log_type = LogType.PERSONAL if update_request.log_type == "PERSONAL" else LogType.SHIP
@@ -1044,6 +1079,7 @@ async def update_log_type(
 async def retry_log_processing(
     log_id: UUID,
     background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_db_session),
     media_storage: MediaStorageService = Depends(get_media_storage_service),
     openai_service: OpenAIService = Depends(get_openai_service),
@@ -1068,6 +1104,9 @@ async def retry_log_processing(
             )
 
         log_entry = result
+
+        # Verify ownership - only owner can retry logs
+        verify_log_ownership(log_entry, current_user)
 
         # Check if the log entry needs retry
         retryable_statuses = {
@@ -1176,6 +1215,7 @@ async def retry_log_processing(
 @router.delete("/{log_id}")
 async def delete_log_entry(
     log_id: UUID,
+    current_user: User = Depends(get_current_user),
     db_session: AsyncSession = Depends(get_db_session),
     s3_service: S3Service = Depends(get_s3_service)
 ) -> dict:
@@ -1197,6 +1237,10 @@ async def delete_log_entry(
             )
 
         log_entry = result
+
+        # Verify ownership - only owner can delete logs
+        verify_log_ownership(log_entry, current_user)
+
         audio_s3_key = log_entry.audio_s3_key  # Store for S3 cleanup after DB deletion
 
         # Delete from database first

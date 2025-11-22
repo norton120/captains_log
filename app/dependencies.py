@@ -1,13 +1,14 @@
 """FastAPI dependency providers."""
 from typing import AsyncGenerator, Generator
 from fastapi import Depends, HTTPException, status
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.config import Settings
 from app.models.log_entry import Base
+from app.models.user import User
 from app.services.s3 import S3Service
 from app.services.media_storage import MediaStorageService
 from app.services.openai_client import OpenAIService
@@ -139,6 +140,50 @@ async def get_enhanced_settings(
     await settings_service.get_user_preferences()
     
     return SettingsAdapter(settings_service)
+
+
+async def get_current_user(
+    db_session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Get the current logged-in user.
+
+    For now, this returns the first user in the database (since all apps should
+    have exactly 1 user). In the future, this will be replaced with actual
+    authentication logic.
+    """
+    # Get the first user (there should be exactly one)
+    result = await db_session.execute(select(User).limit(1))
+    user = result.scalar_one_or_none()
+
+    # If no user exists, create the generic user
+    if user is None:
+        user = User(
+            username="generic_user",
+            email="generic@captainslog.local"
+        )
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+
+    return user
+
+
+def verify_log_ownership(log_entry, current_user: User) -> None:
+    """
+    Verify that the current user owns the log entry.
+
+    Uses the OOP approach by checking if the log is in the user's authored_logs.
+
+    Raises HTTPException with 403 status if the user doesn't own the log entry.
+    """
+    # Check if log is in user's authored logs by comparing user_id
+    # This avoids loading the entire relationship
+    if log_entry.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this log entry"
+        )
 
 
 # Cleanup function for graceful shutdown
