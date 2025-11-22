@@ -70,6 +70,9 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         session_maker = await get_async_session_maker()
         async with session_maker() as session:
             yield session
+    except HTTPException:
+        # Re-raise HTTP exceptions from application logic
+        raise
     except Exception as e:
         import logging
 

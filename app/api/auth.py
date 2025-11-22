@@ -1,6 +1,7 @@
 """Authentication API routes."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +11,8 @@ from app.auth import (
     get_google_oauth_client,
     get_github_oauth_client,
     get_facebook_oauth_client,
+    get_user_manager,
+    get_user_db,
 )
 from app.config import settings
 from app.dependencies import get_db_session
@@ -18,12 +21,59 @@ from app.schemas.user import UserCreate, UserRead, UserUpdate
 
 router = APIRouter()
 
-# Register the auth routes from fastapi_users
-router.include_router(
-    fastapi_users.get_auth_router(auth_backend),
-    prefix="/auth/jwt",
-    tags=["auth"],
-)
+
+# Custom login endpoint with better error handling
+@router.post("/auth/jwt/login")
+async def login(
+    request: Request,
+    credentials: OAuth2PasswordRequestForm = Depends(),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """
+    Custom login endpoint with user-friendly error messages.
+
+    Returns proper error messages for authentication failures instead of generic HTTP exceptions.
+    """
+    try:
+        # Get user database and manager
+        user_db = await anext(get_user_db(db_session))
+        user_manager = await anext(get_user_manager(user_db))
+
+        # Authenticate user
+        user = await user_manager.authenticate(credentials)
+
+        if user is None or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid username and/or password"
+            )
+
+        # Generate authentication response
+        strategy = auth_backend.get_strategy()
+        login_response = await auth_backend.login(strategy, user)
+
+        return login_response
+
+    except HTTPException:
+        # Re-raise our custom HTTP exceptions
+        raise
+    except Exception as e:
+        # Catch any other errors and return user-friendly message
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid username and/or password"
+        )
+
+
+# Register logout route from fastapi_users
+@router.post("/auth/jwt/logout")
+async def logout(
+    user: User = Depends(fastapi_users.current_user(active=True)),
+    strategy=Depends(auth_backend.get_strategy),
+):
+    """Logout endpoint."""
+    # Return response that clears the authentication cookie
+    return await auth_backend.get_logout_response()
 
 
 # Custom registration endpoint with toggle check
