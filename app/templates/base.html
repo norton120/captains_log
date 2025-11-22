@@ -30,7 +30,6 @@
             {% if current_user %}
             <div class="user-info">
                 <div class="username">{{ current_user.username }}</div>
-                <a href="#" onclick="logout(); return false;" class="logout-link">LOGOUT</a>
             </div>
             {% endif %}
         </div>
@@ -55,6 +54,14 @@
             <a href="/status" class="lcars-element {% if request.url.path == '/status' %}active{% endif %}">
                 STATUS
             </a>
+            {% if current_user %}
+            <a href="#"
+               onclick="logout(); return false;"
+               class="lcars-element"
+               style="margin-top: auto;">
+                LOGOUT
+            </a>
+            {% endif %}
         </div>
 
         <div class="lcars-right-bar"></div>
