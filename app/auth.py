@@ -1,4 +1,5 @@
 """Authentication setup using FastAPI Users."""
+
 from typing import Optional
 from uuid import UUID
 
@@ -31,15 +32,11 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, UUID]):
         """Called after a user has been registered."""
         print(f"User {user.id} has registered.")
 
-    async def on_after_forgot_password(
-        self, user: User, token: str, request: Optional[Request] = None
-    ):
+    async def on_after_forgot_password(self, user: User, token: str, request: Optional[Request] = None):
         """Called after a user has requested a password reset."""
         print(f"User {user.id} has forgotten their password. Reset token: {token}")
 
-    async def on_after_request_verify(
-        self, user: User, token: str, request: Optional[Request] = None
-    ):
+    async def on_after_request_verify(self, user: User, token: str, request: Optional[Request] = None):
         """Called after a user has requested verification."""
         print(f"Verification requested for user {user.id}. Verification token: {token}")
 
@@ -57,6 +54,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, UUID]):
         """
         # Count existing users
         from sqlalchemy import select, func
+
         db_session = request.state.db_session if request else None
 
         if db_session:
@@ -66,9 +64,9 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, UUID]):
             # If users exist and registration is disabled, raise error
             if user_count > 0 and not settings.allow_new_user_registration:
                 from fastapi import HTTPException, status
+
                 raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="New user registration is currently disabled"
+                    status_code=status.HTTP_403_FORBIDDEN, detail="New user registration is currently disabled"
                 )
 
         # Proceed with user creation

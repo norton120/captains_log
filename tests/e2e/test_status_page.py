@@ -1,6 +1,7 @@
 """
 End-to-end tests for the status page using Playwright.
 """
+
 from playwright.sync_api import Page, expect
 
 
@@ -57,14 +58,7 @@ def test_status_page_displays_processing_states(page: Page, base_url: str):
     page.goto(f"{base_url}/status")
 
     # Check for various processing states in the table
-    processing_states = [
-        "Pending",
-        "Transcribing",
-        "Vectorizing",
-        "Summarizing",
-        "Completed",
-        "Failed"
-    ]
+    processing_states = ["Pending", "Transcribing", "Vectorizing", "Summarizing", "Completed", "Failed"]
 
     for state in processing_states:
         # Each state should appear in the page

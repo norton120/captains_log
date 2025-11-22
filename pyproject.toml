@@ -42,4 +42,26 @@ dev = [
     "playwright>=1.40.0",   # browser automation for E2E tests
     "pytest-playwright>=0.4.4",  # pytest plugin for playwright
     "prospector[with_everything]>=1.10.0",  # code quality analysis
+    "black>=24.0.0",  # code formatter
 ]
+
+[tool.black]
+line-length = 120
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | alembic/versions
+)/
+'''

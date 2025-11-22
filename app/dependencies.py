@@ -1,4 +1,5 @@
 """FastAPI dependency providers."""
+
 from typing import AsyncGenerator, Generator
 from fastapi import Depends, HTTPException, status
 from sqlalchemy import create_engine, select
@@ -42,11 +43,11 @@ async def get_db_engine():
             connect_args={"check_same_thread": False} if settings.database_url.startswith("sqlite") else {},
             echo=settings.debug,
         )
-        
+
         # Create tables if they don't exist
         async with _db_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-    
+
     return _db_engine
 
 
@@ -71,11 +72,11 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
             yield session
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Database session error: {type(e).__name__}: {e}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Database connection failed: {type(e).__name__}"
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Database connection failed: {type(e).__name__}"
         ) from e
 
 
@@ -85,7 +86,7 @@ def get_sync_db_engine():
     if _sync_db_engine is None:
         settings = get_settings()
         # Convert async URL to sync URL
-        sync_url = settings.database_url.replace('postgresql+asyncpg://', 'postgresql://')
+        sync_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
         _sync_db_engine = create_engine(
             sync_url,
             poolclass=StaticPool if sync_url.startswith("sqlite") else None,
@@ -120,7 +121,7 @@ def get_s3_service(settings: Settings = Depends(get_settings)) -> S3Service:
 
 
 def get_openai_service(settings: Settings = Depends(get_settings)) -> OpenAIService:
-    """Get OpenAI service instance.""" 
+    """Get OpenAI service instance."""
     return OpenAIService(settings)
 
 
@@ -130,15 +131,14 @@ def get_media_storage_service(settings: Settings = Depends(get_settings)) -> Med
 
 
 async def get_enhanced_settings(
-    env_settings: Settings = Depends(get_settings),
-    db_session: AsyncSession = Depends(get_db_session)
+    env_settings: Settings = Depends(get_settings), db_session: AsyncSession = Depends(get_db_session)
 ) -> SettingsAdapter:
     """Get enhanced settings that combine environment and database settings."""
     settings_service = SettingsService(env_settings, db_session)
-    
+
     # Load user preferences into cache
     await settings_service.get_user_preferences()
-    
+
     return SettingsAdapter(settings_service)
 
 
@@ -146,7 +146,9 @@ async def get_enhanced_settings(
 def _get_auth_dependency():
     """Helper to get the auth dependency without circular import."""
     from app.auth import current_active_user
+
     return current_active_user
+
 
 # Use this in route dependencies: current_user: User = Depends(get_current_user)
 get_current_user = _get_auth_dependency()
@@ -163,10 +165,7 @@ def verify_log_ownership(log_entry, current_user: User) -> None:
     # Check if log is in user's authored logs by comparing user_id
     # This avoids loading the entire relationship
     if log_entry.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this log entry"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this log entry")
 
 
 # Cleanup function for graceful shutdown

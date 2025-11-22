@@ -1,12 +1,10 @@
 """Tests for log classification functionality."""
+
 import pytest
 import vcr
 from pytest import mark as m
 
-from app.services.openai_client import (
-    OpenAIService,
-    ClassificationError
-)
+from app.services.openai_client import OpenAIService, ClassificationError
 
 
 # VCR configuration for these tests

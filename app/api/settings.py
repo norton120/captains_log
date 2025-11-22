@@ -1,4 +1,5 @@
 """API endpoints for settings management."""
+
 import logging
 from typing import Optional, Dict, Any, List
 from uuid import UUID
@@ -25,6 +26,7 @@ templates = Jinja2Templates(directory="app/templates")
 # Pydantic models for request/response
 class UserPreferencesResponse(BaseModel):
     """Response model for user preferences."""
+
     id: str
     app_name: str
     vessel_name: str
@@ -71,6 +73,7 @@ class UserPreferencesResponse(BaseModel):
 
 class UserPreferencesUpdateRequest(BaseModel):
     """Request model for updating user preferences."""
+
     app_name: Optional[str] = Field(None, min_length=1, max_length=255)
     vessel_name: Optional[str] = Field(None, min_length=1, max_length=255)
     vessel_designation: Optional[str] = Field(None, min_length=1, max_length=255)
@@ -113,6 +116,7 @@ class UserPreferencesUpdateRequest(BaseModel):
 
 class SettingResponse(BaseModel):
     """Response model for individual settings."""
+
     key: str
     value: Optional[str] = None
     description: Optional[str] = None
@@ -124,6 +128,7 @@ class SettingResponse(BaseModel):
 
 class SettingUpdateRequest(BaseModel):
     """Request model for updating a setting."""
+
     value: Optional[str] = None
     description: Optional[str] = None
 
@@ -134,29 +139,28 @@ async def get_or_create_user_preferences(db_session: AsyncSession) -> UserPrefer
     query = select(UserPreferences).limit(1)
     result = await db_session.execute(query)
     preferences = result.scalar_one_or_none()
-    
+
     if not preferences:
         # Create default preferences
         preferences = UserPreferences()
         db_session.add(preferences)
         await db_session.commit()
         await db_session.refresh(preferences)
-    
+
     return preferences
 
 
 # API Endpoints
 
+
 @router.get("/preferences", response_model=UserPreferencesResponse)
-async def get_user_preferences(
-    db_session: AsyncSession = Depends(get_db_session)
-) -> UserPreferencesResponse:
+async def get_user_preferences(db_session: AsyncSession = Depends(get_db_session)) -> UserPreferencesResponse:
     """
     Get current user preferences.
     """
     try:
         preferences = await get_or_create_user_preferences(db_session)
-        
+
         return UserPreferencesResponse(
             id=str(preferences.id),
             app_name=preferences.app_name,
@@ -184,41 +188,39 @@ async def get_user_preferences(
             s3_bucket_name=preferences.s3_bucket_name,
             s3_audio_prefix=preferences.s3_audio_prefix,
             s3_video_prefix=preferences.s3_video_prefix,
-            s3_presigned_url_expiry=preferences.s3_presigned_url_expiry
+            s3_presigned_url_expiry=preferences.s3_presigned_url_expiry,
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to get user preferences: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve preferences"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve preferences"
         ) from e
 
 
 @router.put("/preferences", response_model=UserPreferencesResponse)
 async def update_user_preferences(
-    update_request: UserPreferencesUpdateRequest,
-    db_session: AsyncSession = Depends(get_db_session)
+    update_request: UserPreferencesUpdateRequest, db_session: AsyncSession = Depends(get_db_session)
 ) -> UserPreferencesResponse:
     """
     Update user preferences.
-    
+
     Only provided fields will be updated. Omitted fields will keep their current values.
     """
     try:
         preferences = await get_or_create_user_preferences(db_session)
-        
+
         # Update only provided fields
         update_data = update_request.dict(exclude_unset=True)
         for field, value in update_data.items():
             if hasattr(preferences, field):
                 setattr(preferences, field, value)
-        
+
         await db_session.commit()
         await db_session.refresh(preferences)
-        
+
         logger.info(f"Updated user preferences: {list(update_data.keys())}")
-        
+
         return UserPreferencesResponse(
             id=str(preferences.id),
             app_name=preferences.app_name,
@@ -246,97 +248,78 @@ async def update_user_preferences(
             s3_bucket_name=preferences.s3_bucket_name,
             s3_audio_prefix=preferences.s3_audio_prefix,
             s3_video_prefix=preferences.s3_video_prefix,
-            s3_presigned_url_expiry=preferences.s3_presigned_url_expiry
+            s3_presigned_url_expiry=preferences.s3_presigned_url_expiry,
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to update user preferences: {e}")
         await db_session.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update preferences"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update preferences"
         ) from e
 
 
 @router.get("/", response_model=Dict[str, SettingResponse])
-async def get_settings(
-    db_session: AsyncSession = Depends(get_db_session)
-) -> Dict[str, SettingResponse]:
+async def get_settings(db_session: AsyncSession = Depends(get_db_session)) -> Dict[str, SettingResponse]:
     """
     Get all custom settings.
-    
+
     Returns a dictionary where keys are setting names and values are setting objects.
     """
     try:
         query = select(Setting)
         result = await db_session.execute(query)
         settings = result.scalars().all()
-        
+
         return {
             setting.key: SettingResponse(
-                key=setting.key,
-                value=setting.value,
-                description=setting.description,
-                setting_type=setting.setting_type
+                key=setting.key, value=setting.value, description=setting.description, setting_type=setting.setting_type
             )
             for setting in settings
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to get settings: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve settings"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve settings"
         ) from e
 
 
 @router.get("/{setting_key}", response_model=SettingResponse)
-async def get_setting(
-    setting_key: str,
-    db_session: AsyncSession = Depends(get_db_session)
-) -> SettingResponse:
+async def get_setting(setting_key: str, db_session: AsyncSession = Depends(get_db_session)) -> SettingResponse:
     """
     Get a specific setting by key.
-    
+
     - **setting_key**: The key of the setting to retrieve
     """
     try:
         query = select(Setting).where(Setting.key == setting_key)
         result = await db_session.execute(query)
         setting = result.scalar_one_or_none()
-        
+
         if not setting:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Setting '{setting_key}' not found"
-            )
-        
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Setting '{setting_key}' not found")
+
         return SettingResponse(
-            key=setting.key,
-            value=setting.value,
-            description=setting.description,
-            setting_type=setting.setting_type
+            key=setting.key, value=setting.value, description=setting.description, setting_type=setting.setting_type
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to get setting '{setting_key}': {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve setting '{setting_key}'"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to retrieve setting '{setting_key}'"
         ) from e
 
 
 @router.put("/{setting_key}", response_model=SettingResponse)
 async def update_setting(
-    setting_key: str,
-    update_request: SettingUpdateRequest,
-    db_session: AsyncSession = Depends(get_db_session)
+    setting_key: str, update_request: SettingUpdateRequest, db_session: AsyncSession = Depends(get_db_session)
 ) -> SettingResponse:
     """
     Update or create a setting.
-    
+
     - **setting_key**: The key of the setting to update or create
     - **value**: The new value for the setting
     - **description**: Optional description of the setting
@@ -346,7 +329,7 @@ async def update_setting(
         query = select(Setting).where(Setting.key == setting_key)
         result = await db_session.execute(query)
         setting = result.scalar_one_or_none()
-        
+
         if setting:
             # Update existing setting
             if update_request.value is not None:
@@ -355,39 +338,28 @@ async def update_setting(
                 setting.description = update_request.description
         else:
             # Create new setting
-            setting = Setting(
-                key=setting_key,
-                value=update_request.value,
-                description=update_request.description
-            )
+            setting = Setting(key=setting_key, value=update_request.value, description=update_request.description)
             db_session.add(setting)
-        
+
         await db_session.commit()
         await db_session.refresh(setting)
-        
+
         logger.info(f"Updated setting '{setting_key}' = '{setting.value}'")
-        
+
         return SettingResponse(
-            key=setting.key,
-            value=setting.value,
-            description=setting.description,
-            setting_type=setting.setting_type
+            key=setting.key, value=setting.value, description=setting.description, setting_type=setting.setting_type
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to update setting '{setting_key}': {e}")
         await db_session.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update setting '{setting_key}'"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to update setting '{setting_key}'"
         ) from e
 
 
 @router.delete("/{setting_key}")
-async def delete_setting(
-    setting_key: str,
-    db_session: AsyncSession = Depends(get_db_session)
-) -> Dict[str, str]:
+async def delete_setting(setting_key: str, db_session: AsyncSession = Depends(get_db_session)) -> Dict[str, str]:
     """
     Delete a setting.
 
@@ -399,10 +371,7 @@ async def delete_setting(
         setting = result.scalar_one_or_none()
 
         if not setting:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Setting '{setting_key}' not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Setting '{setting_key}' not found")
 
         await db_session.delete(setting)
         await db_session.commit()
@@ -417,15 +386,12 @@ async def delete_setting(
         logger.error(f"Failed to delete setting '{setting_key}': {e}")
         await db_session.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete setting '{setting_key}'"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to delete setting '{setting_key}'"
         ) from e
 
 
 @router.get("/failed-logs/count")
-async def get_failed_logs_count(
-    db_session: AsyncSession = Depends(get_db_session)
-) -> Dict[str, Any]:
+async def get_failed_logs_count(db_session: AsyncSession = Depends(get_db_session)) -> Dict[str, Any]:
     """
     Get count of failed or stuck log entries.
 
@@ -441,7 +407,7 @@ async def get_failed_logs_count(
                 LogEntry.processing_status == ProcessingStatus.FAILED,
                 LogEntry.processing_status == ProcessingStatus.TRANSCRIBING,
                 LogEntry.processing_status == ProcessingStatus.VECTORIZING,
-                LogEntry.processing_status == ProcessingStatus.SUMMARIZING
+                LogEntry.processing_status == ProcessingStatus.SUMMARIZING,
             )
         )
 
@@ -450,24 +416,22 @@ async def get_failed_logs_count(
 
         # Get counts by status
         status_counts = {}
-        for status in [ProcessingStatus.FAILED, ProcessingStatus.TRANSCRIBING,
-                      ProcessingStatus.VECTORIZING, ProcessingStatus.SUMMARIZING]:
-            status_query = select(func.count(LogEntry.id)).where(
-                LogEntry.processing_status == status
-            )
+        for status in [
+            ProcessingStatus.FAILED,
+            ProcessingStatus.TRANSCRIBING,
+            ProcessingStatus.VECTORIZING,
+            ProcessingStatus.SUMMARIZING,
+        ]:
+            status_query = select(func.count(LogEntry.id)).where(LogEntry.processing_status == status)
             status_result = await db_session.execute(status_query)
             count = status_result.scalar()
             if count > 0:
                 status_counts[status.value] = count
 
-        return {
-            "total": total_count,
-            "by_status": status_counts
-        }
+        return {"total": total_count, "by_status": status_counts}
 
     except Exception as e:
         logger.error(f"Failed to get failed logs count: {e}")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve failed logs count"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve failed logs count"
         ) from e

@@ -1,4 +1,5 @@
 """Captain's Log FastAPI application."""
+
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -19,10 +20,7 @@ from app.models.log_entry import LogEntry
 from app.api.settings import get_or_create_user_preferences
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +41,7 @@ app = FastAPI(
     title="Captain's Log",
     description="Voice-based ship's log with automatic transcription, semantic search, and AI summaries",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Mount static files
@@ -69,7 +67,9 @@ app.include_router(status_router, prefix="/api/status", tags=["status"])
 
 
 @app.get("/")
-async def index_page(request: Request, db: Session = Depends(get_db), db_session: AsyncSession = Depends(get_db_session)):
+async def index_page(
+    request: Request, db: Session = Depends(get_db), db_session: AsyncSession = Depends(get_db_session)
+):
     """Main log listing page."""
     preferences = await get_or_create_user_preferences(db_session)
     return templates.TemplateResponse(
@@ -80,8 +80,8 @@ async def index_page(request: Request, db: Session = Depends(get_db), db_session
             "version": "1.0.0",
             "app_name": preferences.app_name,
             "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation
-        }
+            "vessel_designation": preferences.vessel_designation,
+        },
     )
 
 
@@ -97,8 +97,8 @@ async def record_page(request: Request, db_session: AsyncSession = Depends(get_d
             "version": "1.0.0",
             "app_name": preferences.app_name,
             "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation
-        }
+            "vessel_designation": preferences.vessel_designation,
+        },
     )
 
 
@@ -114,8 +114,8 @@ async def settings_page(request: Request, db_session: AsyncSession = Depends(get
             "version": "1.0.0",
             "app_name": preferences.app_name,
             "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation
-        }
+            "vessel_designation": preferences.vessel_designation,
+        },
     )
 
 
@@ -131,8 +131,8 @@ async def search_page(request: Request, db_session: AsyncSession = Depends(get_d
             "version": "1.0.0",
             "app_name": preferences.app_name,
             "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation
-        }
+            "vessel_designation": preferences.vessel_designation,
+        },
     )
 
 
@@ -145,36 +145,35 @@ async def map_page(request: Request, db: Session = Depends(get_db), db_session: 
     preferences = await get_or_create_user_preferences(db_session)
 
     # Query all logs that have location data
-    logs_with_location = db.query(LogEntry).filter(
-        and_(
-            LogEntry.latitude.isnot(None),
-            LogEntry.longitude.isnot(None)
-        )
-    ).all()
+    logs_with_location = (
+        db.query(LogEntry).filter(and_(LogEntry.latitude.isnot(None), LogEntry.longitude.isnot(None))).all()
+    )
 
     # Convert logs to JSON-serializable format
     logs_data = []
     for log in logs_with_location:
-        logs_data.append({
-            'id': str(log.id),
-            'created_at': log.created_at.isoformat(),
-            'latitude': log.latitude,
-            'longitude': log.longitude,
-            'location_name': log.location_name,
-            'location_city': log.location_city,
-            'location_state': log.location_state,
-            'location_country': log.location_country,
-            'body_of_water': log.body_of_water,
-            'nearest_port': log.nearest_port,
-            'log_type': log.log_type.value,
-            'summary': log.summary,
-            'weather_conditions': log.weather_conditions
-        })
+        logs_data.append(
+            {
+                "id": str(log.id),
+                "created_at": log.created_at.isoformat(),
+                "latitude": log.latitude,
+                "longitude": log.longitude,
+                "location_name": log.location_name,
+                "location_city": log.location_city,
+                "location_state": log.location_state,
+                "location_country": log.location_country,
+                "body_of_water": log.body_of_water,
+                "nearest_port": log.nearest_port,
+                "log_type": log.log_type.value,
+                "summary": log.summary,
+                "weather_conditions": log.weather_conditions,
+            }
+        )
 
     # Calculate default map center (average of all locations or default)
     if logs_data:
-        avg_lat = sum(log['latitude'] for log in logs_data) / len(logs_data)
-        avg_lon = sum(log['longitude'] for log in logs_data) / len(logs_data)
+        avg_lat = sum(log["latitude"] for log in logs_data) / len(logs_data)
+        avg_lon = sum(log["longitude"] for log in logs_data) / len(logs_data)
         default_zoom = 6
     else:
         # Default to San Francisco Bay area
@@ -195,8 +194,8 @@ async def map_page(request: Request, db: Session = Depends(get_db), db_session: 
             "default_zoom": default_zoom,
             "app_name": preferences.app_name,
             "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation
-        }
+            "vessel_designation": preferences.vessel_designation,
+        },
     )
 
 
@@ -212,13 +211,15 @@ async def status_page(request: Request, db_session: AsyncSession = Depends(get_d
             "version": "1.0.0",
             "app_name": preferences.app_name,
             "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation
-        }
+            "vessel_designation": preferences.vessel_designation,
+        },
     )
 
 
 @app.get("/logs/{log_id}")
-async def log_detail_page(log_id: str, request: Request, db: Session = Depends(get_db), db_session: AsyncSession = Depends(get_db_session)):
+async def log_detail_page(
+    log_id: str, request: Request, db: Session = Depends(get_db), db_session: AsyncSession = Depends(get_db_session)
+):
     """Log detail page."""
     from app.dependencies import get_settings
     from app.services.s3 import S3Service
@@ -236,8 +237,8 @@ async def log_detail_page(log_id: str, request: Request, db: Session = Depends(g
                 "error": "Log entry not found",
                 "app_name": preferences.app_name,
                 "vessel_name": preferences.vessel_name,
-                "vessel_designation": preferences.vessel_designation
-            }
+                "vessel_designation": preferences.vessel_designation,
+            },
         )
 
     # Get audio URL if available
@@ -264,7 +265,7 @@ async def log_detail_page(log_id: str, request: Request, db: Session = Depends(g
 
     # Helper functions for template
     def format_status(status):
-        return status.value.replace('_', ' ').upper()
+        return status.value.replace("_", " ").upper()
 
     def format_uuid_short(uuid_obj):
         return str(uuid_obj)[:8]
@@ -284,8 +285,8 @@ async def log_detail_page(log_id: str, request: Request, db: Session = Depends(g
             "format_uuid_short": format_uuid_short,
             "app_name": preferences.app_name,
             "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation
-        }
+            "vessel_designation": preferences.vessel_designation,
+        },
     )
 
 
@@ -293,11 +294,11 @@ def format_duration(seconds):
     """Format duration in seconds to MM:SS or HH:MM:SS format."""
     if not seconds:
         return "Unknown"
-    
+
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
     remaining_seconds = int(seconds % 60)
-    
+
     if hours > 0:
         return f"{hours}:{minutes:02d}:{remaining_seconds:02d}"
     return f"{minutes}:{remaining_seconds:02d}"
@@ -307,15 +308,15 @@ def format_file_size(bytes_size):
     """Format file size in bytes to human-readable format."""
     if not bytes_size:
         return "Unknown"
-    
-    units = ['B', 'KB', 'MB', 'GB']
+
+    units = ["B", "KB", "MB", "GB"]
     size = float(bytes_size)
     unit_index = 0
-    
+
     while size >= 1024 and unit_index < len(units) - 1:
         size /= 1024
         unit_index += 1
-    
+
     return f"{size:.1f} {units[unit_index]}"
 
 
@@ -351,7 +352,7 @@ async def login_page(request: Request, db_session: AsyncSession = Depends(get_db
             "google_oauth_enabled": google_oauth_enabled,
             "github_oauth_enabled": github_oauth_enabled,
             "facebook_oauth_enabled": facebook_oauth_enabled,
-        }
+        },
     )
 
 
@@ -381,7 +382,7 @@ async def signup_page(request: Request, db_session: AsyncSession = Depends(get_d
             "vessel_designation": preferences.vessel_designation,
             "allow_registration": allow_registration,
             "is_first_user": is_first_user,
-        }
+        },
     )
 
 

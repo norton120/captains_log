@@ -1,6 +1,7 @@
 """
 Tests for the status page API endpoint.
 """
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,9 +28,7 @@ class TestStatusPageAPI:
         assert response.headers["content-type"].startswith("application/json")
 
     @pytest.mark.asyncio
-    async def test_status_endpoint_has_internet_connectivity_field(
-        self, api_client: AsyncClient
-    ):
+    async def test_status_endpoint_has_internet_connectivity_field(self, api_client: AsyncClient):
         """Test that the status response includes internet connectivity status."""
         response = await api_client.get("/api/status")
         data = response.json()
@@ -39,9 +38,7 @@ class TestStatusPageAPI:
         assert "aws_accessible" in data["internet_connectivity"]
 
     @pytest.mark.asyncio
-    async def test_status_endpoint_has_processing_queue_field(
-        self, api_client: AsyncClient
-    ):
+    async def test_status_endpoint_has_processing_queue_field(self, api_client: AsyncClient):
         """Test that the status response includes processing queue information."""
         response = await api_client.get("/api/status")
         data = response.json()
@@ -97,9 +94,7 @@ class TestStatusPageAPI:
         assert queue["by_status"]["failed"] == 1
 
     @pytest.mark.asyncio
-    async def test_processing_queue_shows_total_count(
-        self, api_client: AsyncClient, async_db_session: AsyncSession
-    ):
+    async def test_processing_queue_shows_total_count(self, api_client: AsyncClient, async_db_session: AsyncSession):
         """Test that the processing queue shows total count of non-completed logs."""
         # Create test logs
         for _ in range(3):
@@ -128,9 +123,7 @@ class TestStatusPageAPI:
         assert queue["total_processing"] == 3  # Only non-completed logs
 
     @pytest.mark.asyncio
-    async def test_openai_connectivity_check_returns_true_when_accessible(
-        self, api_client: AsyncClient
-    ):
+    async def test_openai_connectivity_check_returns_true_when_accessible(self, api_client: AsyncClient):
         """Test that OpenAI connectivity returns true when API is accessible."""
         with patch("app.services.openai_client.OpenAIService.check_connectivity") as mock_check:
             mock_check.return_value = True
@@ -141,9 +134,7 @@ class TestStatusPageAPI:
             assert data["internet_connectivity"]["openai_accessible"] is True
 
     @pytest.mark.asyncio
-    async def test_openai_connectivity_check_returns_false_when_not_accessible(
-        self, api_client: AsyncClient
-    ):
+    async def test_openai_connectivity_check_returns_false_when_not_accessible(self, api_client: AsyncClient):
         """Test that OpenAI connectivity returns false when API is not accessible."""
         with patch("app.services.openai_client.OpenAIService.check_connectivity") as mock_check:
             mock_check.return_value = False
@@ -154,9 +145,7 @@ class TestStatusPageAPI:
             assert data["internet_connectivity"]["openai_accessible"] is False
 
     @pytest.mark.asyncio
-    async def test_aws_connectivity_check_returns_true_when_accessible(
-        self, api_client: AsyncClient
-    ):
+    async def test_aws_connectivity_check_returns_true_when_accessible(self, api_client: AsyncClient):
         """Test that AWS connectivity returns true when S3 is accessible."""
         with patch("app.services.s3.S3Service.check_connectivity") as mock_check:
             mock_check.return_value = True
@@ -167,9 +156,7 @@ class TestStatusPageAPI:
             assert data["internet_connectivity"]["aws_accessible"] is True
 
     @pytest.mark.asyncio
-    async def test_aws_connectivity_check_returns_false_when_not_accessible(
-        self, api_client: AsyncClient
-    ):
+    async def test_aws_connectivity_check_returns_false_when_not_accessible(self, api_client: AsyncClient):
         """Test that AWS connectivity returns false when S3 is not accessible."""
         with patch("app.services.s3.S3Service.check_connectivity") as mock_check:
             mock_check.return_value = False
@@ -180,9 +167,7 @@ class TestStatusPageAPI:
             assert data["internet_connectivity"]["aws_accessible"] is False
 
     @pytest.mark.asyncio
-    async def test_status_endpoint_handles_database_errors_gracefully(
-        self, api_client: AsyncClient
-    ):
+    async def test_status_endpoint_handles_database_errors_gracefully(self, api_client: AsyncClient):
         """Test that the status endpoint handles database errors gracefully."""
         # The endpoint will gracefully handle errors by returning False for connectivity checks
         # and empty results for processing queue if the database is unavailable
@@ -229,18 +214,14 @@ class TestStatusPageUI:
         assert "status" in content.lower() or "system" in content.lower()
 
     @pytest.mark.asyncio
-    async def test_status_page_contains_processing_queue_section(
-        self, api_client: AsyncClient
-    ):
+    async def test_status_page_contains_processing_queue_section(self, api_client: AsyncClient):
         """Test that the status page contains processing queue information."""
         response = await api_client.get("/status")
         content = response.text.lower()
         assert "processing" in content or "queue" in content
 
     @pytest.mark.asyncio
-    async def test_status_page_contains_connectivity_section(
-        self, api_client: AsyncClient
-    ):
+    async def test_status_page_contains_connectivity_section(self, api_client: AsyncClient):
         """Test that the status page contains connectivity information."""
         response = await api_client.get("/status")
         content = response.text.lower()

@@ -1,4 +1,5 @@
 """Settings service for combining environment and database settings."""
+
 import logging
 from typing import Optional, List, Dict, Any
 from sqlalchemy import select
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class SettingsService:
     """Service for managing application settings from both environment and database."""
-    
+
     def __init__(self, env_settings: EnvSettings, db_session: AsyncSession):
         self.env_settings = env_settings
         self.db_session = db_session
@@ -25,7 +26,7 @@ class SettingsService:
             query = select(UserPreferences).limit(1)
             result = await self.db_session.execute(query)
             preferences = result.scalar_one_or_none()
-            
+
             if not preferences:
                 # Create default preferences
                 preferences = UserPreferences()
@@ -33,9 +34,9 @@ class SettingsService:
                 await self.db_session.commit()
                 await self.db_session.refresh(preferences)
                 logger.info("Created default user preferences")
-            
+
             self._cached_preferences = preferences
-        
+
         return self._cached_preferences
 
     async def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
@@ -44,12 +45,12 @@ class SettingsService:
             query = select(Setting).where(Setting.key == key)
             result = await self.db_session.execute(query)
             setting = result.scalar_one_or_none()
-            
+
             if setting:
                 self._cached_settings[key] = setting
             else:
                 return default
-        
+
         return self._cached_settings[key].value if self._cached_settings[key] else default
 
     def clear_cache(self):
@@ -58,7 +59,7 @@ class SettingsService:
         self._cached_settings.clear()
 
     # Properties that combine environment and database settings
-    
+
     @property
     def app_name(self) -> str:
         """Get application name from preferences or environment."""
@@ -245,7 +246,7 @@ class SettingsService:
         return self.env_settings.network_retry_max_delay
 
     # DBOS settings always come from environment for infrastructure
-    
+
     @property
     def dbos_app_name(self) -> str:
         """DBOS app name always comes from environment."""
@@ -259,7 +260,7 @@ class SettingsService:
 
 class SettingsAdapter:
     """Adapter to make SettingsService compatible with existing Settings interface."""
-    
+
     def __init__(self, settings_service: SettingsService):
         self.settings_service = settings_service
 

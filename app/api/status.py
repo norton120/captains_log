@@ -1,6 +1,7 @@
 """
 API routes for system status page.
 """
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -21,18 +22,21 @@ router = APIRouter()
 
 class InternetConnectivityStatus(BaseModel):
     """Internet connectivity status for external services."""
+
     openai_accessible: bool
     aws_accessible: bool
 
 
 class ProcessingQueueStatus(BaseModel):
     """Processing queue status with counts by status."""
+
     total_processing: int
     by_status: Dict[str, int]
 
 
 class SystemStatusResponse(BaseModel):
     """Response model for system status."""
+
     timestamp: datetime
     internet_connectivity: InternetConnectivityStatus
     processing_queue: ProcessingQueueStatus
@@ -117,10 +121,7 @@ async def get_processing_queue_stats(db_session: AsyncSession) -> Dict:
     """
     # Get counts for all statuses in a single query using GROUP BY
     result = await db_session.execute(
-        select(
-            LogEntry.processing_status,
-            func.count(LogEntry.id)
-        ).group_by(LogEntry.processing_status)
+        select(LogEntry.processing_status, func.count(LogEntry.id)).group_by(LogEntry.processing_status)
     )
 
     # Build status counts dictionary, initializing all statuses to 0
@@ -131,10 +132,7 @@ async def get_processing_queue_stats(db_session: AsyncSession) -> Dict:
         status_counts[status.value] = count
 
     # Calculate total processing (all non-completed/failed logs)
-    total_processing = sum(
-        count for status, count in status_counts.items()
-        if status not in ["completed", "failed"]
-    )
+    total_processing = sum(count for status, count in status_counts.items() if status not in ["completed", "failed"])
 
     return {
         "total_processing": total_processing,

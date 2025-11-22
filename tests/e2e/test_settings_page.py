@@ -62,10 +62,7 @@ class TestSettingsPage:
         """
         # Set up console message tracking
         console_messages = []
-        page.on("console", lambda msg: console_messages.append({
-            'type': msg.type,
-            'text': msg.text
-        }))
+        page.on("console", lambda msg: console_messages.append({"type": msg.type, "text": msg.text}))
 
         # Navigate to the settings page
         page.goto(f"{base_url}/settings")
@@ -97,7 +94,7 @@ class TestSettingsPage:
         expect(status_indicator).to_contain_text("Settings saved successfully")
 
         # Also verify no error console messages
-        error_messages = [msg for msg in console_messages if msg['type'] == 'error']
+        error_messages = [msg for msg in console_messages if msg["type"] == "error"]
         assert len(error_messages) == 0, f"Found console errors: {error_messages}"
 
     def test_settings_save_network_error(self, page: Page, base_url: str):
@@ -110,11 +107,12 @@ class TestSettingsPage:
         """
         # Track network requests
         responses = []
-        page.on("response", lambda response: responses.append({
-            'url': response.url,
-            'status': response.status,
-            'method': response.request.method
-        }))
+        page.on(
+            "response",
+            lambda response: responses.append(
+                {"url": response.url, "status": response.status, "method": response.request.method}
+            ),
+        )
 
         # Navigate to the settings page
         page.goto(f"{base_url}/settings")
@@ -139,7 +137,7 @@ class TestSettingsPage:
         page.wait_for_timeout(2000)
 
         # Find the PUT request to /api/settings/preferences
-        save_requests = [r for r in responses if '/api/settings/preferences' in r['url'] and r['method'] == 'PUT']
+        save_requests = [r for r in responses if "/api/settings/preferences" in r["url"] and r["method"] == "PUT"]
 
         assert len(save_requests) > 0, "No save request was made"
 
@@ -147,7 +145,7 @@ class TestSettingsPage:
 
         # THIS IS THE BUG: The save request returns 503
         # This assertion documents the bug - it should be 200, but is currently 503
-        assert save_request['status'] == 503, f"Expected 503 (bug), but got {save_request['status']}"
+        assert save_request["status"] == 503, f"Expected 503 (bug), but got {save_request['status']}"
 
     def test_settings_save_and_reload_persistence(self, page: Page, base_url: str):
         """

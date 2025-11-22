@@ -1,4 +1,5 @@
 """Authentication API routes."""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +25,7 @@ router.include_router(
     tags=["auth"],
 )
 
+
 # Custom registration endpoint with toggle check
 @router.post("/auth/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register(
@@ -43,13 +45,11 @@ async def register(
 
     # Check if registration is allowed
     if user_count > 0 and not settings.allow_new_user_registration:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="New user registration is currently disabled"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="New user registration is currently disabled")
 
     # Use fastapi_users registration endpoint
     from app.auth import get_user_manager, get_user_db
+
     user_db = await anext(get_user_db(db_session))
     user_manager = await anext(get_user_manager(user_db))
 
@@ -57,10 +57,7 @@ async def register(
         user = await user_manager.create(user_create)
         return UserRead.model_validate(user)
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 # User management routes

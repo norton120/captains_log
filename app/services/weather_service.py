@@ -9,37 +9,37 @@ logger = logging.getLogger(__name__)
 
 class NOAAWeatherService:
     """Service for fetching marine weather data from NOAA APIs"""
-    
+
     def __init__(self):
         self.weather_api_base = "https://api.weather.gov"
         self.coops_api_base = "https://api.tidesandcurrents.noaa.gov/api/prod"
         self.timeout = httpx.Timeout(30.0)
-        
+
     async def get_marine_conditions(self, latitude: float, longitude: float) -> Optional[Dict[str, Any]]:
         """
         Get comprehensive marine weather conditions for a specific location.
-        
+
         Args:
             latitude: Latitude coordinate
             longitude: Longitude coordinate
-            
+
         Returns:
             Dictionary containing weather conditions or None if unavailable
         """
         try:
             # Get weather forecast data
             forecast_data = await self._get_weather_forecast(latitude, longitude)
-            
+
             # Try to get observational data from nearby stations
             station_data = await self._get_station_observations(latitude, longitude)
-            
+
             # Combine and return the data
             return self._combine_weather_data(forecast_data, station_data)
-            
+
         except Exception as e:
             logger.error(f"Error fetching weather data for {latitude}, {longitude}: {e}")
             return None
-    
+
     async def _get_weather_forecast(self, latitude: float, longitude: float) -> Optional[Dict[str, Any]]:
         """Get weather forecast from NWS API"""
         try:
@@ -88,7 +88,7 @@ class NOAAWeatherService:
         except Exception as e:
             logger.error(f"Error getting weather forecast: {e}")
             return None
-    
+
     async def _get_station_observations(self, latitude: float, longitude: float) -> Optional[Dict[str, Any]]:
         """Get observational data from nearest NOAA CO-OPS station"""
         try:
@@ -96,105 +96,107 @@ class NOAAWeatherService:
             station_id = await self._find_nearest_station(latitude, longitude)
             if not station_id:
                 return None
-            
+
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 # Get current conditions from multiple products
                 base_params = {
                     "station": station_id,
                     "format": "json",
                     "time_zone": "gmt",
-                    "application": "captains_log"
+                    "application": "captains_log",
                 }
-                
+
                 # Gather data from multiple endpoints
                 tasks = []
-                
+
                 # Wind data
                 wind_params = {**base_params, "product": "wind", "date": "latest"}
                 tasks.append(self._fetch_coops_data(client, wind_params))
-                
+
                 # Air temperature
                 air_temp_params = {**base_params, "product": "air_temperature", "date": "latest"}
                 tasks.append(self._fetch_coops_data(client, air_temp_params))
-                
+
                 # Water temperature
                 water_temp_params = {**base_params, "product": "water_temperature", "date": "latest"}
                 tasks.append(self._fetch_coops_data(client, water_temp_params))
-                
+
                 # Air pressure
                 pressure_params = {**base_params, "product": "air_pressure", "date": "latest"}
                 tasks.append(self._fetch_coops_data(client, pressure_params))
-                
+
                 # Execute all requests concurrently
                 results = await asyncio.gather(*tasks, return_exceptions=True)
-                
+
                 # Combine results
                 combined_data = {}
                 for result in results:
                     if isinstance(result, dict) and result:
                         combined_data.update(result)
-                
+
                 return combined_data if combined_data else None
-                
+
         except Exception as e:
             logger.error(f"Error getting station observations: {e}")
             return None
-    
+
     async def _fetch_coops_data(self, client: httpx.AsyncClient, params: Dict[str, str]) -> Dict[str, Any]:
         """Fetch data from CO-OPS API"""
         try:
             url = f"{self.coops_api_base}/datagetter"
             response = await client.get(url, params=params)
-            
+
             if response.status_code == 200:
                 data = response.json()
                 return self._parse_coops_response(data, params["product"])
             else:
                 logger.warning(f"CO-OPS request failed for {params['product']}: {response.status_code}")
                 return {}
-                
+
         except Exception as e:
             logger.error(f"Error fetching CO-OPS data for {params.get('product')}: {e}")
             return {}
-    
+
     def _parse_coops_response(self, data: Dict[str, Any], product: str) -> Dict[str, Any]:
         """Parse CO-OPS API response and extract relevant values"""
         try:
             parsed = {}
             data_entries = data.get("data", [])
-            
+
             if not data_entries:
                 return {}
-            
+
             # Get the most recent entry
             latest_entry = data_entries[0] if data_entries else {}
-            
+
             if product == "wind":
-                parsed.update({
-                    "wind_speed_kts": float(latest_entry.get("s", 0)) if latest_entry.get("s") else None,
-                    "wind_direction_deg": float(latest_entry.get("d", 0)) if latest_entry.get("d") else None,
-                    "wind_gust_kts": float(latest_entry.get("g", 0)) if latest_entry.get("g") else None,
-                })
+                parsed.update(
+                    {
+                        "wind_speed_kts": float(latest_entry.get("s", 0)) if latest_entry.get("s") else None,
+                        "wind_direction_deg": float(latest_entry.get("d", 0)) if latest_entry.get("d") else None,
+                        "wind_gust_kts": float(latest_entry.get("g", 0)) if latest_entry.get("g") else None,
+                    }
+                )
             elif product == "air_temperature":
                 parsed["air_temp_f"] = float(latest_entry.get("v", 0)) if latest_entry.get("v") else None
             elif product == "water_temperature":
                 parsed["water_temp_f"] = float(latest_entry.get("v", 0)) if latest_entry.get("v") else None
             elif product == "air_pressure":
                 parsed["barometric_pressure_mb"] = float(latest_entry.get("v", 0)) if latest_entry.get("v") else None
-            
+
             return parsed
-            
+
         except Exception as e:
             logger.error(f"Error parsing CO-OPS response for {product}: {e}")
             return {}
-    
+
     async def _find_nearest_station(self, latitude: float, longitude: float) -> Optional[str]:
         """Find nearest NOAA station (simplified implementation)"""
         # This is a simplified implementation. In production, you'd want to:
         # 1. Have a database of station locations
         # 2. Calculate actual distances
         # 3. Check station capabilities for different data products
-        
+
         # For now, return some common stations based on rough geographic regions
         if 32 <= latitude <= 48 and -125 <= longitude <= -117:  # West Coast
             if latitude >= 37:
@@ -208,9 +210,9 @@ class NOAAWeatherService:
                 return "8661070"  # Springmaid Pier, SC
         elif 24 <= latitude <= 31 and -90 <= longitude <= -80:  # Gulf Coast
             return "8724580"  # Key West
-        
+
         return None  # No suitable station found
-    
+
     def _combine_weather_data(self, forecast_data: Optional[Dict], station_data: Optional[Dict]) -> Dict[str, Any]:
         """Combine forecast and observational data into a unified weather record"""
         combined = {
@@ -229,16 +231,22 @@ class NOAAWeatherService:
             "relative_humidity_pct": None,
             "dew_point_f": None,
             "precipitation_probability_pct": None,
-            "precipitation_amount_in": None
+            "precipitation_amount_in": None,
         }
-        
+
         # Prioritize observational data from stations
         if station_data:
-            for key in ["air_temp_f", "water_temp_f", "wind_speed_kts", 
-                       "wind_direction_deg", "wind_gust_kts", "barometric_pressure_mb"]:
+            for key in [
+                "air_temp_f",
+                "water_temp_f",
+                "wind_speed_kts",
+                "wind_direction_deg",
+                "wind_gust_kts",
+                "barometric_pressure_mb",
+            ]:
                 if key in station_data and station_data[key] is not None:
                     combined[key] = station_data[key]
-        
+
         # Extract simple forecast conditions first (human-readable terms like "Sunny", "Cloudy")
         if forecast_data and "simpleForecast" in forecast_data:
             try:
@@ -264,21 +272,21 @@ class NOAAWeatherService:
                         # Convert m/s to knots (1 m/s = 1.94384 knots)
                         wind_ms = wind_values[0].get("value", 0)
                         combined["wind_speed_kts"] = round(wind_ms * 1.94384, 1) if wind_ms else None
-                
+
                 # Wind direction
                 if "windDirection" in properties:
                     wind_dir_values = properties["windDirection"].get("values", [])
                     if wind_dir_values and combined["wind_direction_deg"] is None:
                         combined["wind_direction_deg"] = wind_dir_values[0].get("value")
-                
+
                 # Temperature
                 if "temperature" in properties:
                     temp_values = properties["temperature"].get("values", [])
                     if temp_values and combined["air_temp_f"] is None:
                         # Convert Celsius to Fahrenheit
                         temp_c = temp_values[0].get("value", 0)
-                        combined["air_temp_f"] = round((temp_c * 9/5) + 32, 1) if temp_c else None
-                
+                        combined["air_temp_f"] = round((temp_c * 9 / 5) + 32, 1) if temp_c else None
+
                 # Wave height (if available in marine forecast)
                 if "waveHeight" in properties:
                     wave_values = properties["waveHeight"].get("values", [])
@@ -286,7 +294,7 @@ class NOAAWeatherService:
                         # Convert meters to feet
                         wave_m = wave_values[0].get("value", 0)
                         combined["wave_height_ft"] = round(wave_m * 3.28084, 1) if wave_m else None
-                
+
                 # Visibility
                 if "visibility" in properties:
                     vis_values = properties["visibility"].get("values", [])
@@ -308,7 +316,7 @@ class NOAAWeatherService:
                     if dewpoint_values:
                         # Convert Celsius to Fahrenheit
                         dewpoint_c = dewpoint_values[0].get("value", 0)
-                        combined["dew_point_f"] = round((dewpoint_c * 9/5) + 32, 1) if dewpoint_c else None
+                        combined["dew_point_f"] = round((dewpoint_c * 9 / 5) + 32, 1) if dewpoint_c else None
 
                 # Precipitation Probability
                 if "probabilityOfPrecipitation" in properties:
@@ -343,7 +351,7 @@ class NOAAWeatherService:
 
             except Exception as e:
                 logger.warning(f"Error parsing forecast data: {e}")
-        
+
         # Remove None values
         return {k: v for k, v in combined.items() if v is not None}
 

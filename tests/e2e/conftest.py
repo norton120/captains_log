@@ -26,7 +26,8 @@ def page(context: BrowserContext):
     page = context.new_page()
 
     # Mock getUserMedia to avoid actual media device access
-    page.add_init_script("""
+    page.add_init_script(
+        """
         // Store original getUserMedia
         const originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
 
@@ -57,7 +58,8 @@ def page(context: BrowserContext):
 
             return new MediaStream(tracks);
         };
-    """)
+    """
+    )
 
     yield page
     page.close()

@@ -33,7 +33,8 @@ class TestRecordingRegressions:
         page.wait_for_timeout(1000)
 
         # Verify recording started by checking MediaRecorder state via JS
-        is_recording_before = page.evaluate("""
+        is_recording_before = page.evaluate(
+            """
             () => {
                 const recorder = window.recorder;
                 return {
@@ -42,7 +43,8 @@ class TestRecordingRegressions:
                     mediaRecorderState: recorder.mediaRecorder ? recorder.mediaRecorder.state : null
                 };
             }
-        """)
+        """
+        )
 
         assert is_recording_before["isRecording"] == True, "Should be recording"
         assert is_recording_before["isPaused"] == False, "Should not be paused"
@@ -53,7 +55,8 @@ class TestRecordingRegressions:
         page.wait_for_timeout(500)
 
         # Check state after pause attempt
-        is_recording_after = page.evaluate("""
+        is_recording_after = page.evaluate(
+            """
             () => {
                 const recorder = window.recorder;
                 return {
@@ -62,12 +65,15 @@ class TestRecordingRegressions:
                     mediaRecorderState: recorder.mediaRecorder ? recorder.mediaRecorder.state : null
                 };
             }
-        """)
+        """
+        )
 
         # THIS IS THE BUG: MediaRecorder should be in 'paused' state
         assert is_recording_after["isRecording"] == False, "Should not be recording"
         assert is_recording_after["isPaused"] == True, "Should be paused"
-        assert is_recording_after["mediaRecorderState"] == "paused", f"MediaRecorder should be in 'paused' state, but is '{is_recording_after['mediaRecorderState']}'"
+        assert (
+            is_recording_after["mediaRecorderState"] == "paused"
+        ), f"MediaRecorder should be in 'paused' state, but is '{is_recording_after['mediaRecorderState']}'"
 
     def test_pause_timer_reflects_actual_pause_duration(self, page: Page, base_url: str):
         """
@@ -112,8 +118,9 @@ class TestRecordingRegressions:
         timer_after_pause_wait = timer.text_content()
 
         # THIS IS THE BUG: Timer should NOT change during pause
-        assert timer_during_pause == timer_after_pause_wait, \
-            f"Timer should not change during pause. Was '{timer_during_pause}', became '{timer_after_pause_wait}'"
+        assert (
+            timer_during_pause == timer_after_pause_wait
+        ), f"Timer should not change during pause. Was '{timer_during_pause}', became '{timer_after_pause_wait}'"
 
         # Resume recording
         overlay.click()
@@ -130,8 +137,9 @@ class TestRecordingRegressions:
 
         # Should be around 4 seconds (2 before pause + 2 after resume, NOT including 3 second pause)
         # Allow 3-5 seconds due to timing
-        assert 3 <= total_seconds_after <= 5, \
-            f"Timer should show ~4 seconds total (excluding pause), got {total_seconds_after}"
+        assert (
+            3 <= total_seconds_after <= 5
+        ), f"Timer should show ~4 seconds total (excluding pause), got {total_seconds_after}"
 
     def test_save_button_works_on_first_click(self, page: Page, base_url: str):
         """
@@ -175,8 +183,9 @@ class TestRecordingRegressions:
         error_messages = [alert.text_content() for alert in error_alerts if alert.is_visible()]
         no_data_errors = [msg for msg in error_messages if "No" in msg and "data to save" in msg]
 
-        assert len(no_data_errors) == 0, \
-            f"Should not show 'no data to save' error on first click. Got errors: {error_messages}"
+        assert (
+            len(no_data_errors) == 0
+        ), f"Should not show 'no data to save' error on first click. Got errors: {error_messages}"
 
     def test_save_has_chunks_after_recording(self, page: Page, base_url: str):
         """
@@ -199,7 +208,8 @@ class TestRecordingRegressions:
         page.wait_for_timeout(500)
 
         # Check chunks array via JavaScript
-        chunks_info = page.evaluate("""
+        chunks_info = page.evaluate(
+            """
             () => {
                 const recorder = window.recorder;
                 return {
@@ -208,14 +218,16 @@ class TestRecordingRegressions:
                     hasMediaRecorder: !!recorder.mediaRecorder
                 };
             }
-        """)
+        """
+        )
 
         print(f"Chunks info after pause: {chunks_info}")
 
         # THIS IS THE BUG: chunks array should have data after recording
-        assert chunks_info["chunksLength"] > 0, \
-            f"Chunks array should have data after recording. Length: {chunks_info['chunksLength']}, " \
+        assert chunks_info["chunksLength"] > 0, (
+            f"Chunks array should have data after recording. Length: {chunks_info['chunksLength']}, "
             f"MediaRecorder state: {chunks_info['mediaRecorderState']}"
+        )
 
     def test_complete_pause_resume_save_workflow(self, page: Page, base_url: str):
         """
@@ -268,5 +280,6 @@ class TestRecordingRegressions:
         error_alert = page.locator(".lcars-alert.error")
         if error_alert.count() > 0:
             error_text = error_alert.first.text_content()
-            assert "No" not in error_text or "data to save" not in error_text, \
-                f"Should not show 'no data to save' error: {error_text}"
+            assert (
+                "No" not in error_text or "data to save" not in error_text
+            ), f"Should not show 'no data to save' error: {error_text}"

@@ -1,4 +1,5 @@
 """Tests for User model and authentication."""
+
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
@@ -14,10 +15,7 @@ class TestUserModel:
 
     async def test_create_user(self, async_db_session: AsyncSession):
         """Test creating a user."""
-        user = User(
-            username="testuser",
-            email="test@example.com"
-        )
+        user = User(username="testuser", email="test@example.com")
         async_db_session.add(user)
         await async_db_session.commit()
         await async_db_session.refresh(user)
@@ -72,18 +70,13 @@ class TestGenericUserFixture:
     async def test_generic_user_exists(self, async_db_session: AsyncSession):
         """Test that a generic user can be created and retrieved."""
         # Create generic user
-        generic_user = User(
-            username="generic_user",
-            email="generic@captainslog.local"
-        )
+        generic_user = User(username="generic_user", email="generic@captainslog.local")
         async_db_session.add(generic_user)
         await async_db_session.commit()
         await async_db_session.refresh(generic_user)
 
         # Verify it exists
-        result = await async_db_session.execute(
-            select(User).where(User.username == "generic_user")
-        )
+        result = await async_db_session.execute(select(User).where(User.username == "generic_user"))
         user = result.scalar_one()
 
         assert user is not None
@@ -93,10 +86,7 @@ class TestGenericUserFixture:
     async def test_get_current_user_returns_generic_user(self, async_db_session: AsyncSession):
         """Test that get_current_user dependency returns the generic user."""
         # First, create the generic user
-        generic_user = User(
-            username="generic_user",
-            email="generic@captainslog.local"
-        )
+        generic_user = User(username="generic_user", email="generic@captainslog.local")
         async_db_session.add(generic_user)
         await async_db_session.commit()
         await async_db_session.refresh(generic_user)

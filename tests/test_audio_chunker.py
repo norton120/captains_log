@@ -1,4 +1,5 @@
 """Tests for audio chunking service."""
+
 import asyncio
 import tempfile
 from pathlib import Path
@@ -39,20 +40,13 @@ class TestAudioChunker:
     async def test_get_audio_duration(self, audio_chunker, mock_audio_file):
         """Test getting audio duration using ffprobe."""
         # Mock the subprocess call
-        mock_probe_data = {
-            "format": {
-                "duration": "123.45"
-            }
-        }
+        mock_probe_data = {"format": {"duration": "123.45"}}
 
-        with patch('asyncio.create_subprocess_exec') as mock_subprocess:
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             # Create mock process
             mock_process = AsyncMock()
             mock_process.returncode = 0
-            mock_process.communicate.return_value = (
-                str(mock_probe_data).replace("'", '"').encode('utf-8'),
-                b""
-            )
+            mock_process.communicate.return_value = (str(mock_probe_data).replace("'", '"').encode("utf-8"), b"")
             mock_subprocess.return_value = mock_process
 
             duration = await audio_chunker._get_audio_duration(mock_audio_file)
@@ -63,7 +57,7 @@ class TestAudioChunker:
     @pytest.mark.asyncio
     async def test_get_audio_duration_ffprobe_error(self, audio_chunker, mock_audio_file):
         """Test that ffprobe errors are handled correctly."""
-        with patch('asyncio.create_subprocess_exec') as mock_subprocess:
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             # Create mock process with error
             mock_process = AsyncMock()
             mock_process.returncode = 1
@@ -83,9 +77,7 @@ class TestAudioChunker:
         duration = 1000.0  # 1000 seconds
         max_chunk_duration = 600  # 10 minutes
 
-        chunk_duration = await audio_chunker._calculate_optimal_chunk_duration(
-            file_size, duration, max_chunk_duration
-        )
+        chunk_duration = await audio_chunker._calculate_optimal_chunk_duration(file_size, duration, max_chunk_duration)
 
         # Should return optimal duration (with 0.9 safety factor)
         # 400 * 0.9 = 360 seconds
@@ -99,9 +91,7 @@ class TestAudioChunker:
         duration = 1000.0  # 1000 seconds
         max_chunk_duration = 300  # 5 minutes
 
-        chunk_duration = await audio_chunker._calculate_optimal_chunk_duration(
-            file_size, duration, max_chunk_duration
-        )
+        chunk_duration = await audio_chunker._calculate_optimal_chunk_duration(file_size, duration, max_chunk_duration)
 
         # Should cap at max_chunk_duration
         assert chunk_duration == max_chunk_duration
@@ -114,9 +104,7 @@ class TestAudioChunker:
         duration = 10.0  # 10 seconds
         max_chunk_duration = 600
 
-        chunk_duration = await audio_chunker._calculate_optimal_chunk_duration(
-            file_size, duration, max_chunk_duration
-        )
+        chunk_duration = await audio_chunker._calculate_optimal_chunk_duration(file_size, duration, max_chunk_duration)
 
         # Should return minimum of 60 seconds
         assert chunk_duration == 60
@@ -128,7 +116,7 @@ class TestAudioChunker:
         output_file = tmp_path / "output.wav"
         input_file.write_bytes(b"fake audio data")
 
-        with patch('asyncio.create_subprocess_exec') as mock_subprocess:
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             # Create mock process
             mock_process = AsyncMock()
             mock_process.returncode = 0
@@ -138,9 +126,7 @@ class TestAudioChunker:
             # Create output file to simulate ffmpeg success
             output_file.write_bytes(b"chunk data")
 
-            await audio_chunker._extract_audio_chunk(
-                input_file, output_file, start_time=0, duration=60
-            )
+            await audio_chunker._extract_audio_chunk(input_file, output_file, start_time=0, duration=60)
 
             mock_subprocess.assert_called_once()
 
@@ -151,7 +137,7 @@ class TestAudioChunker:
         output_file = tmp_path / "output.wav"
         input_file.write_bytes(b"fake audio data")
 
-        with patch('asyncio.create_subprocess_exec') as mock_subprocess:
+        with patch("asyncio.create_subprocess_exec") as mock_subprocess:
             # Create mock process with error
             mock_process = AsyncMock()
             mock_process.returncode = 1
@@ -159,9 +145,7 @@ class TestAudioChunker:
             mock_subprocess.return_value = mock_process
 
             with pytest.raises(AudioChunkingError, match="FFmpeg chunk extraction failed"):
-                await audio_chunker._extract_audio_chunk(
-                    input_file, output_file, start_time=0, duration=60
-                )
+                await audio_chunker._extract_audio_chunk(input_file, output_file, start_time=0, duration=60)
 
     @pytest.mark.asyncio
     async def test_split_audio_into_chunks(self, audio_chunker, tmp_path):
@@ -174,11 +158,8 @@ class TestAudioChunker:
             # Extract output file from ffmpeg compile args
             # Create a small chunk file
             import tempfile
-            temp_file = tempfile.NamedTemporaryFile(
-                delete=False,
-                suffix=".wav",
-                prefix="chunk_"
-            )
+
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav", prefix="chunk_")
             temp_file.write(b"chunk data")
             temp_file.close()
 
@@ -187,8 +168,8 @@ class TestAudioChunker:
             mock_process.communicate.return_value = (b"", b"")
             return mock_process
 
-        with patch('asyncio.create_subprocess_exec', side_effect=mock_create_chunk):
-            with patch.object(audio_chunker, '_extract_audio_chunk') as mock_extract:
+        with patch("asyncio.create_subprocess_exec", side_effect=mock_create_chunk):
+            with patch.object(audio_chunker, "_extract_audio_chunk") as mock_extract:
                 # Mock extract to create files
                 async def create_chunk_file(input_f, output_f, start_t, dur):
                     output_f.write_bytes(b"chunk data")
@@ -196,9 +177,7 @@ class TestAudioChunker:
                 mock_extract.side_effect = create_chunk_file
 
                 chunks = await audio_chunker._split_audio_into_chunks(
-                    input_file,
-                    chunk_duration=100,
-                    total_duration=250
+                    input_file, chunk_duration=100, total_duration=250
                 )
 
                 # Should create 3 chunks (0-100, 100-200, 200-250)
@@ -213,13 +192,10 @@ class TestAudioChunker:
         # Mock duration
         mock_duration = 300.0  # 5 minutes
 
-        with patch.object(audio_chunker, '_get_audio_duration', return_value=mock_duration):
-            with patch.object(audio_chunker, '_split_audio_into_chunks') as mock_split:
+        with patch.object(audio_chunker, "_get_audio_duration", return_value=mock_duration):
+            with patch.object(audio_chunker, "_split_audio_into_chunks") as mock_split:
                 # Mock return chunks
-                mock_chunks = [
-                    Path("/tmp/chunk_000.wav"),
-                    Path("/tmp/chunk_001.wav")
-                ]
+                mock_chunks = [Path("/tmp/chunk_000.wav"), Path("/tmp/chunk_001.wav")]
                 mock_split.return_value = mock_chunks
 
                 chunks = await audio_chunker.chunk_audio_file(mock_audio_file)
@@ -250,10 +226,7 @@ class TestAudioChunker:
     def test_cleanup_chunks_handles_missing_files(self):
         """Test that cleanup handles missing files gracefully."""
         # Create list with non-existent files
-        chunk_files = [
-            Path("/nonexistent/chunk_0.wav"),
-            Path("/nonexistent/chunk_1.wav")
-        ]
+        chunk_files = [Path("/nonexistent/chunk_0.wav"), Path("/nonexistent/chunk_1.wav")]
 
         # Should not raise an error
         AudioChunker.cleanup_chunks(chunk_files)

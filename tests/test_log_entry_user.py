@@ -1,4 +1,5 @@
 """Tests for LogEntry user foreign key relationship."""
+
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,10 +21,7 @@ class TestLogEntryUserRelationship:
         await async_db_session.refresh(user)
 
         # Create a log entry without user_id should fail
-        log_entry = LogEntry(
-            audio_s3_key="test/audio.wav",
-            processing_status=ProcessingStatus.PENDING
-        )
+        log_entry = LogEntry(audio_s3_key="test/audio.wav", processing_status=ProcessingStatus.PENDING)
         async_db_session.add(log_entry)
 
         with pytest.raises(Exception):  # Should raise IntegrityError
@@ -38,11 +36,7 @@ class TestLogEntryUserRelationship:
         await async_db_session.refresh(user)
 
         # Create a log entry with user_id
-        log_entry = LogEntry(
-            user_id=user.id,
-            audio_s3_key="test/audio.wav",
-            processing_status=ProcessingStatus.PENDING
-        )
+        log_entry = LogEntry(user_id=user.id, audio_s3_key="test/audio.wav", processing_status=ProcessingStatus.PENDING)
         async_db_session.add(log_entry)
         await async_db_session.commit()
         await async_db_session.refresh(log_entry)
@@ -59,19 +53,13 @@ class TestLogEntryUserRelationship:
         await async_db_session.refresh(user)
 
         # Create a log entry
-        log_entry = LogEntry(
-            user_id=user.id,
-            audio_s3_key="test/audio.wav",
-            processing_status=ProcessingStatus.PENDING
-        )
+        log_entry = LogEntry(user_id=user.id, audio_s3_key="test/audio.wav", processing_status=ProcessingStatus.PENDING)
         async_db_session.add(log_entry)
         await async_db_session.commit()
         await async_db_session.refresh(log_entry)
 
         # Access the user via relationship
-        result = await async_db_session.execute(
-            select(LogEntry).where(LogEntry.id == log_entry.id)
-        )
+        result = await async_db_session.execute(select(LogEntry).where(LogEntry.id == log_entry.id))
         fetched_entry = result.scalar_one()
 
         # Fetch the user relationship
@@ -90,22 +78,16 @@ class TestLogEntryUserRelationship:
 
         # Create multiple log entries for this user
         log_entry1 = LogEntry(
-            user_id=user.id,
-            audio_s3_key="test/audio1.wav",
-            processing_status=ProcessingStatus.PENDING
+            user_id=user.id, audio_s3_key="test/audio1.wav", processing_status=ProcessingStatus.PENDING
         )
         log_entry2 = LogEntry(
-            user_id=user.id,
-            audio_s3_key="test/audio2.wav",
-            processing_status=ProcessingStatus.COMPLETED
+            user_id=user.id, audio_s3_key="test/audio2.wav", processing_status=ProcessingStatus.COMPLETED
         )
         async_db_session.add_all([log_entry1, log_entry2])
         await async_db_session.commit()
 
         # Query all log entries for this user
-        result = await async_db_session.execute(
-            select(LogEntry).where(LogEntry.user_id == user.id)
-        )
+        result = await async_db_session.execute(select(LogEntry).where(LogEntry.user_id == user.id))
         user_logs = result.scalars().all()
 
         assert len(user_logs) == 2
@@ -120,11 +102,7 @@ class TestLogEntryUserRelationship:
         await async_db_session.refresh(user)
 
         # Create a log entry
-        log_entry = LogEntry(
-            user_id=user.id,
-            audio_s3_key="test/audio.wav",
-            processing_status=ProcessingStatus.PENDING
-        )
+        log_entry = LogEntry(user_id=user.id, audio_s3_key="test/audio.wav", processing_status=ProcessingStatus.PENDING)
         async_db_session.add(log_entry)
         await async_db_session.commit()
 

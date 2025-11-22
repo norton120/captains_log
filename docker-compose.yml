@@ -95,6 +95,16 @@ services:
     profiles:
       - lint
 
+  format:
+    <<: *app-base
+    volumes:
+      - ./app:/app/app
+      - ./tests:/app/tests
+      - ./pyproject.toml:/app/pyproject.toml
+    command: black app/ tests/
+    profiles:
+      - format
+
   nginx:
     image: nginx:alpine
     ports:

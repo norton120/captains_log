@@ -17,13 +17,7 @@ def test_combine_weather_data_with_new_fields(weather_service):
             "probabilityOfPrecipitation": {"values": [{"value": 40.0}]},
             "quantitativePrecipitation": {"values": [{"value": 2.5}]},  # mm
         },
-        "simpleForecast": {
-            "properties": {
-                "periods": [
-                    {"shortForecast": "Partly Sunny"}
-                ]
-            }
-        }
+        "simpleForecast": {"properties": {"periods": [{"shortForecast": "Partly Sunny"}]}},
     }
 
     station_data = {}
@@ -52,11 +46,7 @@ def test_combine_weather_data_with_new_fields(weather_service):
 def test_combine_weather_data_empty_new_fields(weather_service):
     """Test that function doesn't crash when new fields are missing"""
 
-    forecast_data = {
-        "properties": {
-            "temperature": {"values": [{"value": 20.0}]}
-        }
-    }
+    forecast_data = {"properties": {"temperature": {"values": [{"value": 20.0}]}}}
 
     station_data = {}
 
@@ -81,12 +71,9 @@ def test_weather_conditions_simple_forecast(weather_service):
         "properties": {},
         "simpleForecast": {
             "properties": {
-                "periods": [
-                    {"shortForecast": "Sunny"},
-                    {"shortForecast": "Cloudy"}  # Should use first period
-                ]
+                "periods": [{"shortForecast": "Sunny"}, {"shortForecast": "Cloudy"}]  # Should use first period
             }
-        }
+        },
     }
 
     result = weather_service._combine_weather_data(forecast_data, {})
@@ -100,13 +87,7 @@ def test_weather_conditions_fallback_to_weather_array(weather_service):
     """Test fallback to weather array when simple forecast unavailable"""
 
     forecast_data = {
-        "properties": {
-            "weather": {
-                "values": [
-                    {"value": [{"weather": "Rain Showers"}, {"weather": "Fog"}]}
-                ]
-            }
-        }
+        "properties": {"weather": {"values": [{"value": [{"weather": "Rain Showers"}, {"weather": "Fog"}]}]}}
     }
 
     result = weather_service._combine_weather_data(forecast_data, {})

@@ -39,7 +39,7 @@ class LogEntry(Base):
     # User relationship
     user_id = Column(PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
     user = relationship("User", back_populates="authored_logs")
-    
+
     # Media information
     media_type = Column(Enum(MediaType), nullable=False, default=MediaType.AUDIO)
     original_filename = Column(String, nullable=True)
@@ -47,26 +47,22 @@ class LogEntry(Base):
 
     # Log classification
     log_type = Column(Enum(LogType), nullable=False, default=LogType.SHIP)
-    
+
     # Video storage (if video source)
     video_s3_key = Column(String, nullable=True)
     video_local_path = Column(String, nullable=True)
-    
+
     # Audio storage (extracted from video if applicable)
     audio_s3_key = Column(String, nullable=True)
     audio_local_path = Column(String, nullable=True)
-    
+
     # Processing results
     transcription = Column(Text, nullable=True)
     embedding = Column(Vector(1536), nullable=True)  # dimension for text-embedding-3-small
     summary = Column(Text, nullable=True)
-    processing_status = Column(
-        Enum(ProcessingStatus),
-        nullable=False,
-        default=ProcessingStatus.PENDING
-    )
+    processing_status = Column(Enum(ProcessingStatus), nullable=False, default=ProcessingStatus.PENDING)
     processing_error = Column(Text, nullable=True)
-    
+
     # Location information
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
@@ -76,7 +72,7 @@ class LogEntry(Base):
     location_country = Column(String, nullable=True)
     body_of_water = Column(String, nullable=True)
     nearest_port = Column(String, nullable=True)
-    
+
     # Weather/Marine conditions at time of log
     weather_air_temp_f = Column(Float, nullable=True)
     weather_water_temp_f = Column(Float, nullable=True)
@@ -94,6 +90,6 @@ class LogEntry(Base):
     weather_dew_point_f = Column(Float, nullable=True)  # Dew point temperature in Fahrenheit
     weather_precipitation_probability_pct = Column(Float, nullable=True)  # Probability of precipitation percentage
     weather_precipitation_amount_in = Column(Float, nullable=True)  # Quantitative precipitation in inches
-    
+
     def __repr__(self):
         return f"<LogEntry(id={self.id}, created_at={self.created_at}, status={self.processing_status.value})>"

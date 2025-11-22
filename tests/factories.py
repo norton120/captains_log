@@ -1,4 +1,5 @@
 """Test data factories using factory-boy."""
+
 import factory
 from factory import Faker, LazyAttribute, SubFactory
 from datetime import datetime
@@ -39,7 +40,7 @@ class LogEntryFactory(factory.Factory):
 
 class PendingLogEntryFactory(LogEntryFactory):
     """Factory for pending log entries."""
-    
+
     transcription = None
     embedding = None
     summary = None
@@ -48,7 +49,7 @@ class PendingLogEntryFactory(LogEntryFactory):
 
 class FailedLogEntryFactory(LogEntryFactory):
     """Factory for failed log entries."""
-    
+
     transcription = None
     embedding = None
     summary = None
@@ -58,12 +59,10 @@ class FailedLogEntryFactory(LogEntryFactory):
 
 class ProcessingLogEntryFactory(LogEntryFactory):
     """Factory for log entries in various processing states."""
-    
+
     transcription = None
     embedding = None
     summary = None
-    processing_status = factory.Iterator([
-        ProcessingStatus.TRANSCRIBING,
-        ProcessingStatus.VECTORIZING,
-        ProcessingStatus.SUMMARIZING
-    ])
+    processing_status = factory.Iterator(
+        [ProcessingStatus.TRANSCRIBING, ProcessingStatus.VECTORIZING, ProcessingStatus.SUMMARIZING]
+    )

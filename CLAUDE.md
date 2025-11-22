@@ -14,6 +14,12 @@ docker compose run --rm test
 # Run specific tests
 docker compose run --rm test pytest tests/test_specific.py -v
 
+# Format code with Black
+./utils/format.sh
+
+# Check code formatting without modifying files
+./utils/format.sh --check
+
 # Generate database migrations (NEVER hand-write migrations)
 docker compose run --rm --profile=tools make_migrations
 

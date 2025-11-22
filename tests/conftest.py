@@ -1,4 +1,5 @@
 """Test configuration and fixtures."""
+
 import asyncio
 import os
 import sys
@@ -56,13 +57,13 @@ async def async_db_engine(test_settings):
         connect_args={"check_same_thread": False},
         echo=test_settings.debug,
     )
-    
+
     # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     # Cleanup
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
@@ -77,7 +78,7 @@ async def async_db_session(async_db_engine) -> AsyncGenerator[AsyncSession, None
         class_=AsyncSession,
         expire_on_commit=False,
     )
-    
+
     async with async_session() as session:
         yield session
 
@@ -97,22 +98,22 @@ def mock_s3_service():
 def mock_openai_client():
     """Mock OpenAI client for testing."""
     mock_client = MagicMock()
-    
+
     # Mock transcription response
     mock_transcription = MagicMock()
     mock_transcription.text = "This is a test transcription of the audio file."
     mock_client.audio.transcriptions.create.return_value = mock_transcription
-    
+
     # Mock embedding response
     mock_embedding = MagicMock()
     mock_embedding.data = [MagicMock(embedding=[0.1] * 1536)]
     mock_client.embeddings.create.return_value = mock_embedding
-    
+
     # Mock chat completion response
     mock_completion = MagicMock()
     mock_completion.choices = [MagicMock(message=MagicMock(content="Test summary"))]
     mock_client.chat.completions.create.return_value = mock_completion
-    
+
     return mock_client
 
 
@@ -120,20 +121,20 @@ def mock_openai_client():
 def mock_async_openai_client():
     """Mock async OpenAI client for testing."""
     mock_client = AsyncMock()
-    
+
     # Mock embedding response
     mock_embedding = MagicMock()
     mock_embedding.data = [MagicMock(embedding=[0.1] * 1536)]
     mock_client.embeddings.create.return_value = mock_embedding
-    
-    # Mock chat completion response  
+
+    # Mock chat completion response
     mock_completion = MagicMock()
     mock_completion.choices = [MagicMock(message=MagicMock(content="Test summary"))]
     mock_client.chat.completions.create.return_value = mock_completion
-    
+
     # Mock models list for health check
     mock_client.models.list.return_value = MagicMock()
-    
+
     return mock_client
 
 
@@ -163,27 +164,60 @@ def vcr_cassette(request, vcr_config):
 def sample_audio_file() -> Generator[Path, None, None]:
     """Create a sample audio file for testing."""
     # Create a minimal WAV file (44 bytes of silence)
-    wav_header = bytes([
-        0x52, 0x49, 0x46, 0x46,  # "RIFF"
-        0x24, 0x00, 0x00, 0x00,  # File size - 8
-        0x57, 0x41, 0x56, 0x45,  # "WAVE"
-        0x66, 0x6D, 0x74, 0x20,  # "fmt "
-        0x10, 0x00, 0x00, 0x00,  # Subchunk1 size
-        0x01, 0x00,              # Audio format (PCM)
-        0x01, 0x00,              # Channels (1)
-        0x44, 0xAC, 0x00, 0x00,  # Sample rate (44100)
-        0x88, 0x58, 0x01, 0x00,  # Byte rate
-        0x02, 0x00,              # Block align
-        0x10, 0x00,              # Bits per sample (16)
-        0x64, 0x61, 0x74, 0x61,  # "data"
-        0x00, 0x00, 0x00, 0x00,  # Data size (0)
-    ])
-    
+    wav_header = bytes(
+        [
+            0x52,
+            0x49,
+            0x46,
+            0x46,  # "RIFF"
+            0x24,
+            0x00,
+            0x00,
+            0x00,  # File size - 8
+            0x57,
+            0x41,
+            0x56,
+            0x45,  # "WAVE"
+            0x66,
+            0x6D,
+            0x74,
+            0x20,  # "fmt "
+            0x10,
+            0x00,
+            0x00,
+            0x00,  # Subchunk1 size
+            0x01,
+            0x00,  # Audio format (PCM)
+            0x01,
+            0x00,  # Channels (1)
+            0x44,
+            0xAC,
+            0x00,
+            0x00,  # Sample rate (44100)
+            0x88,
+            0x58,
+            0x01,
+            0x00,  # Byte rate
+            0x02,
+            0x00,  # Block align
+            0x10,
+            0x00,  # Bits per sample (16)
+            0x64,
+            0x61,
+            0x74,
+            0x61,  # "data"
+            0x00,
+            0x00,
+            0x00,
+            0x00,  # Data size (0)
+        ]
+    )
+
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
         tmp_file.write(wav_header)
         tmp_file.flush()
         yield Path(tmp_file.name)
-    
+
     # Cleanup
     os.unlink(tmp_file.name)
 
@@ -198,7 +232,7 @@ def large_audio_file() -> Generator[Path, None, None]:
             tmp_file.write(chunk)
         tmp_file.flush()
         yield Path(tmp_file.name)
-    
+
     # Cleanup
     os.unlink(tmp_file.name)
 
@@ -209,7 +243,7 @@ def test_client(test_settings, async_db_session):
     """Create test client for API testing."""
     # Override dependencies
     app.dependency_overrides = {}
-    
+
     with TestClient(app) as client:
         yield client
 
@@ -218,10 +252,7 @@ def test_client(test_settings, async_db_session):
 @pytest_asyncio.fixture
 async def test_user(async_db_session):
     """Create a test user for use in tests."""
-    user = User(
-        username="testuser",
-        email="testuser@example.com"
-    )
+    user = User(username="testuser", email="testuser@example.com")
     async_db_session.add(user)
     await async_db_session.commit()
     await async_db_session.refresh(user)
@@ -288,12 +319,12 @@ def setup_test_directories():
         "tests/fixtures",
         "tests/temp",
     ]
-    
+
     for directory in test_dirs:
         Path(directory).mkdir(parents=True, exist_ok=True)
-    
+
     yield
-    
+
     # Optional: cleanup test directories if needed
     # for directory in test_dirs:
     #     shutil.rmtree(directory, ignore_errors=True)
@@ -316,7 +347,7 @@ def audio_test_files():
     fixtures_dir = Path(__file__).parent / "fixtures"
     return {
         "valid_short": fixtures_dir / "test_audio_short.wav",
-        "valid_medium": fixtures_dir / "test_audio_medium.wav", 
+        "valid_medium": fixtures_dir / "test_audio_medium.wav",
         "valid_long": fixtures_dir / "test_audio_long.wav",
         "valid_tiny": fixtures_dir / "test_audio_tiny.wav",
         "oversized": fixtures_dir / "test_audio_large.wav",
@@ -325,83 +356,78 @@ def audio_test_files():
     }
 
 
-@pytest.fixture(scope="function")  
+@pytest.fixture(scope="function")
 def upload_file_factory(audio_test_files):
     """Factory for creating mock file uploads."""
-    
+
     def _create_upload_file(
-        file_key: str = "valid_short",
-        filename: str = None,
-        content_type: str = "audio/wav"
+        file_key: str = "valid_short", filename: str = None, content_type: str = "audio/wav"
     ) -> UploadFile:
         """Create a mock UploadFile for testing."""
         file_path = audio_test_files[file_key]
-        
+
         if filename is None:
             filename = file_path.name
-            
+
         # Read file content into bytes
         with open(file_path, "rb") as f:
             file_content = f.read()
-        
+
         # Create BytesIO object
         file_obj = io.BytesIO(file_content)
         file_obj.name = filename
-        
+
         # Create UploadFile
         upload_file = UploadFile(
-            file=file_obj,
-            filename=filename,
-            headers={"content-type": content_type},
-            size=len(file_content)
+            file=file_obj, filename=filename, headers={"content-type": content_type}, size=len(file_content)
         )
-        
+
         return upload_file
-    
+
     return _create_upload_file
 
 
 @pytest.fixture(scope="function")
 def multipart_form_data(upload_file_factory):
     """Create multipart form data for file upload tests."""
-    
+
     def _create_form_data(file_key: str = "valid_short", **extra_data):
         """Create form data dict for multipart uploads."""
         upload_file = upload_file_factory(file_key)
-        
+
         form_data = {"file": upload_file}
         form_data.update(extra_data)
-        
+
         return form_data
-    
+
     return _create_form_data
 
 
-@pytest_asyncio.fixture(scope="function") 
+@pytest_asyncio.fixture(scope="function")
 async def api_client(test_settings, async_db_engine):
     """Async HTTP client for API testing."""
     from app.main import app
     from app.dependencies import get_settings, get_db_session
     from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
-    
+
     # Create session maker for API testing
     async_session_maker = async_sessionmaker(
         bind=async_db_engine,
         class_=AsyncSession,
         expire_on_commit=False,
     )
-    
+
     async def override_get_db_session():
         async with async_session_maker() as session:
             yield session
-    
+
     # Override dependencies for testing
     app.dependency_overrides[get_settings] = lambda: test_settings
     app.dependency_overrides[get_db_session] = override_get_db_session
-    
+
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         yield client
-    
+
     # Clean up overrides
     app.dependency_overrides.clear()
 
@@ -421,6 +447,6 @@ def mock_workflow_service():
     mock_service.process_audio.return_value = {
         "workflow_id": "test-workflow-123",
         "status": "started",
-        "log_entry_id": "test-log-entry-456"
+        "log_entry_id": "test-log-entry-456",
     }
     return mock_service

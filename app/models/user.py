@@ -1,4 +1,5 @@
 """User model for authentication and authorization."""
+
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -18,12 +19,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     username = Column(String, nullable=False, unique=True, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    authored_logs = relationship(
-        "LogEntry",
-        back_populates="user",
-        lazy="select",
-        foreign_keys="LogEntry.user_id"
-    )
+    authored_logs = relationship("LogEntry", back_populates="user", lazy="select", foreign_keys="LogEntry.user_id")
 
     @property
     def logs(self):
@@ -43,12 +39,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
             return self.authored_logs
 
         # Return all SHIP logs OR logs authored by this user
-        return session.query(LogEntry).filter(
-            or_(
-                LogEntry.log_type == LogType.SHIP,
-                LogEntry.user_id == self.id
-            )
-        ).all()
+        return session.query(LogEntry).filter(or_(LogEntry.log_type == LogType.SHIP, LogEntry.user_id == self.id)).all()
 
     def __repr__(self):
         return f"<User(id={self.id}, username={self.username})>"

@@ -1,4 +1,5 @@
 """OpenAI service for audio transcription, embeddings, and summarization."""
+
 import asyncio
 from pathlib import Path
 from typing import List, Optional
@@ -17,21 +18,25 @@ logger = logging.getLogger(__name__)
 
 class TranscriptionError(Exception):
     """Exception raised when audio transcription fails."""
+
     pass
 
 
 class EmbeddingError(Exception):
     """Exception raised when embedding generation fails."""
+
     pass
 
 
 class SummaryError(Exception):
     """Exception raised when summary generation fails."""
+
     pass
 
 
 class ClassificationError(Exception):
     """Exception raised when log classification fails."""
+
     pass
 
 
@@ -103,11 +108,10 @@ class OpenAIService:
             raise TranscriptionError(f"Audio file not found: {audio_file}")
 
         # Check file format
-        allowed_extensions = {'.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm'}
+        allowed_extensions = {".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".wav", ".webm"}
         if audio_file.suffix.lower() not in allowed_extensions:
             raise TranscriptionError(
-                f"Unsupported audio format: {audio_file.suffix}. "
-                f"Allowed formats: {', '.join(allowed_extensions)}"
+                f"Unsupported audio format: {audio_file.suffix}. " f"Allowed formats: {', '.join(allowed_extensions)}"
             )
 
         # Check file size (use configured max size, default OpenAI limit is 25MB)
@@ -124,11 +128,7 @@ class OpenAIService:
         return False
 
     async def transcribe_audio(
-        self,
-        audio_file: Path,
-        language: Optional[str] = None,
-        prompt: Optional[str] = None,
-        temperature: float = 0.0
+        self, audio_file: Path, language: Optional[str] = None, prompt: Optional[str] = None, temperature: float = 0.0
     ) -> str:
         """
         Transcribe audio file using OpenAI Whisper.
@@ -155,14 +155,10 @@ class OpenAIService:
             if needs_chunking:
                 # Use chunked transcription for large files
                 logger.info("Using chunked transcription for large audio file")
-                return await self._transcribe_audio_chunked(
-                    audio_file, language, prompt, temperature
-                )
+                return await self._transcribe_audio_chunked(audio_file, language, prompt, temperature)
             else:
                 # Use direct transcription for normal-sized files
-                return await self._transcribe_audio_direct(
-                    audio_file, language, prompt, temperature
-                )
+                return await self._transcribe_audio_direct(audio_file, language, prompt, temperature)
 
         except TranscriptionError:
             raise
@@ -180,11 +176,7 @@ class OpenAIService:
                 raise TranscriptionError(f"Transcription failed: {error_msg}")
 
     async def _transcribe_audio_direct(
-        self,
-        audio_file: Path,
-        language: Optional[str] = None,
-        prompt: Optional[str] = None,
-        temperature: float = 0.0
+        self, audio_file: Path, language: Optional[str] = None, prompt: Optional[str] = None, temperature: float = 0.0
     ) -> str:
         """
         Transcribe audio file directly using OpenAI Whisper (for normal-sized files).
@@ -207,7 +199,7 @@ class OpenAIService:
                 "model": self.settings.openai_model_whisper,
                 "file": open(audio_file, "rb"),
                 "temperature": temperature,
-                "response_format": "text"
+                "response_format": "text",
             }
 
             if language:
@@ -218,11 +210,7 @@ class OpenAIService:
 
             # Run transcription in thread pool to avoid blocking
             loop = asyncio.get_event_loop()
-            transcription = await loop.run_in_executor(
-                None,
-                self._transcribe_sync,
-                transcription_params
-            )
+            transcription = await loop.run_in_executor(None, self._transcribe_sync, transcription_params)
 
             # Validate result
             if not transcription or not transcription.strip():
@@ -234,17 +222,13 @@ class OpenAIService:
         finally:
             # Ensure file is closed
             try:
-                if 'transcription_params' in locals() and 'file' in transcription_params:
-                    transcription_params['file'].close()
+                if "transcription_params" in locals() and "file" in transcription_params:
+                    transcription_params["file"].close()
             except:
                 pass
 
     async def _transcribe_audio_chunked(
-        self,
-        audio_file: Path,
-        language: Optional[str] = None,
-        prompt: Optional[str] = None,
-        temperature: float = 0.0
+        self, audio_file: Path, language: Optional[str] = None, prompt: Optional[str] = None, temperature: float = 0.0
     ) -> str:
         """
         Transcribe large audio file by chunking it into smaller segments.
@@ -279,19 +263,13 @@ class OpenAIService:
                 """Transcribe a single chunk and return its index and transcription."""
                 logger.info(f"Transcribing chunk {index+1}/{len(chunk_files)}")
                 chunk_transcription = await self._transcribe_audio_direct(
-                    chunk_file,
-                    language=language,
-                    prompt=prompt,
-                    temperature=temperature
+                    chunk_file, language=language, prompt=prompt, temperature=temperature
                 )
                 logger.info(f"Chunk {index+1} transcribed: {len(chunk_transcription)} characters")
                 return (index, chunk_transcription)
 
             # Run all transcriptions concurrently
-            transcription_tasks = [
-                transcribe_chunk(i, chunk_file)
-                for i, chunk_file in enumerate(chunk_files)
-            ]
+            transcription_tasks = [transcribe_chunk(i, chunk_file) for i, chunk_file in enumerate(chunk_files)]
             results = await asyncio.gather(*transcription_tasks)
 
             # Sort results by index to maintain chunk order
@@ -327,14 +305,14 @@ class OpenAIService:
             # Handle both text response and object response
             if isinstance(response, str):
                 return response
-            elif hasattr(response, 'text'):
+            elif hasattr(response, "text"):
                 return response.text
             else:
                 return str(response)
         finally:
             # Ensure file is closed
-            if 'file' in params:
-                params['file'].close()
+            if "file" in params:
+                params["file"].close()
 
     async def generate_embedding(self, text: str) -> List[float]:
         """
@@ -359,9 +337,7 @@ class OpenAIService:
 
             # Generate embedding
             response = await self.async_client.embeddings.create(
-                model=self.settings.openai_model_embedding,
-                input=text,
-                encoding_format="float"
+                model=self.settings.openai_model_embedding, input=text, encoding_format="float"
             )
 
             # Extract embedding from response
@@ -399,7 +375,7 @@ class OpenAIService:
 
         # Truncate at word boundary
         truncated = text[:max_chars]
-        last_space = truncated.rfind(' ')
+        last_space = truncated.rfind(" ")
         if last_space > max_chars * 0.8:  # Don't cut too much
             truncated = truncated[:last_space]
 
@@ -407,10 +383,7 @@ class OpenAIService:
         return truncated
 
     async def generate_summary(
-        self,
-        transcription: str,
-        instructions: Optional[str] = None,
-        max_length: int = 75
+        self, transcription: str, instructions: Optional[str] = None, max_length: int = 75
     ) -> str:
         """
         Generate a summary of the transcription using OpenAI.
@@ -445,10 +418,10 @@ class OpenAIService:
                 model=self.settings.openai_model_chat,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Transcription to summarize:\n\n{transcription}"}
+                    {"role": "user", "content": f"Transcription to summarize:\n\n{transcription}"},
                 ],
                 temperature=0.1,
-                max_tokens=max_length * 2  # Allow some buffer for token count
+                max_tokens=max_length * 2,  # Allow some buffer for token count
             )
 
             # Extract summary
@@ -459,7 +432,9 @@ class OpenAIService:
                 raise SummaryError("Empty summary returned from OpenAI")
 
             summary = summary.strip()
-            logger.info(f"Generated summary: {len(summary)} characters from {len(transcription)} character transcription")
+            logger.info(
+                f"Generated summary: {len(summary)} characters from {len(transcription)} character transcription"
+            )
             return summary
 
         except SummaryError:
@@ -479,9 +454,7 @@ class OpenAIService:
 
     def _build_summary_prompt(self, instructions: Optional[str], max_length: int) -> str:
         """Build system prompt for summarization in TNG computer style."""
-        base_prompt = (
-            "Generate a concise one to two sentence summary of the following ship log transcription."
-        )
+        base_prompt = "Generate a concise one to two sentence summary of the following ship log transcription."
 
         if instructions:
             base_prompt += f"Additional parameters: {instructions}\n\n"
@@ -523,19 +496,16 @@ class OpenAIService:
             # Use LLM to classify
             response = await self.async_client.chat.completions.create(
                 model=self.settings.openai_model_chat,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": transcription}
-                ],
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": transcription}],
                 temperature=0.0,  # Deterministic classification
-                max_tokens=5  # Very short response needed
+                max_tokens=5,  # Very short response needed
             )
 
             # Extract classification
             result = response.choices[0].message.content.strip()
 
             # Parse the boolean response
-            is_personal = result.lower() in ['true', 'yes', '1']
+            is_personal = result.lower() in ["true", "yes", "1"]
 
             classification = "PERSONAL" if is_personal else "SHIP"
             logger.info(f"Classified log as: {classification} (LLM returned: {result})")
