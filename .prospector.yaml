@@ -1,0 +1,52 @@
+strictness: medium
+test-warnings: true
+doc-warnings: false
+member-warnings: false
+
+ignore-paths:
+  - alembic/versions
+  - .data
+  - __pycache__
+  - .pytest_cache
+  - .venv
+
+ignore-patterns:
+  - (^|/)\..+
+
+pylint:
+  disable:
+    - too-few-public-methods
+    - missing-module-docstring
+    - missing-class-docstring
+    - missing-function-docstring
+  options:
+    max-line-length: 120
+
+pycodestyle:
+  disable:
+    - E501  # line too long (handled by pylint)
+  options:
+    max-line-length: 120
+
+pep8:
+  disable:
+    - E501
+  options:
+    max-line-length: 120
+
+mccabe:
+  run: true
+  options:
+    max-complexity: 10
+
+pyflakes:
+  run: true
+
+pep257:
+  run: false  # disable docstring enforcement for now
+
+mypy:
+  run: true
+  options:
+    ignore-missing-imports: true
+    follow-imports: skip

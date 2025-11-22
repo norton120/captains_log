@@ -1,3 +1,16 @@
+# YAML anchors for common service configurations
+x-app-base: &app-base
+  build:
+    context: .
+    dockerfile: Dockerfile
+  volumes:
+    - ./app:/app/app
+    - ./tests:/app/tests
+    - ./.env:/app/.env
+
+x-db-environment: &db-environment
+  DATABASE_URL: postgresql+asyncpg://captain:defiant@db:5432/captains_log
+
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -16,32 +29,28 @@ services:
       retries: 5
 
   migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    <<: *app-base
     volumes:
       - ./app:/app/app
       - ./alembic:/app/alembic
       - ./alembic.ini:/app/alembic.ini
       - ./.env:/app/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://captain:defiant@db:5432/captains_log
+      <<: *db-environment
     depends_on:
       db:
         condition: service_healthy
     command: alembic upgrade head
 
   make_migrations:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    <<: *app-base
     volumes:
       - ./app:/app/app
       - ./alembic:/app/alembic
       - ./alembic.ini:/app/alembic.ini
       - ./.env:/app/.env
     environment:
-      DATABASE_URL: postgresql+asyncpg://captain:defiant@db:5432/captains_log
+      <<: *db-environment
     depends_on:
       db:
         condition: service_healthy
@@ -50,15 +59,9 @@ services:
       - tools
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - ./app:/app/app
-      - ./tests:/app/tests
-      - ./.env:/app/.env
+    <<: *app-base
     environment:
-      DATABASE_URL: postgresql+asyncpg://captain:defiant@db:5432/captains_log
+      <<: *db-environment
       # Pass AWS session credentials from host
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
@@ -73,20 +76,24 @@ services:
       - "${PORT_OFFSET:-0}8082:8000"
 
   test:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - ./app:/app/app
-      - ./tests:/app/tests
-      - ./.env:/app/.env
+    <<: *app-base
     environment:
-      DATABASE_URL: postgresql+asyncpg://captain:defiant@db:5432/captains_log
+      <<: *db-environment
     depends_on:
       - db
     command: bash -c "cd /app && PYTHONPATH=/app python -m pytest tests/ -v --tb=short --asyncio-mode=auto"
     profiles:
       - test
+
+  lint:
+    <<: *app-base
+    volumes:
+      - ./app:/app/app
+      - ./tests:/app/tests
+      - ./.prospector.yaml:/app/.prospector.yaml
+    command: prospector --profile .prospector.yaml
+    profiles:
+      - lint
 
   nginx:
     image: nginx:alpine
