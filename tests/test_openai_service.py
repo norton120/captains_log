@@ -102,39 +102,66 @@ class TestOpenAITranscription:
             await openai_service.transcribe_audio(sample_audio_file)
     
     @m.context("When transcribing large audio files")
-    @m.it("uses chunking for large audio files")
+    @m.it("uses chunking for large audio files and transcribes in parallel")
     @pytest.mark.asyncio
     @pytest.mark.unit
     @pytest.mark.openai
     async def test_transcribe_large_audio_file(self, openai_service, large_audio_file, tmp_path):
-        """Should use chunking for large audio files."""
+        """Should use chunking for large audio files and transcribe chunks in parallel."""
         # Arrange - Mock the chunker
         from app.services.audio_chunker import AudioChunker
+        import asyncio
+        import time
+
         mock_chunker = AsyncMock(spec=AudioChunker)
 
         # Create mock chunk files
         chunk1 = tmp_path / "chunk_001.wav"
         chunk2 = tmp_path / "chunk_002.wav"
+        chunk3 = tmp_path / "chunk_003.wav"
         chunk1.write_bytes(b"chunk 1 data")
         chunk2.write_bytes(b"chunk 2 data")
+        chunk3.write_bytes(b"chunk 3 data")
 
-        mock_chunker.chunk_audio_file.return_value = [chunk1, chunk2]
+        mock_chunker.chunk_audio_file.return_value = [chunk1, chunk2, chunk3]
         openai_service.audio_chunker = mock_chunker
 
-        # Mock transcriptions for each chunk
-        openai_service.client.audio.transcriptions.create.side_effect = [
-            MagicMock(text="First chunk transcription."),
-            MagicMock(text="Second chunk transcription.")
-        ]
+        # Track call order to verify parallel execution
+        call_times = []
+        call_count = [0]  # Use list to allow modification in nested function
+
+        def mock_transcribe(*args, **kwargs):
+            """Mock transcription that tracks timing."""
+            call_count[0] += 1
+            current_count = call_count[0]
+            call_times.append(time.time())
+            # Simulate some delay
+            time.sleep(0.01)
+            mock_result = MagicMock()
+            mock_result.text = f"Transcription {current_count}."
+            return mock_result
+
+        openai_service.client.audio.transcriptions.create.side_effect = mock_transcribe
 
         # Act
+        start_time = time.time()
         transcription = await openai_service.transcribe_audio(large_audio_file)
+        end_time = time.time()
 
         # Assert
-        assert "First chunk transcription" in transcription
-        assert "Second chunk transcription" in transcription
+        assert "Transcription 1" in transcription
+        assert "Transcription 2" in transcription
+        assert "Transcription 3" in transcription
         mock_chunker.chunk_audio_file.assert_called_once()
-        assert openai_service.client.audio.transcriptions.create.call_count == 2
+        assert openai_service.client.audio.transcriptions.create.call_count == 3
+
+        # Verify parallel execution - all calls should complete faster than sequential
+        # Sequential would take 3 * 0.01 = 0.03s minimum
+        # Parallel should take ~0.01s (roughly the time of one call)
+        total_time = end_time - start_time
+        # With parallel execution, total time should be closer to 0.01s than 0.03s
+        assert total_time < 0.025, \
+            f"Parallel execution should be faster than sequential. Took {total_time:.3f}s"
 
     @m.context("When chunked transcription fails")
     @m.it("cleans up chunk files on error")

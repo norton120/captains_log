@@ -270,33 +270,33 @@ class OpenAIService:
             if not chunk_files:
                 raise TranscriptionError("Failed to create audio chunks")
 
-            logger.info(f"Created {len(chunk_files)} chunks, transcribing each...")
+            logger.info(f"Created {len(chunk_files)} chunks, transcribing in parallel...")
 
-            # Transcribe each chunk
-            transcriptions = []
-            for i, chunk_file in enumerate(chunk_files):
-                logger.info(f"Transcribing chunk {i+1}/{len(chunk_files)}")
-
-                # Use previous chunk's transcription as prompt for context continuity
-                chunk_prompt = prompt
-                if i > 0 and transcriptions:
-                    # Use last ~100 characters of previous transcription as context
-                    prev_text = transcriptions[-1].strip()
-                    if len(prev_text) > 100:
-                        chunk_prompt = prev_text[-100:]
-                    else:
-                        chunk_prompt = prev_text
-
-                # Transcribe this chunk
+            # Transcribe all chunks in parallel using asyncio.gather
+            # Note: We can't use previous chunk context when parallelizing, but the speed
+            # improvement from concurrent I/O is worth the minor loss of context
+            async def transcribe_chunk(index: int, chunk_file: Path) -> tuple[int, str]:
+                """Transcribe a single chunk and return its index and transcription."""
+                logger.info(f"Transcribing chunk {index+1}/{len(chunk_files)}")
                 chunk_transcription = await self._transcribe_audio_direct(
                     chunk_file,
                     language=language,
-                    prompt=chunk_prompt,
+                    prompt=prompt,
                     temperature=temperature
                 )
+                logger.info(f"Chunk {index+1} transcribed: {len(chunk_transcription)} characters")
+                return (index, chunk_transcription)
 
-                transcriptions.append(chunk_transcription)
-                logger.info(f"Chunk {i+1} transcribed: {len(chunk_transcription)} characters")
+            # Run all transcriptions concurrently
+            transcription_tasks = [
+                transcribe_chunk(i, chunk_file)
+                for i, chunk_file in enumerate(chunk_files)
+            ]
+            results = await asyncio.gather(*transcription_tasks)
+
+            # Sort results by index to maintain chunk order
+            results.sort(key=lambda x: x[0])
+            transcriptions = [text for _, text in results]
 
             # Assemble full transcription
             full_transcription = " ".join(transcriptions)
