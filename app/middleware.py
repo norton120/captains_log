@@ -133,6 +133,9 @@ class UserContextMiddleware(BaseHTTPMiddleware):
     This middleware attempts to extract the authenticated user from the
     request and makes it available in request.state.user for use in
     template contexts.
+
+    Note: This middleware runs on all routes, including auth routes.
+    It should not interfere with authentication - just silently set user to None on errors.
     """
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
@@ -144,30 +147,41 @@ class UserContextMiddleware(BaseHTTPMiddleware):
 
         try:
             # Import auth components
-            from app.auth import auth_backend, get_jwt_strategy
             from app.config import settings as env_settings
+            from jwt import decode as jwt_decode
+            from jwt.exceptions import PyJWTError
 
             # Try to extract the token from the cookie
             token = request.cookies.get(env_settings.session_cookie_name)
 
             if token:
-                # Decode the token to get user_id
-                strategy = get_jwt_strategy()
-                user_token_data = await strategy.read_token(token, user_manager=None)
+                # Decode the JWT token directly
+                try:
+                    payload = jwt_decode(
+                        token,
+                        env_settings.secret_key,
+                        algorithms=["HS256"],
+                        audience=["fastapi-users:auth"],  # FastAPI Users uses this audience
+                    )
+                    user_id = payload.get("sub")
 
-                if user_token_data:
-                    # Get user from database
-                    from app.dependencies import get_async_session_maker
-                    from sqlalchemy import select
+                    if user_id:
+                        # Get user from database
+                        from app.dependencies import get_async_session_maker
+                        from sqlalchemy import select
+                        from uuid import UUID
 
-                    async_session_maker = await get_async_session_maker()
-                    async with async_session_maker() as db_session:
-                        result = await db_session.execute(select(User).where(User.id == user_token_data))
-                        user = result.scalar_one_or_none()
+                        async_session_maker = await get_async_session_maker()
+                        async with async_session_maker() as db_session:
+                            result = await db_session.execute(select(User).where(User.id == UUID(user_id)))
+                            user = result.scalar_one_or_none()
+
+                except PyJWTError as jwt_error:
+                    logger.debug(f"JWT validation failed: {jwt_error}")
 
         except Exception as e:
             # If there's any error getting the user, just set it to None
-            logger.debug(f"Could not get user from request: {e}")
+            logger.error(f"Could not get user from request: {e}", exc_info=True)
             user = None
 
         # Store user in request state
