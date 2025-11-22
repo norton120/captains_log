@@ -24,7 +24,7 @@ else
 fi
 
 # Calculate the app port: ${PORT_OFFSET}8081
-APP_PORT="${PORT_OFFSET}8081"
+APP_PORT="${PORT_OFFSET}8082"
 
 echo "Using PORT_OFFSET=${PORT_OFFSET}"
 echo "App will be available at http://localhost:${APP_PORT}"

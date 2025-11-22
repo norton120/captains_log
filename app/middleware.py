@@ -56,8 +56,9 @@ class InitializationCheckMiddleware(BaseHTTPMiddleware):
         # Get database session
         try:
             # Create a new database session for this request
-            from app.database import async_session_maker
+            from app.dependencies import get_async_session_maker
 
+            async_session_maker = await get_async_session_maker()
             async with async_session_maker() as db_session:
                 settings_service = SettingsService(env_settings, db_session)
 
@@ -143,23 +144,23 @@ class UserContextMiddleware(BaseHTTPMiddleware):
 
         try:
             # Import auth components
-            from app.auth import auth_backend
+            from app.auth import auth_backend, get_jwt_strategy
+            from app.config import settings as env_settings
 
             # Try to extract the token from the cookie
-            token = await auth_backend.transport.get_login_response(request)
+            token = request.cookies.get(env_settings.session_cookie_name)
 
             if token:
                 # Decode the token to get user_id
-                from app.auth import get_jwt_strategy
-
                 strategy = get_jwt_strategy()
                 user_token_data = await strategy.read_token(token, user_manager=None)
 
                 if user_token_data:
                     # Get user from database
-                    from app.database import async_session_maker
+                    from app.dependencies import get_async_session_maker
                     from sqlalchemy import select
 
+                    async_session_maker = await get_async_session_maker()
                     async with async_session_maker() as db_session:
                         result = await db_session.execute(select(User).where(User.id == user_token_data))
                         user = result.scalar_one_or_none()
