@@ -15,6 +15,26 @@ class Settings(BaseSettings):
     # Application settings
     app_name: str = Field(default="Captain's Log", description="Application name")
     debug: bool = Field(default=False, description="Debug mode")
+
+    # Authentication settings
+    allow_new_user_registration: bool = Field(
+        default=True,
+        description="Allow new user registration (always allowed when no users exist)"
+    )
+    secret_key: str = Field(
+        default="change-this-in-production-to-a-secure-random-string",
+        description="Secret key for session and JWT signing"
+    )
+    session_cookie_name: str = Field(default="captains_log_session", description="Session cookie name")
+    session_max_age: int = Field(default=2592000, description="Session max age in seconds (30 days)")
+
+    # OAuth settings (optional)
+    google_oauth_client_id: Optional[str] = Field(default=None, description="Google OAuth Client ID")
+    google_oauth_client_secret: Optional[str] = Field(default=None, description="Google OAuth Client Secret")
+    facebook_oauth_client_id: Optional[str] = Field(default=None, description="Facebook OAuth Client ID")
+    facebook_oauth_client_secret: Optional[str] = Field(default=None, description="Facebook OAuth Client Secret")
+    github_oauth_client_id: Optional[str] = Field(default=None, description="GitHub OAuth Client ID")
+    github_oauth_client_secret: Optional[str] = Field(default=None, description="GitHub OAuth Client Secret")
     
     # Database settings
     database_url: str = Field(

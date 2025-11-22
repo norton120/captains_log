@@ -52,6 +52,18 @@ class UserPreferencesResponse(BaseModel):
     s3_audio_prefix: str
     s3_video_prefix: str
     s3_presigned_url_expiry: int
+    # Authentication settings
+    allow_new_user_registration: bool
+    secret_key: Optional[str] = None
+    session_cookie_name: str
+    session_max_age: int
+    # OAuth settings
+    google_oauth_client_id: Optional[str] = None
+    google_oauth_client_secret: Optional[str] = None
+    facebook_oauth_client_id: Optional[str] = None
+    facebook_oauth_client_secret: Optional[str] = None
+    github_oauth_client_id: Optional[str] = None
+    github_oauth_client_secret: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -85,6 +97,18 @@ class UserPreferencesUpdateRequest(BaseModel):
     s3_audio_prefix: Optional[str] = Field(None, min_length=1, max_length=100)
     s3_video_prefix: Optional[str] = Field(None, min_length=1, max_length=100)
     s3_presigned_url_expiry: Optional[int] = Field(None, gt=0, le=604800)
+    # Authentication settings
+    allow_new_user_registration: Optional[bool] = None
+    secret_key: Optional[str] = Field(None, max_length=255)
+    session_cookie_name: Optional[str] = Field(None, max_length=100)
+    session_max_age: Optional[int] = Field(None, gt=0)
+    # OAuth settings
+    google_oauth_client_id: Optional[str] = Field(None, max_length=255)
+    google_oauth_client_secret: Optional[str] = Field(None, max_length=255)
+    facebook_oauth_client_id: Optional[str] = Field(None, max_length=255)
+    facebook_oauth_client_secret: Optional[str] = Field(None, max_length=255)
+    github_oauth_client_id: Optional[str] = Field(None, max_length=255)
+    github_oauth_client_secret: Optional[str] = Field(None, max_length=255)
 
 
 class SettingResponse(BaseModel):

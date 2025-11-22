@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Create Account - {{ app_name or "Captain's Log" }}{% endblock %}
+
+{% block page_title %}NEW USER REGISTRATION{% endblock %}
+
+{% block content %}
+<div class="content-panel">
+    <h1>CREATE ACCOUNT</h1>
+
+    {% if not allow_registration and not is_first_user %}
+    <div style="color: var(--lcars-red); padding: 20px; border: 2px solid var(--lcars-red); border-radius: 10px; margin-bottom: 20px;">
+        <h2>REGISTRATION DISABLED</h2>
+        <p>New user registration is currently disabled. Please contact your administrator.</p>
+        <a href="/login" class="lcars-button" style="display: inline-block; margin-top: 10px; padding: 10px 20px; background: var(--lcars-orange); color: #000; border-radius: 20px; text-decoration: none; font-weight: bold;">
+            RETURN TO LOGIN
+        </a>
+    </div>
+    {% else %}
+
+    <div id="error-message" style="display: none; color: var(--lcars-red); margin-bottom: 20px; padding: 10px; border: 2px solid var(--lcars-red); border-radius: 10px;">
+    </div>
+
+    <div id="success-message" style="display: none; color: var(--lcars-green); margin-bottom: 20px; padding: 10px; border: 2px solid var(--lcars-green); border-radius: 10px;">
+    </div>
+
+    <form id="signup-form" style="max-width: 500px;">
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label for="username" style="display: block; margin-bottom: 5px; color: var(--lcars-orange);">USERNAME</label>
+            <input
+                type="text"
+                id="username"
+                name="username"
+                required
+                minlength="3"
+                maxlength="50"
+                pattern="[a-zA-Z0-9_-]+"
+                autocomplete="username"
+                style="width: 100%; padding: 10px; background: #000; color: var(--lcars-orange); border: 2px solid var(--lcars-orange); border-radius: 10px; font-family: 'Antonio', sans-serif;">
+            <small style="color: var(--lcars-blue);">3-50 characters, letters, numbers, underscore, and hyphen only</small>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label for="email" style="display: block; margin-bottom: 5px; color: var(--lcars-orange);">EMAIL</label>
+            <input
+                type="email"
+                id="email"
+                name="email"
+                required
+                autocomplete="email"
+                style="width: 100%; padding: 10px; background: #000; color: var(--lcars-orange); border: 2px solid var(--lcars-orange); border-radius: 10px; font-family: 'Antonio', sans-serif;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label for="password" style="display: block; margin-bottom: 5px; color: var(--lcars-orange);">PASSWORD</label>
+            <input
+                type="password"
+                id="password"
+                name="password"
+                required
+                minlength="8"
+                autocomplete="new-password"
+                style="width: 100%; padding: 10px; background: #000; color: var(--lcars-orange); border: 2px solid var(--lcars-orange); border-radius: 10px; font-family: 'Antonio', sans-serif;">
+            <small style="color: var(--lcars-blue);">Minimum 8 characters</small>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label for="password-confirm" style="display: block; margin-bottom: 5px; color: var(--lcars-orange);">CONFIRM PASSWORD</label>
+            <input
+                type="password"
+                id="password-confirm"
+                name="password-confirm"
+                required
+                minlength="8"
+                autocomplete="new-password"
+                style="width: 100%; padding: 10px; background: #000; color: var(--lcars-orange); border: 2px solid var(--lcars-orange); border-radius: 10px; font-family: 'Antonio', sans-serif;">
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button
+                type="submit"
+                class="lcars-button"
+                style="flex: 1; padding: 15px; background: var(--lcars-orange); color: #000; border: none; border-radius: 20px; font-size: 18px; font-weight: bold; cursor: pointer; text-transform: uppercase;">
+                Create Account
+            </button>
+        </div>
+    </form>
+
+    <div style="margin-top: 30px; padding: 20px; border-top: 2px solid var(--lcars-purple);">
+        <p style="color: var(--lcars-purple); margin-bottom: 10px;">ALREADY HAVE AN ACCOUNT?</p>
+        <a href="/login"
+           class="lcars-button"
+           style="display: inline-block; padding: 10px 20px; background: var(--lcars-purple); color: #000; border-radius: 20px; text-decoration: none; font-weight: bold; text-transform: uppercase;">
+            Log In
+        </a>
+    </div>
+
+    {% endif %}
+</div>
+
+<script>
+document.getElementById('signup-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const errorDiv = document.getElementById('error-message');
+    const successDiv = document.getElementById('success-message');
+    errorDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+
+    const password = document.getElementById('password').value;
+    const passwordConfirm = document.getElementById('password-confirm').value;
+
+    if (password !== passwordConfirm) {
+        errorDiv.textContent = 'PASSWORDS DO NOT MATCH';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    const userData = {
+        username: document.getElementById('username').value,
+        email: document.getElementById('email').value,
+        password: password
+    };
+
+    try {
+        const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(userData)
+        });
+
+        if (response.ok) {
+            successDiv.textContent = 'ACCOUNT CREATED SUCCESSFULLY! Redirecting to login...';
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 2000);
+        } else {
+            const error = await response.json();
+            errorDiv.textContent = error.detail || 'REGISTRATION FAILED';
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'REGISTRATION FAILED: Network error';
+        errorDiv.style.display = 'block';
+    }
+});
+</script>
+{% endblock %}

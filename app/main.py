@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.logs import router as logs_router
 from app.api.settings import router as settings_router
 from app.api.status import router as status_router
+from app.api.auth import router as auth_router
 from app.dependencies import close_db_connection, get_db, get_db_session
 from app.models.log_entry import LogEntry
 from app.api.settings import get_or_create_user_preferences
@@ -61,6 +62,7 @@ app.add_middleware(
 )
 
 # Include API routers
+app.include_router(auth_router, prefix="/api")
 app.include_router(logs_router)
 app.include_router(settings_router)
 app.include_router(status_router, prefix="/api/status", tags=["status"])
@@ -315,6 +317,72 @@ def format_file_size(bytes_size):
         unit_index += 1
     
     return f"{size:.1f} {units[unit_index]}"
+
+
+@app.get("/login")
+async def login_page(request: Request, db_session: AsyncSession = Depends(get_db_session)):
+    """Login page."""
+    from sqlalchemy import select, func
+    from app.models.user import User
+    from app.config import settings
+
+    preferences = await get_or_create_user_preferences(db_session)
+
+    # Check if registration is allowed
+    result = await db_session.execute(select(func.count(User.id)))
+    user_count = result.scalar()
+    allow_registration = user_count == 0 or settings.allow_new_user_registration
+
+    # Check which OAuth providers are configured
+    google_oauth_enabled = bool(settings.google_oauth_client_id and settings.google_oauth_client_secret)
+    github_oauth_enabled = bool(settings.github_oauth_client_id and settings.github_oauth_client_secret)
+    facebook_oauth_enabled = bool(settings.facebook_oauth_client_id and settings.facebook_oauth_client_secret)
+
+    return templates.TemplateResponse(
+        "login.html",
+        {
+            "request": request,
+            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
+            "version": "1.0.0",
+            "app_name": preferences.app_name,
+            "vessel_name": preferences.vessel_name,
+            "vessel_designation": preferences.vessel_designation,
+            "allow_registration": allow_registration,
+            "google_oauth_enabled": google_oauth_enabled,
+            "github_oauth_enabled": github_oauth_enabled,
+            "facebook_oauth_enabled": facebook_oauth_enabled,
+        }
+    )
+
+
+@app.get("/signup")
+async def signup_page(request: Request, db_session: AsyncSession = Depends(get_db_session)):
+    """Signup page."""
+    from sqlalchemy import select, func
+    from app.models.user import User
+    from app.config import settings
+
+    preferences = await get_or_create_user_preferences(db_session)
+
+    # Check if this is the first user or if registration is allowed
+    result = await db_session.execute(select(func.count(User.id)))
+    user_count = result.scalar()
+    is_first_user = user_count == 0
+    allow_registration = is_first_user or settings.allow_new_user_registration
+
+    return templates.TemplateResponse(
+        "signup.html",
+        {
+            "request": request,
+            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
+            "version": "1.0.0",
+            "app_name": preferences.app_name,
+            "vessel_name": preferences.vessel_name,
+            "vessel_designation": preferences.vessel_designation,
+            "allow_registration": allow_registration,
+            "is_first_user": is_first_user,
+        }
+    )
 
 
 @app.get("/health")

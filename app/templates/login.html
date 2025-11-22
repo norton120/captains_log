@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Login - {{ app_name or "Captain's Log" }}{% endblock %}
+
+{% block page_title %}USER AUTHENTICATION{% endblock %}
+
+{% block content %}
+<div class="content-panel">
+    <h1>LOG IN</h1>
+
+    <div id="error-message" style="display: none; color: var(--lcars-red); margin-bottom: 20px; padding: 10px; border: 2px solid var(--lcars-red); border-radius: 10px;">
+    </div>
+
+    <form id="login-form" style="max-width: 500px;">
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label for="username" style="display: block; margin-bottom: 5px; color: var(--lcars-orange);">USERNAME</label>
+            <input
+                type="text"
+                id="username"
+                name="username"
+                required
+                autocomplete="username"
+                style="width: 100%; padding: 10px; background: #000; color: var(--lcars-orange); border: 2px solid var(--lcars-orange); border-radius: 10px; font-family: 'Antonio', sans-serif;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label for="password" style="display: block; margin-bottom: 5px; color: var(--lcars-orange);">PASSWORD</label>
+            <input
+                type="password"
+                id="password"
+                name="password"
+                required
+                autocomplete="current-password"
+                style="width: 100%; padding: 10px; background: #000; color: var(--lcars-orange); border: 2px solid var(--lcars-orange); border-radius: 10px; font-family: 'Antonio', sans-serif;">
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button
+                type="submit"
+                class="lcars-button"
+                style="flex: 1; padding: 15px; background: var(--lcars-orange); color: #000; border: none; border-radius: 20px; font-size: 18px; font-weight: bold; cursor: pointer; text-transform: uppercase;">
+                Log In
+            </button>
+        </div>
+    </form>
+
+    {% if allow_registration %}
+    <div style="margin-top: 30px; padding: 20px; border-top: 2px solid var(--lcars-purple);">
+        <p style="color: var(--lcars-purple); margin-bottom: 10px;">DON'T HAVE AN ACCOUNT?</p>
+        <a href="/signup"
+           class="lcars-button"
+           style="display: inline-block; padding: 10px 20px; background: var(--lcars-purple); color: #000; border-radius: 20px; text-decoration: none; font-weight: bold; text-transform: uppercase;">
+            Create Account
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- OAuth Login Options -->
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid var(--lcars-blue);">
+        <p style="color: var(--lcars-blue); margin-bottom: 15px;">ALTERNATE AUTHENTICATION</p>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            {% if google_oauth_enabled %}
+            <a href="/api/auth/google/authorize"
+               class="lcars-button"
+               style="display: block; padding: 12px 20px; background: var(--lcars-blue); color: #000; border-radius: 20px; text-decoration: none; text-align: center; font-weight: bold;">
+                CONTINUE WITH GOOGLE
+            </a>
+            {% endif %}
+
+            {% if github_oauth_enabled %}
+            <a href="/api/auth/github/authorize"
+               class="lcars-button"
+               style="display: block; padding: 12px 20px; background: var(--lcars-blue); color: #000; border-radius: 20px; text-decoration: none; text-align: center; font-weight: bold;">
+                CONTINUE WITH GITHUB
+            </a>
+            {% endif %}
+
+            {% if facebook_oauth_enabled %}
+            <a href="/api/auth/facebook/authorize"
+               class="lcars-button"
+               style="display: block; padding: 12px 20px; background: var(--lcars-blue); color: #000; border-radius: 20px; text-decoration: none; text-align: center; font-weight: bold;">
+                CONTINUE WITH FACEBOOK
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const errorDiv = document.getElementById('error-message');
+    errorDiv.style.display = 'none';
+
+    const formData = new FormData();
+    formData.append('username', document.getElementById('username').value);
+    formData.append('password', document.getElementById('password').value);
+
+    try {
+        const response = await fetch('/api/auth/jwt/login', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            // Redirect to home page on successful login
+            window.location.href = '/';
+        } else {
+            const error = await response.json();
+            errorDiv.textContent = error.detail || 'LOGIN FAILED: Invalid credentials';
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'LOGIN FAILED: Network error';
+        errorDiv.style.display = 'block';
+    }
+});
+</script>
+{% endblock %}

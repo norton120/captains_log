@@ -48,6 +48,14 @@
             <a href="/status" class="lcars-element {% if request.url.path == '/status' %}active{% endif %}">
                 STATUS
             </a>
+            {% if current_user %}
+            <a href="#"
+               onclick="logout(); return false;"
+               class="lcars-element"
+               style="margin-top: auto;">
+                LOGOUT
+            </a>
+            {% endif %}
         </div>
 
         <div class="lcars-right-bar"></div>
@@ -72,6 +80,25 @@
     <script>
         // Global HTMX configuration
         htmx.config.globalViewTransitions = true;
+
+        // Logout function
+        async function logout() {
+            try {
+                const response = await fetch('/api/auth/jwt/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    // Redirect to login page after successful logout
+                    window.location.href = '/login';
+                } else {
+                    console.error('Logout failed');
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        }
 
         // Responsive breakpoint system
         function updateBreakpoint() {

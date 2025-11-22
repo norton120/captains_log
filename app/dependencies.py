@@ -142,31 +142,14 @@ async def get_enhanced_settings(
     return SettingsAdapter(settings_service)
 
 
-async def get_current_user(
-    db_session: AsyncSession = Depends(get_db_session)
-):
-    """
-    Get the current logged-in user.
+# Authentication dependency - import from auth module to avoid circular imports
+def _get_auth_dependency():
+    """Helper to get the auth dependency without circular import."""
+    from app.auth import current_active_user
+    return current_active_user
 
-    For now, this returns the first user in the database (since all apps should
-    have exactly 1 user). In the future, this will be replaced with actual
-    authentication logic.
-    """
-    # Get the first user (there should be exactly one)
-    result = await db_session.execute(select(User).limit(1))
-    user = result.scalar_one_or_none()
-
-    # If no user exists, create the generic user
-    if user is None:
-        user = User(
-            username="generic_user",
-            email="generic@captainslog.local"
-        )
-        db_session.add(user)
-        await db_session.commit()
-        await db_session.refresh(user)
-
-    return user
+# Use this in route dependencies: current_user: User = Depends(get_current_user)
+get_current_user = _get_auth_dependency()
 
 
 def verify_log_ownership(log_entry, current_user: User) -> None:

@@ -2,24 +2,22 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, String, DateTime, or_
+from fastapi_users.db import SQLAlchemyBaseUserTableUUID
+from sqlalchemy import Column, String, DateTime, Boolean, or_
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import relationship
 
 from app.models.log_entry import Base
 
 
-class User(Base):
-    """User model for the application."""
+class User(SQLAlchemyBaseUserTableUUID, Base):
+    """User model for the application with FastAPI Users integration."""
 
     __tablename__ = "users"
 
-    id = Column(PgUUID(as_uuid=True), primary_key=True, default=uuid4)
     username = Column(String, nullable=False, unique=True, index=True)
-    email = Column(String, nullable=False, unique=True, index=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    # Relationship to authored log entries (logs created by this user)
     authored_logs = relationship(
         "LogEntry",
         back_populates="user",

@@ -77,12 +77,26 @@ class UserPreferences(Base):
     
     # AWS/S3 settings that can be user-configurable
     aws_access_key_id = Column(String(255), nullable=True)
-    aws_secret_access_key = Column(String(255), nullable=True)  
+    aws_secret_access_key = Column(String(255), nullable=True)
     aws_region = Column(String(50), nullable=True, default="us-east-2")
     s3_bucket_name = Column(String(255), nullable=True)
     s3_audio_prefix = Column(String(100), nullable=False, default="audio/")
     s3_video_prefix = Column(String(100), nullable=False, default="video/")
     s3_presigned_url_expiry = Column(Integer, nullable=False, default=3600)
-    
+
+    # Authentication settings
+    allow_new_user_registration = Column(Boolean, nullable=False, default=True)
+    secret_key = Column(String(255), nullable=True)
+    session_cookie_name = Column(String(100), nullable=False, default="captains_log_session")
+    session_max_age = Column(Integer, nullable=False, default=2592000)
+
+    # OAuth settings (optional, can be set via environment or UI)
+    google_oauth_client_id = Column(String(255), nullable=True)
+    google_oauth_client_secret = Column(String(255), nullable=True)
+    facebook_oauth_client_id = Column(String(255), nullable=True)
+    facebook_oauth_client_secret = Column(String(255), nullable=True)
+    github_oauth_client_id = Column(String(255), nullable=True)
+    github_oauth_client_secret = Column(String(255), nullable=True)
+
     def __repr__(self):
         return f"<UserPreferences(id={self.id}, app_name={self.app_name})>"
