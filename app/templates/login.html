@@ -42,6 +42,35 @@
                 Log In
             </button>
         </div>
+
+        <!-- OAuth Login Options -->
+        {% if google_oauth_enabled or github_oauth_enabled or facebook_oauth_enabled %}
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+            {% if google_oauth_enabled %}
+            <a href="/api/auth/google/authorize"
+               class="lcars-button"
+               style="display: block; padding: 12px 20px; background: var(--lcars-blue); color: #000; border-radius: 20px; text-decoration: none; text-align: center; font-weight: bold;">
+                LOGIN WITH GOOGLE
+            </a>
+            {% endif %}
+
+            {% if github_oauth_enabled %}
+            <a href="/api/auth/github/authorize"
+               class="lcars-button"
+               style="display: block; padding: 12px 20px; background: var(--lcars-blue); color: #000; border-radius: 20px; text-decoration: none; text-align: center; font-weight: bold;">
+                LOGIN WITH GITHUB
+            </a>
+            {% endif %}
+
+            {% if facebook_oauth_enabled %}
+            <a href="/api/auth/facebook/authorize"
+               class="lcars-button"
+               style="display: block; padding: 12px 20px; background: var(--lcars-blue); color: #000; border-radius: 20px; text-decoration: none; text-align: center; font-weight: bold;">
+                LOGIN WITH FACEBOOK
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
     </form>
 
     {% if allow_registration %}
@@ -52,38 +81,6 @@
            style="display: inline-block; padding: 10px 20px; background: var(--lcars-purple); color: #000; border-radius: 20px; text-decoration: none; font-weight: bold; text-transform: uppercase;">
             Create Account
         </a>
-    </div>
-    {% endif %}
-
-    <!-- OAuth Login Options -->
-    {% if google_oauth_enabled or github_oauth_enabled or facebook_oauth_enabled %}
-    <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid var(--lcars-blue);">
-        <p style="color: var(--lcars-blue); margin-bottom: 15px;">ALTERNATE AUTHENTICATION</p>
-        <div style="display: flex; flex-direction: column; gap: 10px;">
-            {% if google_oauth_enabled %}
-            <a href="/api/auth/google/authorize"
-               class="lcars-button"
-               style="display: block; padding: 12px 20px; background: var(--lcars-blue); color: #000; border-radius: 20px; text-decoration: none; text-align: center; font-weight: bold;">
-                CONTINUE WITH GOOGLE
-            </a>
-            {% endif %}
-
-            {% if github_oauth_enabled %}
-            <a href="/api/auth/github/authorize"
-               class="lcars-button"
-               style="display: block; padding: 12px 20px; background: var(--lcars-blue); color: #000; border-radius: 20px; text-decoration: none; text-align: center; font-weight: bold;">
-                CONTINUE WITH GITHUB
-            </a>
-            {% endif %}
-
-            {% if facebook_oauth_enabled %}
-            <a href="/api/auth/facebook/authorize"
-               class="lcars-button"
-               style="display: block; padding: 12px 20px; background: var(--lcars-blue); color: #000; border-radius: 20px; text-decoration: none; text-align: center; font-weight: bold;">
-                CONTINUE WITH FACEBOOK
-            </a>
-            {% endif %}
-        </div>
     </div>
     {% endif %}
 </div>

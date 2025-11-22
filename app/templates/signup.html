@@ -84,18 +84,15 @@
                 Create Account
             </button>
         </div>
-    </form>
 
-    <!-- OAuth Signup Options -->
-    {% if google_oauth_enabled or github_oauth_enabled or facebook_oauth_enabled %}
-    <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid var(--lcars-blue);">
-        <p style="color: var(--lcars-blue); margin-bottom: 15px;">ALTERNATE SIGN UP</p>
-        <div style="display: flex; flex-direction: column; gap: 10px;">
+        <!-- OAuth Signup Options -->
+        {% if google_oauth_enabled or github_oauth_enabled or facebook_oauth_enabled %}
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
             {% if google_oauth_enabled %}
             <a href="/api/auth/google/authorize"
                class="lcars-button"
                style="display: block; padding: 12px 20px; background: var(--lcars-blue); color: #000; border-radius: 20px; text-decoration: none; text-align: center; font-weight: bold;">
-                CONTINUE WITH GOOGLE
+                SIGN UP WITH GOOGLE
             </a>
             {% endif %}
 
@@ -103,7 +100,7 @@
             <a href="/api/auth/github/authorize"
                class="lcars-button"
                style="display: block; padding: 12px 20px; background: var(--lcars-blue); color: #000; border-radius: 20px; text-decoration: none; text-align: center; font-weight: bold;">
-                CONTINUE WITH GITHUB
+                SIGN UP WITH GITHUB
             </a>
             {% endif %}
 
@@ -111,12 +108,12 @@
             <a href="/api/auth/facebook/authorize"
                class="lcars-button"
                style="display: block; padding: 12px 20px; background: var(--lcars-blue); color: #000; border-radius: 20px; text-decoration: none; text-align: center; font-weight: bold;">
-                CONTINUE WITH FACEBOOK
+                SIGN UP WITH FACEBOOK
             </a>
             {% endif %}
         </div>
-    </div>
-    {% endif %}
+        {% endif %}
+    </form>
 
     <div style="margin-top: 30px; padding: 20px; border-top: 2px solid var(--lcars-purple);">
         <p style="color: var(--lcars-purple); margin-bottom: 10px;">ALREADY HAVE AN ACCOUNT?</p>
