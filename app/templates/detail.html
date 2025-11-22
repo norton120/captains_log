@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Log Entry {{ log.id }} - Captain's Log{% endblock %}
+{% block title %}Log Entry {{ log.id }} - {{ app_name or "Captain's Log" }}{% endblock %}
 
 {% block page_title %}PERSONAL LOG ENTRY {{ log.entry_number or log.id|string|truncate(8, end='') }}{% endblock %}
 

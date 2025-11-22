@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Captain's Log - SV Defiant{% endblock %}</title>
+    <title>{% block title %}{{ app_name or "Captain's Log" }} - {{ vessel_name or "SV DEFIANT" }}{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/lcars.css') }}">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     {% block head %}{% endblock %}
@@ -12,14 +12,14 @@
     <div class="lcars-frame">
         <!-- Top Elements -->
         <div class="lcars-top-left">
-            <h3>SV DEFIANT</h3>
+            <h3>{{ vessel_name or "SV DEFIANT" }}</h3>
             <div>
-                <small style="font-size: 10px;">NCC-75633</small>
+                <small style="font-size: 10px;">{{ vessel_designation or "NCC-75633" }}</small>
             </div>
         </div>
 
         <div class="lcars-top-bar">
-            {% block page_title %}CAPTAIN'S LOG{% endblock %}
+            {% block page_title %}{{ app_name or "CAPTAIN'S LOG" }}{% endblock %}
         </div>
 
         <div class="lcars-top-right"></div>

@@ -8,11 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.logs import router as logs_router
 from app.api.settings import router as settings_router
-from app.dependencies import close_db_connection, get_db
+from app.dependencies import close_db_connection, get_db, get_db_session
 from app.models.log_entry import LogEntry
+from app.api.settings import get_or_create_user_preferences
 
 # Configure logging
 logging.basicConfig(
@@ -63,60 +65,79 @@ app.include_router(settings_router)
 
 
 @app.get("/")
-async def index_page(request: Request, db: Session = Depends(get_db)):
+async def index_page(request: Request, db: Session = Depends(get_db), db_session: AsyncSession = Depends(get_db_session)):
     """Main log listing page."""
+    preferences = await get_or_create_user_preferences(db_session)
     return templates.TemplateResponse(
         "index.html",
         {
             "request": request,
             "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
-            "version": "1.0.0"
+            "version": "1.0.0",
+            "app_name": preferences.app_name,
+            "vessel_name": preferences.vessel_name,
+            "vessel_designation": preferences.vessel_designation
         }
     )
 
 
 @app.get("/record")
-async def record_page(request: Request):
+async def record_page(request: Request, db_session: AsyncSession = Depends(get_db_session)):
     """Recording page."""
+    preferences = await get_or_create_user_preferences(db_session)
     return templates.TemplateResponse(
         "record.html",
         {
             "request": request,
             "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
-            "version": "1.0.0"
+            "version": "1.0.0",
+            "app_name": preferences.app_name,
+            "vessel_name": preferences.vessel_name,
+            "vessel_designation": preferences.vessel_designation
         }
     )
 
 
 @app.get("/settings")
-async def settings_page(request: Request):
+async def settings_page(request: Request, db_session: AsyncSession = Depends(get_db_session)):
     """Settings page."""
+    preferences = await get_or_create_user_preferences(db_session)
     return templates.TemplateResponse(
         "settings.html",
         {
             "request": request,
             "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
-            "version": "1.0.0"
+            "version": "1.0.0",
+            "app_name": preferences.app_name,
+            "vessel_name": preferences.vessel_name,
+            "vessel_designation": preferences.vessel_designation
         }
     )
 
 
 @app.get("/logs/{log_id}")
-async def log_detail_page(log_id: str, request: Request, db: Session = Depends(get_db)):
+async def log_detail_page(log_id: str, request: Request, db: Session = Depends(get_db), db_session: AsyncSession = Depends(get_db_session)):
     """Log detail page."""
     from app.dependencies import get_settings
     from app.services.s3 import S3Service
     from uuid import UUID
-    
+
+    preferences = await get_or_create_user_preferences(db_session)
     log_entry = db.query(LogEntry).filter(LogEntry.id == log_id).first()
-    
+
     if not log_entry:
         # You might want to create a 404 template
         return templates.TemplateResponse(
-            "index.html", 
-            {"request": request, "error": "Log entry not found"}
+            "index.html",
+            {
+                "request": request,
+                "error": "Log entry not found",
+                "app_name": preferences.app_name,
+                "vessel_name": preferences.vessel_name,
+                "vessel_designation": preferences.vessel_designation
+            }
         )
-    
+
     # Get audio URL if available
     audio_url = None
     if log_entry.audio_s3_key:
@@ -138,14 +159,14 @@ async def log_detail_page(log_id: str, request: Request, db: Session = Depends(g
         except Exception as e:
             logger.warning(f"Failed to get video URL for {log_id}: {e}")
             video_url = None
-    
+
     # Helper functions for template
     def format_status(status):
         return status.value.replace('_', ' ').upper()
-    
+
     def format_uuid_short(uuid_obj):
         return str(uuid_obj)[:8]
-    
+
     return templates.TemplateResponse(
         "detail.html",
         {
@@ -158,7 +179,10 @@ async def log_detail_page(log_id: str, request: Request, db: Session = Depends(g
             "format_duration": format_duration,
             "format_file_size": format_file_size,
             "format_status": format_status,
-            "format_uuid_short": format_uuid_short
+            "format_uuid_short": format_uuid_short,
+            "app_name": preferences.app_name,
+            "vessel_name": preferences.vessel_name,
+            "vessel_designation": preferences.vessel_designation
         }
     )
 
