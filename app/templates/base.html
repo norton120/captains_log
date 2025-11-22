@@ -49,10 +49,12 @@
                 STATUS
             </a>
             {% if current_user %}
+            <div class="lcars-element" style="margin-top: auto; cursor: default; background-color: #9999CC;">
+                USER: {{ current_user.username }}
+            </div>
             <a href="#"
                onclick="logout(); return false;"
-               class="lcars-element"
-               style="margin-top: auto;">
+               class="lcars-element">
                 LOGOUT
             </a>
             {% endif %}

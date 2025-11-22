@@ -18,7 +18,7 @@ from app.api.auth import router as auth_router
 from app.dependencies import close_db_connection, get_db, get_db_session
 from app.models.log_entry import LogEntry
 from app.api.settings import get_or_create_user_preferences
-from app.middleware import InitializationCheckMiddleware
+from app.middleware import InitializationCheckMiddleware, UserContextMiddleware
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -51,6 +51,19 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 # Initialize templates
 templates = Jinja2Templates(directory="app/templates")
 
+
+def get_template_context(request: Request, **kwargs):
+    """
+    Get template context with current user injected.
+
+    This helper function extracts the current user from request.state
+    (set by UserContextMiddleware) and includes it in the template context.
+    """
+    context = {"request": request, "current_user": getattr(request.state, "user", None)}
+    context.update(kwargs)
+    return context
+
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -60,7 +73,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add initialization check middleware
+# Add middlewares
+# Note: Middlewares are executed in reverse order of addition
+app.add_middleware(UserContextMiddleware)
 app.add_middleware(InitializationCheckMiddleware)
 
 # Include API routers
@@ -78,14 +93,14 @@ async def index_page(
     preferences = await get_or_create_user_preferences(db_session)
     return templates.TemplateResponse(
         "index.html",
-        {
-            "request": request,
-            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
-            "version": "1.0.0",
-            "app_name": preferences.app_name,
-            "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation,
-        },
+        get_template_context(
+            request,
+            current_time=datetime.now().strftime("%Y%m%d.%H%M%S"),
+            version="1.0.0",
+            app_name=preferences.app_name,
+            vessel_name=preferences.vessel_name,
+            vessel_designation=preferences.vessel_designation,
+        ),
     )
 
 
@@ -95,14 +110,14 @@ async def record_page(request: Request, db_session: AsyncSession = Depends(get_d
     preferences = await get_or_create_user_preferences(db_session)
     return templates.TemplateResponse(
         "record.html",
-        {
-            "request": request,
-            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
-            "version": "1.0.0",
-            "app_name": preferences.app_name,
-            "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation,
-        },
+        get_template_context(
+            request,
+            current_time=datetime.now().strftime("%Y%m%d.%H%M%S"),
+            version="1.0.0",
+            app_name=preferences.app_name,
+            vessel_name=preferences.vessel_name,
+            vessel_designation=preferences.vessel_designation,
+        ),
     )
 
 
@@ -112,14 +127,14 @@ async def settings_page(request: Request, db_session: AsyncSession = Depends(get
     preferences = await get_or_create_user_preferences(db_session)
     return templates.TemplateResponse(
         "settings.html",
-        {
-            "request": request,
-            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
-            "version": "1.0.0",
-            "app_name": preferences.app_name,
-            "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation,
-        },
+        get_template_context(
+            request,
+            current_time=datetime.now().strftime("%Y%m%d.%H%M%S"),
+            version="1.0.0",
+            app_name=preferences.app_name,
+            vessel_name=preferences.vessel_name,
+            vessel_designation=preferences.vessel_designation,
+        ),
     )
 
 
@@ -129,14 +144,14 @@ async def search_page(request: Request, db_session: AsyncSession = Depends(get_d
     preferences = await get_or_create_user_preferences(db_session)
     return templates.TemplateResponse(
         "search.html",
-        {
-            "request": request,
-            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
-            "version": "1.0.0",
-            "app_name": preferences.app_name,
-            "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation,
-        },
+        get_template_context(
+            request,
+            current_time=datetime.now().strftime("%Y%m%d.%H%M%S"),
+            version="1.0.0",
+            app_name=preferences.app_name,
+            vessel_name=preferences.vessel_name,
+            vessel_designation=preferences.vessel_designation,
+        ),
     )
 
 
@@ -187,19 +202,19 @@ async def map_page(request: Request, db: Session = Depends(get_db), db_session: 
 
     return templates.TemplateResponse(
         "map.html",
-        {
-            "request": request,
-            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
-            "version": "1.0.0",
-            "logs_json": json.dumps(logs_data),
-            "log_count": len(logs_data),
-            "default_lat": avg_lat,
-            "default_lon": avg_lon,
-            "default_zoom": default_zoom,
-            "app_name": preferences.app_name,
-            "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation,
-        },
+        get_template_context(
+            request,
+            current_time=datetime.now().strftime("%Y%m%d.%H%M%S"),
+            version="1.0.0",
+            logs_json=json.dumps(logs_data),
+            log_count=len(logs_data),
+            default_lat=avg_lat,
+            default_lon=avg_lon,
+            default_zoom=default_zoom,
+            app_name=preferences.app_name,
+            vessel_name=preferences.vessel_name,
+            vessel_designation=preferences.vessel_designation,
+        ),
     )
 
 
@@ -209,14 +224,14 @@ async def status_page(request: Request, db_session: AsyncSession = Depends(get_d
     preferences = await get_or_create_user_preferences(db_session)
     return templates.TemplateResponse(
         "status.html",
-        {
-            "request": request,
-            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
-            "version": "1.0.0",
-            "app_name": preferences.app_name,
-            "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation,
-        },
+        get_template_context(
+            request,
+            current_time=datetime.now().strftime("%Y%m%d.%H%M%S"),
+            version="1.0.0",
+            app_name=preferences.app_name,
+            vessel_name=preferences.vessel_name,
+            vessel_designation=preferences.vessel_designation,
+        ),
     )
 
 
@@ -236,13 +251,13 @@ async def log_detail_page(
         # You might want to create a 404 template
         return templates.TemplateResponse(
             "index.html",
-            {
-                "request": request,
-                "error": "Log entry not found",
-                "app_name": preferences.app_name,
-                "vessel_name": preferences.vessel_name,
-                "vessel_designation": preferences.vessel_designation,
-            },
+            get_template_context(
+                request,
+                error="Log entry not found",
+                app_name=preferences.app_name,
+                vessel_name=preferences.vessel_name,
+                vessel_designation=preferences.vessel_designation,
+            ),
         )
 
     # Get audio URL if available
@@ -276,21 +291,21 @@ async def log_detail_page(
 
     return templates.TemplateResponse(
         "detail.html",
-        {
-            "request": request,
-            "log": log_entry,
-            "audio_url": audio_url,
-            "video_url": video_url,
-            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
-            "version": "1.0.0",
-            "format_duration": format_duration,
-            "format_file_size": format_file_size,
-            "format_status": format_status,
-            "format_uuid_short": format_uuid_short,
-            "app_name": preferences.app_name,
-            "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation,
-        },
+        get_template_context(
+            request,
+            log=log_entry,
+            audio_url=audio_url,
+            video_url=video_url,
+            current_time=datetime.now().strftime("%Y%m%d.%H%M%S"),
+            version="1.0.0",
+            format_duration=format_duration,
+            format_file_size=format_file_size,
+            format_status=format_status,
+            format_uuid_short=format_uuid_short,
+            app_name=preferences.app_name,
+            vessel_name=preferences.vessel_name,
+            vessel_designation=preferences.vessel_designation,
+        ),
     )
 
 
@@ -345,18 +360,18 @@ async def login_page(request: Request, db_session: AsyncSession = Depends(get_db
 
     return templates.TemplateResponse(
         "login.html",
-        {
-            "request": request,
-            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
-            "version": "1.0.0",
-            "app_name": preferences.app_name,
-            "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation,
-            "allow_registration": allow_registration,
-            "google_oauth_enabled": google_oauth_enabled,
-            "github_oauth_enabled": github_oauth_enabled,
-            "facebook_oauth_enabled": facebook_oauth_enabled,
-        },
+        get_template_context(
+            request,
+            current_time=datetime.now().strftime("%Y%m%d.%H%M%S"),
+            version="1.0.0",
+            app_name=preferences.app_name,
+            vessel_name=preferences.vessel_name,
+            vessel_designation=preferences.vessel_designation,
+            allow_registration=allow_registration,
+            google_oauth_enabled=google_oauth_enabled,
+            github_oauth_enabled=github_oauth_enabled,
+            facebook_oauth_enabled=facebook_oauth_enabled,
+        ),
     )
 
 
@@ -377,16 +392,16 @@ async def signup_page(request: Request, db_session: AsyncSession = Depends(get_d
 
     return templates.TemplateResponse(
         "signup.html",
-        {
-            "request": request,
-            "current_time": datetime.now().strftime("%Y%m%d.%H%M%S"),
-            "version": "1.0.0",
-            "app_name": preferences.app_name,
-            "vessel_name": preferences.vessel_name,
-            "vessel_designation": preferences.vessel_designation,
-            "allow_registration": allow_registration,
-            "is_first_user": is_first_user,
-        },
+        get_template_context(
+            request,
+            current_time=datetime.now().strftime("%Y%m%d.%H%M%S"),
+            version="1.0.0",
+            app_name=preferences.app_name,
+            vessel_name=preferences.vessel_name,
+            vessel_designation=preferences.vessel_designation,
+            allow_registration=allow_registration,
+            is_first_user=is_first_user,
+        ),
     )
 
 
