@@ -56,6 +56,7 @@
     {% endif %}
 
     <!-- OAuth Login Options -->
+    {% if google_oauth_enabled or github_oauth_enabled or facebook_oauth_enabled %}
     <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid var(--lcars-blue);">
         <p style="color: var(--lcars-blue); margin-bottom: 15px;">ALTERNATE AUTHENTICATION</p>
         <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -84,6 +85,7 @@
             {% endif %}
         </div>
     </div>
+    {% endif %}
 </div>
 
 <script>

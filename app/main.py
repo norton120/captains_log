@@ -413,6 +413,11 @@ async def signup_page(request: Request, db_session: AsyncSession = Depends(get_d
     is_first_user = user_count == 0
     allow_registration = is_first_user or settings.allow_new_user_registration
 
+    # Check which OAuth providers are configured
+    google_oauth_enabled = bool(settings.google_oauth_client_id and settings.google_oauth_client_secret)
+    github_oauth_enabled = bool(settings.github_oauth_client_id and settings.github_oauth_client_secret)
+    facebook_oauth_enabled = bool(settings.facebook_oauth_client_id and settings.facebook_oauth_client_secret)
+
     return templates.TemplateResponse(
         "signup.html",
         get_template_context(
@@ -424,6 +429,9 @@ async def signup_page(request: Request, db_session: AsyncSession = Depends(get_d
             vessel_designation=preferences.vessel_designation,
             allow_registration=allow_registration,
             is_first_user=is_first_user,
+            google_oauth_enabled=google_oauth_enabled,
+            github_oauth_enabled=github_oauth_enabled,
+            facebook_oauth_enabled=facebook_oauth_enabled,
         ),
     )
 
