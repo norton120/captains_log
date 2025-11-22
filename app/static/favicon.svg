@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <!-- Ship's Wheel in LCARS Orange -->
+  <circle cx="32" cy="32" r="30" fill="#000000"/>
+
+  <!-- Outer rim -->
+  <circle cx="32" cy="32" r="28" fill="none" stroke="#ff9900" stroke-width="4"/>
+
+  <!-- Inner hub -->
+  <circle cx="32" cy="32" r="8" fill="#ff9900"/>
+
+  <!-- 8 spokes -->
+  <line x1="32" y1="4" x2="32" y2="24" stroke="#ff9900" stroke-width="3" stroke-linecap="round"/>
+  <line x1="32" y1="40" x2="32" y2="60" stroke="#ff9900" stroke-width="3" stroke-linecap="round"/>
+  <line x1="4" y1="32" x2="24" y2="32" stroke="#ff9900" stroke-width="3" stroke-linecap="round"/>
+  <line x1="40" y1="32" x2="60" y2="32" stroke="#ff9900" stroke-width="3" stroke-linecap="round"/>
+
+  <line x1="9.4" y1="9.4" x2="20.7" y2="20.7" stroke="#ff9900" stroke-width="3" stroke-linecap="round"/>
+  <line x1="43.3" y1="43.3" x2="54.6" y2="54.6" stroke="#ff9900" stroke-width="3" stroke-linecap="round"/>
+  <line x1="54.6" y1="9.4" x2="43.3" y2="20.7" stroke="#ff9900" stroke-width="3" stroke-linecap="round"/>
+  <line x1="20.7" y1="43.3" x2="9.4" y2="54.6" stroke="#ff9900" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Handle grips -->
+  <circle cx="32" cy="4" r="3" fill="#6699cc"/>
+  <circle cx="32" cy="60" r="3" fill="#6699cc"/>
+  <circle cx="4" cy="32" r="3" fill="#6699cc"/>
+  <circle cx="60" cy="32" r="3" fill="#6699cc"/>
+  <circle cx="9.4" cy="9.4" r="3" fill="#cc99cc"/>
+  <circle cx="54.6" cy="54.6" r="3" fill="#cc99cc"/>
+  <circle cx="54.6" cy="9.4" r="3" fill="#cc99cc"/>
+  <circle cx="9.4" cy="54.6" r="3" fill="#cc99cc"/>
+</svg>
