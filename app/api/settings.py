@@ -67,6 +67,8 @@ class UserPreferencesResponse(BaseModel):
     facebook_oauth_client_secret: Optional[str] = None
     github_oauth_client_id: Optional[str] = None
     github_oauth_client_secret: Optional[str] = None
+    fitbit_oauth_client_id: Optional[str] = None
+    fitbit_oauth_client_secret: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -114,6 +116,8 @@ class UserPreferencesUpdateRequest(BaseModel):
     facebook_oauth_client_secret: Optional[str] = Field(None, max_length=255)
     github_oauth_client_id: Optional[str] = Field(None, max_length=255)
     github_oauth_client_secret: Optional[str] = Field(None, max_length=255)
+    fitbit_oauth_client_id: Optional[str] = Field(None, max_length=255)
+    fitbit_oauth_client_secret: Optional[str] = Field(None, max_length=255)
 
 
 class SettingResponse(BaseModel):
@@ -206,6 +210,8 @@ async def get_user_preferences(
             facebook_oauth_client_secret=preferences.facebook_oauth_client_secret,
             github_oauth_client_id=preferences.github_oauth_client_id,
             github_oauth_client_secret=preferences.github_oauth_client_secret,
+            fitbit_oauth_client_id=preferences.fitbit_oauth_client_id,
+            fitbit_oauth_client_secret=preferences.fitbit_oauth_client_secret,
         )
 
     except Exception as e:
@@ -280,6 +286,8 @@ async def update_user_preferences(
             facebook_oauth_client_secret=preferences.facebook_oauth_client_secret,
             github_oauth_client_id=preferences.github_oauth_client_id,
             github_oauth_client_secret=preferences.github_oauth_client_secret,
+            fitbit_oauth_client_id=preferences.fitbit_oauth_client_id,
+            fitbit_oauth_client_secret=preferences.fitbit_oauth_client_secret,
         )
 
     except Exception as e:
