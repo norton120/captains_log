@@ -34,6 +34,7 @@ class InitializationCheckMiddleware(BaseHTTPMiddleware):
 
     WHITELISTED_PATHS = [
         "/api/auth/",  # Authentication routes (login, register, OAuth)
+        "/api/fitbit/callback-url",  # Fitbit callback URL info (needed for setup)
         "/login",  # Login page
         "/signup",  # Signup page
         "/settings",  # Settings page (accessible during initialization)
@@ -97,6 +98,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
 
     WHITELISTED_PATHS = [
         "/api/auth/",  # Authentication routes (login, register, OAuth)
+        "/api/fitbit/callback-url",  # Fitbit callback URL info (needed for setup)
         "/login",  # Login page
         "/signup",  # Signup page
         "/health",  # Health check

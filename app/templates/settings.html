@@ -510,6 +510,20 @@
                 <input type="password" class="setting-input" id="facebook_oauth_client_secret" placeholder="Leave empty to use environment">
             </div>
 
+            <div class="setting-item" style="grid-column: 1 / -1;">
+                <div style="background: rgba(153, 153, 204, 0.1); border: 2px solid var(--lcars-blue); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                    <div style="color: var(--lcars-blue); font-weight: bold; margin-bottom: 8px;">ℹ️ Fitbit OAuth Setup</div>
+                    <div style="color: var(--lcars-white); font-size: 0.9em;">
+                        To enable Fitbit health data capture, you need to create an OAuth application in your Fitbit account.<br>
+                        Visit <a href="https://dev.fitbit.com/apps" target="_blank" style="color: var(--lcars-orange); text-decoration: underline;">Fitbit Developer Apps</a> to register a new application and get your credentials.<br><br>
+                        <strong>OAuth 2.0 Application Type:</strong> Personal<br>
+                        <strong>Callback URL:</strong> <code id="fitbit-callback-url" style="background: rgba(0, 0, 0, 0.3); padding: 4px 8px; border-radius: 4px; color: var(--lcars-orange); font-family: monospace;">https://your-domain.com/api/fitbit/callback</code>
+                        <button onclick="copyFitbitCallbackUrl()" style="background: var(--lcars-orange); border: none; color: var(--lcars-black); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; margin-left: 10px; font-weight: bold;">COPY</button>
+                        <br><strong>Required Scopes:</strong> activity, heartrate, sleep, oxygen_saturation, profile
+                    </div>
+                </div>
+            </div>
+
             <div class="setting-item">
                 <div class="setting-label">Fitbit OAuth Client ID</div>
                 <div class="setting-description">Fitbit OAuth App Client ID (for health data capture)</div>
@@ -648,6 +662,9 @@
 
         // Set GitHub callback URL based on current domain
         updateGitHubCallbackUrl();
+
+        // Set Fitbit callback URL based on current domain
+        updateFitbitCallbackUrl();
     });
 
     // Warn user about unsaved changes
@@ -1112,6 +1129,25 @@
 
     function copyGitHubCallbackUrl() {
         const callbackUrl = document.getElementById('github-callback-url').textContent;
+        navigator.clipboard.writeText(callbackUrl).then(() => {
+            showStatus('Callback URL copied to clipboard!', 'success');
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            showStatus('Failed to copy URL', 'error');
+        });
+    }
+
+    // Fitbit OAuth callback URL helpers
+    function updateFitbitCallbackUrl() {
+        const callbackUrl = `${window.location.protocol}//${window.location.host}/api/fitbit/callback`;
+        const callbackUrlElement = document.getElementById('fitbit-callback-url');
+        if (callbackUrlElement) {
+            callbackUrlElement.textContent = callbackUrl;
+        }
+    }
+
+    function copyFitbitCallbackUrl() {
+        const callbackUrl = document.getElementById('fitbit-callback-url').textContent;
         navigator.clipboard.writeText(callbackUrl).then(() => {
             showStatus('Callback URL copied to clipboard!', 'success');
         }).catch(err => {

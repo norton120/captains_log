@@ -12,6 +12,20 @@ from app.models.fitbit import UserFitbitSettings
 
 
 @pytest.mark.asyncio
+class TestFitbitCallbackUrlEndpoint:
+    """Test /api/fitbit/callback-url endpoint."""
+
+    async def test_get_callback_url(self, api_client: AsyncClient):
+        """Test that callback-url endpoint returns the correct callback URL."""
+        response = await api_client.get("/api/fitbit/callback-url")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "callback_url" in data
+        assert "/api/fitbit/callback" in data["callback_url"]
+
+
+@pytest.mark.asyncio
 class TestFitbitAuthorizeEndpoint:
     """Test /api/fitbit/authorize endpoint."""
 

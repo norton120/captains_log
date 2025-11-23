@@ -33,6 +33,16 @@ class FitbitStatusResponse(BaseModel):
     device_id: Optional[str] = None
 
 
+@router.get("/callback-url")
+async def get_callback_url(request: Request):
+    """
+    Get the Fitbit OAuth callback URL for this instance.
+    This is useful for setting up the Fitbit application.
+    """
+    callback_url = str(request.url_for("fitbit_callback"))
+    return {"callback_url": callback_url}
+
+
 @router.get("/authorize")
 async def authorize_fitbit(
     request: Request,
