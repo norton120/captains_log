@@ -20,6 +20,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     authored_logs = relationship("LogEntry", back_populates="user", lazy="select", foreign_keys="LogEntry.user_id")
+    fitbit_settings = relationship("UserFitbitSettings", back_populates="user", uselist=False)
 
     @property
     def logs(self):

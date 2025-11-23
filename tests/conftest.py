@@ -28,6 +28,7 @@ if str(current_dir) not in sys.path:
 from app.config import Settings
 from app.models.log_entry import Base, LogEntry, ProcessingStatus
 from app.models.user import User
+from app.models.fitbit import UserFitbitSettings, FitbitData
 from app.main import app
 
 
@@ -252,14 +253,17 @@ def test_client(test_settings, async_db_session):
 @pytest_asyncio.fixture
 async def test_user(async_db_session):
     """Create a test user for use in tests."""
-    user = User(username="testuser", email="testuser@example.com")
+    user = User(
+        username="testuser",
+        email="testuser@example.com",
+        hashed_password="$2b$12$test_hashed_password",
+        is_active=True,
+    )
     async_db_session.add(user)
     await async_db_session.commit()
     await async_db_session.refresh(user)
     yield user
-    # Cleanup
-    await async_db_session.delete(user)
-    await async_db_session.commit()
+    # Cleanup happens automatically with function-scoped db session
 
 
 # Log entry factories

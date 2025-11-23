@@ -97,6 +97,8 @@ class UserPreferences(Base):
     facebook_oauth_client_secret = Column(String(255), nullable=True)
     github_oauth_client_id = Column(String(255), nullable=True)
     github_oauth_client_secret = Column(String(255), nullable=True)
+    fitbit_oauth_client_id = Column(String(255), nullable=True)
+    fitbit_oauth_client_secret = Column(String(255), nullable=True)
 
     def __repr__(self):
         return f"<UserPreferences(id={self.id}, app_name={self.app_name})>"

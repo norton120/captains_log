@@ -509,6 +509,28 @@
                 <div class="setting-description">Facebook App Secret from Facebook Developer Console</div>
                 <input type="password" class="setting-input" id="facebook_oauth_client_secret" placeholder="Leave empty to use environment">
             </div>
+
+            <div class="setting-item">
+                <div class="setting-label">Fitbit OAuth Client ID</div>
+                <div class="setting-description">Fitbit OAuth App Client ID (for health data capture)</div>
+                <input type="text" class="setting-input" id="fitbit_oauth_client_id" placeholder="Leave empty to use environment">
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-label">Fitbit OAuth Client Secret</div>
+                <div class="setting-description">Fitbit OAuth App Client Secret</div>
+                <input type="password" class="setting-input" id="fitbit_oauth_client_secret" placeholder="Leave empty to use environment">
+            </div>
+        </div>
+    </div>
+
+    <!-- Fitbit Integration (User-Specific) -->
+    <div class="settings-section" data-section="fitbit">
+        <h2>FITBIT INTEGRATION</h2>
+        <div class="fitbit-status" style="margin-bottom: 20px; padding: 15px; background: var(--lcars-black); border-radius: 8px;">
+            <div id="fitbit-connection-status">
+                <p style="color: var(--lcars-text); margin: 0;">Loading Fitbit status...</p>
+            </div>
         </div>
     </div>
 
@@ -607,6 +629,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         loadSettings();
         loadFailedJobsCount();
+        loadFitbitStatus();
 
         if (isInitMode) {
             loadInitializationStatus();
@@ -679,6 +702,8 @@
             document.getElementById('github_oauth_client_secret').value = settings.github_oauth_client_secret || '';
             document.getElementById('facebook_oauth_client_id').value = settings.facebook_oauth_client_id || '';
             document.getElementById('facebook_oauth_client_secret').value = settings.facebook_oauth_client_secret || '';
+            document.getElementById('fitbit_oauth_client_id').value = settings.fitbit_oauth_client_id || '';
+            document.getElementById('fitbit_oauth_client_secret').value = settings.fitbit_oauth_client_secret || '';
 
             // Populate array fields
             populateArrayField('allowed_audio_formats', settings.allowed_audio_formats || ['mp3', 'wav', 'flac']);
@@ -883,6 +908,8 @@
             document.getElementById('github_oauth_client_secret').value = '';
             document.getElementById('facebook_oauth_client_id').value = '';
             document.getElementById('facebook_oauth_client_secret').value = '';
+            document.getElementById('fitbit_oauth_client_id').value = '';
+            document.getElementById('fitbit_oauth_client_secret').value = '';
 
             populateArrayField('allowed_audio_formats', ['mp3', 'wav', 'flac', 'm4a', 'webm']);
             populateArrayField('allowed_video_formats', ['mp4', 'webm', 'mov', 'avi']);
@@ -1091,6 +1118,76 @@
             console.error('Failed to copy:', err);
             showStatus('Failed to copy URL', 'error');
         });
+    }
+
+    // Fitbit Integration Functions
+    async function loadFitbitStatus() {
+        try {
+            const response = await fetch('/api/fitbit/status');
+            const status = await response.json();
+
+            const statusDiv = document.getElementById('fitbit-connection-status');
+
+            if (status.is_authorized) {
+                statusDiv.innerHTML = `
+                    <div style="color: var(--lcars-green); font-weight: bold; margin-bottom: 10px;">
+                        ✓ Fitbit Connected
+                    </div>
+                    <p style="color: var(--lcars-text); margin: 5px 0;">
+                        User ID: <span style="color: var(--lcars-orange);">${status.fitbit_user_id || 'N/A'}</span>
+                    </p>
+                    <p style="color: var(--lcars-text); margin: 5px 0;">
+                        Device: <span style="color: var(--lcars-orange);">${status.device_id || 'Not selected'}</span>
+                    </p>
+                    <button onclick="disconnectFitbit()" style="background: var(--lcars-red); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-top: 10px; font-weight: bold;">
+                        Disconnect Fitbit
+                    </button>
+                `;
+            } else {
+                statusDiv.innerHTML = `
+                    <div style="color: var(--lcars-orange); font-weight: bold; margin-bottom: 10px;">
+                        Fitbit Not Connected
+                    </div>
+                    <p style="color: var(--lcars-text); margin-bottom: 15px;">
+                        Connect your Fitbit to automatically capture health data (heart rate, sleep, activity) with your log entries.
+                    </p>
+                    <button onclick="connectFitbit()" style="background: var(--lcars-orange); color: var(--lcars-black); border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                        Connect Fitbit
+                    </button>
+                `;
+            }
+        } catch (error) {
+            console.error('Failed to load Fitbit status:', error);
+            document.getElementById('fitbit-connection-status').innerHTML = `
+                <p style="color: var(--lcars-red);">Error loading Fitbit status</p>
+            `;
+        }
+    }
+
+    function connectFitbit() {
+        window.location.href = '/api/fitbit/authorize';
+    }
+
+    async function disconnectFitbit() {
+        if (!confirm('Are you sure you want to disconnect Fitbit?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/fitbit/disconnect', {
+                method: 'POST',
+            });
+
+            if (response.ok) {
+                showStatus('Fitbit disconnected successfully', 'success');
+                loadFitbitStatus();
+            } else {
+                showStatus('Failed to disconnect Fitbit', 'error');
+            }
+        } catch (error) {
+            console.error('Failed to disconnect Fitbit:', error);
+            showStatus('Error disconnecting Fitbit', 'error');
+        }
     }
 </script>
 {% endblock %}

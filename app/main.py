@@ -15,6 +15,7 @@ from app.api.logs import router as logs_router
 from app.api.settings import router as settings_router
 from app.api.status import router as status_router
 from app.api.auth import router as auth_router
+from app.api.fitbit import router as fitbit_router
 from app.dependencies import close_db_connection, get_db, get_db_session
 from app.models.log_entry import LogEntry
 from app.api.settings import get_or_create_user_preferences
@@ -130,6 +131,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(logs_router)
 app.include_router(settings_router)
 app.include_router(status_router, prefix="/api/status", tags=["status"])
+app.include_router(fitbit_router)
 
 
 @app.get("/")

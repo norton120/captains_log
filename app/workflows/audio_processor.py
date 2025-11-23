@@ -255,6 +255,77 @@ class TranscribeAudioStep(BaseWorkflowStep):
             return Path(tmp_file.name)
 
 
+class CaptureFitbitDataStep(BaseWorkflowStep):
+    """Workflow step for capturing Fitbit health data."""
+
+    async def execute(self, log_entry_id: UUID, user_id: UUID) -> Dict[str, Any]:
+        """
+        Execute Fitbit data capture step.
+
+        Args:
+            log_entry_id: UUID of log entry
+            user_id: UUID of user
+
+        Returns:
+            Dictionary with capture results
+
+        Raises:
+            WorkflowError: If capture fails critically (never raised, always succeeds)
+        """
+        try:
+            logger.info("Attempting to capture Fitbit data")
+
+            from app.services.fitbit_service import FitbitService, FitbitAPIError
+            from app.models.fitbit import UserFitbitSettings, FitbitData
+            from sqlalchemy import select
+            from datetime import datetime, UTC
+            import uuid
+
+            # Check if user has Fitbit authorized
+            result = await self.db_session.execute(
+                select(UserFitbitSettings).where(UserFitbitSettings.user_id == user_id)
+            )
+            user_settings = result.scalar_one_or_none()
+
+            if not user_settings or not user_settings.is_authorized:
+                logger.info("User does not have Fitbit authorized, skipping")
+                return {"success": True, "fitbit_captured": False, "reason": "not_authorized"}
+
+            # Initialize Fitbit service
+            fitbit_service = FitbitService(self.settings)
+
+            # Refresh token if needed
+            if user_settings.is_token_expired():
+                logger.info("Fitbit token expired, refreshing")
+                await fitbit_service.refresh_access_token(user_id, self.db_session)
+                await self.db_session.refresh(user_settings)
+
+            # Get health snapshot
+            health_data = await fitbit_service.get_comprehensive_health_snapshot(
+                user_settings.access_token
+            )
+
+            # Create FitbitData record
+            fitbit_data = FitbitData(
+                id=uuid.uuid4(),
+                log_entry_id=log_entry_id,
+                user_id=user_id,
+                captured_at=datetime.now(UTC),
+                **health_data,
+            )
+
+            self.db_session.add(fitbit_data)
+            await self.db_session.commit()
+
+            logger.info(f"Successfully captured Fitbit data for log {log_entry_id}")
+            return {"success": True, "fitbit_captured": True, "fitbit_data_id": str(fitbit_data.id)}
+
+        except Exception as e:
+            # Fitbit capture failures should NOT fail the entire workflow
+            logger.warning(f"Fitbit data capture failed (non-critical): {e}")
+            return {"success": True, "fitbit_captured": False, "reason": "api_error", "error": str(e)}
+
+
 class GenerateEmbeddingStep(BaseWorkflowStep):
     """Workflow step for generating embeddings from transcription."""
 
@@ -438,6 +509,7 @@ class AudioProcessingWorkflow:
         self.store_video_step = StoreVideoStep(self)
         self.store_audio_step = StoreAudioStep(self)
         self.transcribe_step = TranscribeAudioStep(self)
+        self.fitbit_step = CaptureFitbitDataStep(self)
         self.classify_step = ClassifyLogTypeStep(self)
         self.embedding_step = GenerateEmbeddingStep(self)
         self.summary_step = GenerateSummaryStep(self)
@@ -527,6 +599,24 @@ class AudioProcessingWorkflow:
             )
             results.update(transcribe_result)
             results["steps_completed"].append("transcribe")
+
+            # Step 4.5: Capture Fitbit data (non-critical, never fails workflow)
+            try:
+                # Get log entry to retrieve user_id
+                from sqlalchemy import select
+                from app.models.log_entry import LogEntry
+
+                log_result = await self.db_session.execute(
+                    select(LogEntry).where(LogEntry.id == log_entry_id)
+                )
+                log_entry = log_result.scalar_one()
+
+                fitbit_result = await self.fitbit_step.execute(log_entry_id, log_entry.user_id)
+                results.update({"fitbit_" + k: v for k, v in fitbit_result.items()})
+                results["steps_completed"].append("fitbit_capture")
+            except Exception as e:
+                logger.warning(f"Fitbit capture step failed (non-critical): {e}")
+                results["fitbit_captured"] = False
 
             # Step 5: Classify log type
             classify_result = await self._retry_step(

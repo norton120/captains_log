@@ -40,6 +40,9 @@ class LogEntry(Base):
     user_id = Column(PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
     user = relationship("User", back_populates="authored_logs")
 
+    # Fitbit data relationship
+    fitbit_data = relationship("FitbitData", back_populates="log_entry", uselist=False)
+
     # Media information
     media_type = Column(Enum(MediaType), nullable=False, default=MediaType.AUDIO)
     original_filename = Column(String, nullable=True)

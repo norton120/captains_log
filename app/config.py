@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     facebook_oauth_client_secret: Optional[str] = Field(default=None, description="Facebook OAuth Client Secret")
     github_oauth_client_id: Optional[str] = Field(default=None, description="GitHub OAuth Client ID")
     github_oauth_client_secret: Optional[str] = Field(default=None, description="GitHub OAuth Client Secret")
+    fitbit_oauth_client_id: Optional[str] = Field(default=None, description="Fitbit OAuth Client ID")
+    fitbit_oauth_client_secret: Optional[str] = Field(default=None, description="Fitbit OAuth Client Secret")
 
     # Database settings
     database_url: str = Field(

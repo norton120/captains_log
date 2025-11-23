@@ -308,6 +308,20 @@ class SettingsService:
             return self._cached_preferences.facebook_oauth_client_secret
         return self.env_settings.facebook_oauth_client_secret
 
+    @property
+    def fitbit_oauth_client_id(self) -> Optional[str]:
+        """Fitbit OAuth Client ID from preferences or environment."""
+        if self._cached_preferences and self._cached_preferences.fitbit_oauth_client_id:
+            return self._cached_preferences.fitbit_oauth_client_id
+        return self.env_settings.fitbit_oauth_client_id
+
+    @property
+    def fitbit_oauth_client_secret(self) -> Optional[str]:
+        """Fitbit OAuth Client Secret from preferences or environment."""
+        if self._cached_preferences and self._cached_preferences.fitbit_oauth_client_secret:
+            return self._cached_preferences.fitbit_oauth_client_secret
+        return self.env_settings.fitbit_oauth_client_secret
+
     async def get_initialization_status(self) -> Dict[str, Any]:
         """
         Check if all required settings are configured for app initialization.

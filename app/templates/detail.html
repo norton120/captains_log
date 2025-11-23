@@ -716,6 +716,67 @@
             {% endif %}
         </div>
 
+        <!-- Medical Data Panel (Fitbit) -->
+        {% if log.fitbit_data %}
+        <div class="info-panel" data-testid="medical-data" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-left: 4px solid var(--lcars-orange);">
+            <div class="panel-title" style="color: var(--lcars-orange);">MEDICAL DATA</div>
+
+            {% if log.fitbit_data.heart_rate_bpm %}
+            <div class="info-item" data-metric="heart-rate">
+                <span class="info-label">Heart Rate</span>
+                <span class="info-value" style="color: var(--lcars-red);">{{ log.fitbit_data.heart_rate_bpm }} BPM</span>
+            </div>
+            {% endif %}
+
+            {% if log.fitbit_data.resting_heart_rate_bpm %}
+            <div class="info-item">
+                <span class="info-label">Resting HR</span>
+                <span class="info-value">{{ log.fitbit_data.resting_heart_rate_bpm }} BPM</span>
+            </div>
+            {% endif %}
+
+            {% if log.fitbit_data.sleep_score %}
+            <div class="info-item" data-metric="sleep-score">
+                <span class="info-label">Sleep Score</span>
+                <span class="info-value" style="color: var(--lcars-blue);">{{ log.fitbit_data.sleep_score }}/100</span>
+            </div>
+            {% endif %}
+
+            {% if log.fitbit_data.blood_oxygen_pct %}
+            <div class="info-item" data-metric="spo2">
+                <span class="info-label">Blood Oxygen</span>
+                <span class="info-value">{{ "%.1f"|format(log.fitbit_data.blood_oxygen_pct) }}%</span>
+            </div>
+            {% endif %}
+
+            {% if log.fitbit_data.steps_today %}
+            <div class="info-item" data-metric="steps">
+                <span class="info-label">Steps Today</span>
+                <span class="info-value">{{ "{:,}".format(log.fitbit_data.steps_today) }}</span>
+            </div>
+            {% endif %}
+
+            {% if log.fitbit_data.active_minutes_today %}
+            <div class="info-item" data-metric="active-minutes">
+                <span class="info-label">Active Minutes</span>
+                <span class="info-value">{{ log.fitbit_data.active_minutes_today }} min</span>
+            </div>
+            {% endif %}
+
+            {% if log.fitbit_data.calories_burned_today %}
+            <div class="info-item" data-metric="calories">
+                <span class="info-label">Calories</span>
+                <span class="info-value">{{ "{:,}".format(log.fitbit_data.calories_burned_today) }}</span>
+            </div>
+            {% endif %}
+
+            <div class="info-item" data-testid="fitbit-timestamp" style="border-top: 1px solid rgba(255,153,0,0.2); margin-top: 10px; padding-top: 10px;">
+                <span class="info-label" style="font-size: 0.85em;">Captured</span>
+                <span class="info-value fitbit-captured-at" style="font-size: 0.85em; color: var(--lcars-grey);">{{ log.fitbit_data.captured_at.strftime('%Y-%m-%d %H:%M') }}</span>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Processing Status Panel -->
         <div class="status-panel">
             <div class="panel-title">Processing Status</div>
