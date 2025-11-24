@@ -10,24 +10,24 @@ The core functionality of this library is to record logs. Crew can record either
 Log recordings come in two flavors:
 
 **Audio Recordings:**
+The primary interface for recording logs is audio recording.
 ![audio waveform](assets/audio.png)
 
-The primary interface for recording logs is audio recording.
-
 **Video Recordings:**
-![video recording](assets/video_recording.png)
 You can also record video and it is stored and processed in exactly the same way as the audio.
+![video recording](assets/video_recording.png)
 
 **Transcription**
-![index page](assets/index.png)
 Once your log is recorded it will be processed. This processing includes:
 - transcription to a text log
 - summarization to a quick to read, episode-like description
 - vectorization for related searching
+![index page](assets/index.png)
+
 
 ## Telemetry
-![detail of a log](assets/detail.png)
 Good logs provide context, the more the better. By default `Captain's Log` captures the following data at the time of log recording:
+![detail of a log](assets/detail.png)
 **Always Captured**
 - Date & time
 - Geolocation data (latitude/longitude, nearest city, nearest port/body of water)
