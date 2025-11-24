@@ -26,6 +26,7 @@ Once your log is recorded it will be processed. This processing includes:
 - vectorization for related searching
 
 ## Telemetry
+![detail of a log](assets/detail.png)
 Good logs provide context, the more the better. By default `Captain's Log` captures the following data at the time of log recording:
 **Always Captured**
 - Date & time
@@ -77,6 +78,16 @@ Initial auth must be done using user/password for at least one crew member. That
 - google
 
 To secure your `Captain's Log`, set `allow_new_user_registration` to `False` and the "sign up" routes will be disabled.
+
+## Installation
+The easiest way to get started right now is the docker compose
+```bash
+git clone git@github.com:norton120/captains_log.git &&\
+cd captains_log &&\
+docker compose up -d &&\
+open captains-log.locahost:8082
+```
+But a cleaner solution is coming soon, I promise!
 
 ## Where are we boldy going next?
 1. **Signal K integration**: the holy grail, allowing a much wider and more dynamic range of ship's data to be attached to the logs.
