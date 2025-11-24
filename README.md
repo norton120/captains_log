@@ -56,20 +56,20 @@ As internet is not a constant on the open water (or in the Gamma Quadrant) `Capt
 ## Additional Features
 
 ### Map View
-![map](assets/map.png)
 As your crew records logs, your voyage is charted automatically. This makes it easy to find a specific log (and it looks super cool displayed on your wall).
+![map](assets/map.png)
 
 ### Semantic Search
-![search](assets/search.png)
 You can search not just for text but related phrases, like "seasick" and "Romulans"
+![search](assets/search.png)
 
 ### Settings
-![settings](assets/settings.png)
 All settings can be set either by envars or in the settings panel, making it easy to configure your system without needing shell access.
+![settings](assets/settings.png)
 
 ### Status Page
-![status](assets/status.png)
 When internet is flakey (like on a boat at sea) it helps to know if you have connection. This also lets you manually restart any processing jobs that have been "stuck" for long periods without a connection for them to complete.
+![status](assets/status.png)
 
 ## Auth
 Initial auth must be done using user/password for at least one crew member. That crew member may then go into settings and enable SSO for any of:
