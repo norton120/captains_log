@@ -41,7 +41,7 @@ class LogEntry(Base):
     user = relationship("User", back_populates="authored_logs")
 
     # Fitbit data relationship
-    fitbit_data = relationship("FitbitData", back_populates="log_entry", uselist=False)
+    fitbit_data = relationship("FitbitData", back_populates="log_entry", uselist=False, cascade="all, delete-orphan")
 
     # Media information
     media_type = Column(Enum(MediaType), nullable=False, default=MediaType.AUDIO)
@@ -93,9 +93,6 @@ class LogEntry(Base):
     weather_dew_point_f = Column(Float, nullable=True)  # Dew point temperature in Fahrenheit
     weather_precipitation_probability_pct = Column(Float, nullable=True)  # Probability of precipitation percentage
     weather_precipitation_amount_in = Column(Float, nullable=True)  # Quantitative precipitation in inches
-
-    # Relationships
-    fitbit_data = relationship("FitbitData", back_populates="log_entry", uselist=False)
 
     def __repr__(self):
         return f"<LogEntry(id={self.id}, created_at={self.created_at}, status={self.processing_status.value})>"
