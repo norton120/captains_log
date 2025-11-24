@@ -1,4 +1,5 @@
 """Tests for Fitbit-related database models."""
+
 from datetime import datetime, timedelta, UTC
 import uuid
 
@@ -17,9 +18,7 @@ from app.models.user import User
 class TestUserPreferencesFitbitFields:
     """Test that UserPreferences model has Fitbit OAuth fields."""
 
-    async def test_user_preferences_fitbit_fields_exist(
-        self, async_db_session: AsyncSession
-    ):
+    async def test_user_preferences_fitbit_fields_exist(self, async_db_session: AsyncSession):
         """Verify UserPreferences model has new Fitbit OAuth fields."""
         # Create a UserPreferences instance with Fitbit fields
         prefs = UserPreferences(
@@ -31,25 +30,19 @@ class TestUserPreferencesFitbitFields:
         await async_db_session.commit()
 
         # Retrieve and verify
-        result = await async_db_session.execute(
-            select(UserPreferences).where(UserPreferences.id == prefs.id)
-        )
+        result = await async_db_session.execute(select(UserPreferences).where(UserPreferences.id == prefs.id))
         retrieved = result.scalar_one()
 
         assert retrieved.fitbit_oauth_client_id == "test_client_id"
         assert retrieved.fitbit_oauth_client_secret == "test_client_secret"
 
-    async def test_user_preferences_fitbit_fields_nullable(
-        self, async_db_session: AsyncSession
-    ):
+    async def test_user_preferences_fitbit_fields_nullable(self, async_db_session: AsyncSession):
         """Verify Fitbit fields are nullable."""
         prefs = UserPreferences(id=uuid.uuid4())
         async_db_session.add(prefs)
         await async_db_session.commit()
 
-        result = await async_db_session.execute(
-            select(UserPreferences).where(UserPreferences.id == prefs.id)
-        )
+        result = await async_db_session.execute(select(UserPreferences).where(UserPreferences.id == prefs.id))
         retrieved = result.scalar_one()
 
         assert retrieved.fitbit_oauth_client_id is None
@@ -60,9 +53,7 @@ class TestUserPreferencesFitbitFields:
 class TestUserFitbitSettingsModel:
     """Test UserFitbitSettings model (user-specific Fitbit configuration)."""
 
-    async def test_user_fitbit_settings_model_creation(
-        self, async_db_session: AsyncSession, test_user: User
-    ):
+    async def test_user_fitbit_settings_model_creation(self, async_db_session: AsyncSession, test_user: User):
         """Test creating a UserFitbitSettings instance."""
         expires_at = datetime.now(UTC) + timedelta(hours=8)
         settings = UserFitbitSettings(
@@ -79,9 +70,7 @@ class TestUserFitbitSettingsModel:
         await async_db_session.commit()
 
         # Retrieve and verify
-        result = await async_db_session.execute(
-            select(UserFitbitSettings).where(UserFitbitSettings.id == settings.id)
-        )
+        result = await async_db_session.execute(select(UserFitbitSettings).where(UserFitbitSettings.id == settings.id))
         retrieved = result.scalar_one()
 
         assert retrieved.user_id == test_user.id
@@ -94,9 +83,7 @@ class TestUserFitbitSettingsModel:
         assert retrieved.created_at is not None
         assert retrieved.updated_at is not None
 
-    async def test_user_fitbit_settings_unique_user_constraint(
-        self, async_db_session: AsyncSession, test_user: User
-    ):
+    async def test_user_fitbit_settings_unique_user_constraint(self, async_db_session: AsyncSession, test_user: User):
         """Test that user_id must be unique (one Fitbit config per user)."""
         settings1 = UserFitbitSettings(
             id=uuid.uuid4(),
@@ -117,9 +104,7 @@ class TestUserFitbitSettingsModel:
         with pytest.raises(IntegrityError):
             await async_db_session.commit()
 
-    async def test_user_fitbit_settings_nullable_fields(
-        self, async_db_session: AsyncSession, test_user: User
-    ):
+    async def test_user_fitbit_settings_nullable_fields(self, async_db_session: AsyncSession, test_user: User):
         """Test that Fitbit token fields are nullable."""
         settings = UserFitbitSettings(
             id=uuid.uuid4(),
@@ -129,9 +114,7 @@ class TestUserFitbitSettingsModel:
         async_db_session.add(settings)
         await async_db_session.commit()
 
-        result = await async_db_session.execute(
-            select(UserFitbitSettings).where(UserFitbitSettings.id == settings.id)
-        )
+        result = await async_db_session.execute(select(UserFitbitSettings).where(UserFitbitSettings.id == settings.id))
         retrieved = result.scalar_one()
 
         assert retrieved.fitbit_user_id is None
@@ -141,9 +124,7 @@ class TestUserFitbitSettingsModel:
         assert retrieved.token_expires_at is None
         assert retrieved.is_authorized is False
 
-    async def test_user_fitbit_settings_relationship_to_user(
-        self, async_db_session: AsyncSession, test_user: User
-    ):
+    async def test_user_fitbit_settings_relationship_to_user(self, async_db_session: AsyncSession, test_user: User):
         """Test relationship between UserFitbitSettings and User."""
         from sqlalchemy.inspection import inspect
 
@@ -165,7 +146,7 @@ class TestUserFitbitSettingsModel:
 
         # Verify the relationship is defined in the model (without triggering lazy load)
         mapper = inspect(UserFitbitSettings)
-        assert 'user' in mapper.relationships.keys()
+        assert "user" in mapper.relationships.keys()
 
 
 @pytest.mark.asyncio
@@ -215,9 +196,7 @@ class TestFitbitDataModel:
         await async_db_session.commit()
 
         # Retrieve and verify
-        result = await async_db_session.execute(
-            select(FitbitData).where(FitbitData.id == fitbit_data.id)
-        )
+        result = await async_db_session.execute(select(FitbitData).where(FitbitData.id == fitbit_data.id))
         retrieved = result.scalar_one()
 
         assert retrieved.log_entry_id == log.id
@@ -264,9 +243,7 @@ class TestFitbitDataModel:
         async_db_session.add(fitbit_data)
         await async_db_session.commit()
 
-        result = await async_db_session.execute(
-            select(FitbitData).where(FitbitData.id == fitbit_data.id)
-        )
+        result = await async_db_session.execute(select(FitbitData).where(FitbitData.id == fitbit_data.id))
         retrieved = result.scalar_one()
 
         # All health metrics should be None

@@ -41,24 +41,17 @@ async def login(
         user_manager = await anext(get_user_manager(user_db))
 
         # Try to find user by username first, then by email
-        user = await db_session.execute(
-            select(User).where(User.username == credentials.username)
-        )
+        user = await db_session.execute(select(User).where(User.username == credentials.username))
         user = user.scalar_one_or_none()
 
         # If not found by username, try email
         if user is None:
-            user = await db_session.execute(
-                select(User).where(User.email == credentials.username)
-            )
+            user = await db_session.execute(select(User).where(User.email == credentials.username))
             user = user.scalar_one_or_none()
 
         # Verify user exists, is active, and password is correct
         if user is None or not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid username and/or password"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid username and/or password")
 
         # Verify password using the user manager's password helper
         valid, updated_password_hash = user_manager.password_helper.verify_and_update(
@@ -66,10 +59,7 @@ async def login(
         )
 
         if not valid:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid username and/or password"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid username and/or password")
 
         # Update password hash if it was rehashed with updated algorithm
         if updated_password_hash is not None:
@@ -88,10 +78,7 @@ async def login(
         raise
     except Exception as e:
         # Catch any other errors and return user-friendly message
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid username and/or password"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid username and/or password")
 
 
 # Register logout route from fastapi_users
@@ -102,6 +89,7 @@ async def logout(
     """Logout endpoint."""
     # Return response that clears the authentication cookie
     from app.auth import cookie_transport
+
     return await cookie_transport.get_logout_response()
 
 
@@ -159,6 +147,7 @@ router.include_router(
     prefix="/auth",
     tags=["auth"],
 )
+
 
 def register_oauth_routes():
     """

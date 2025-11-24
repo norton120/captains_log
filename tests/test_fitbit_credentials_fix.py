@@ -1,4 +1,5 @@
 """Test that Fitbit credentials can be saved and retrieved via the settings API."""
+
 import pytest
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,9 +14,7 @@ async def test_fitbit_credentials_can_be_saved_and_retrieved(
     """Test that Fitbit OAuth credentials can be saved and retrieved via API."""
 
     # Create an HTTP client for the app
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Update preferences with Fitbit credentials
         update_response = await client.put(
             "/api/settings/preferences",
@@ -49,9 +48,7 @@ async def test_fitbit_credentials_can_be_cleared(
 ):
     """Test that Fitbit OAuth credentials can be cleared (set to null)."""
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # First, set some credentials
         await client.put(
             "/api/settings/preferences",

@@ -1,4 +1,5 @@
 """Fitbit-related database models."""
+
 from datetime import datetime, UTC
 import uuid
 
@@ -24,9 +25,7 @@ class UserFitbitSettings(Base):
     __tablename__ = "user_fitbit_settings"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True
-    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True)
 
     # Fitbit user and device identifiers
     fitbit_user_id = Column(String(255), nullable=True)
@@ -73,9 +72,7 @@ class FitbitData(Base):
     __tablename__ = "fitbit_data"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    log_entry_id = Column(
-        UUID(as_uuid=True), ForeignKey("log_entries.id"), nullable=False, unique=True
-    )
+    log_entry_id = Column(UUID(as_uuid=True), ForeignKey("log_entries.id"), nullable=False, unique=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     # Timestamp when data was captured

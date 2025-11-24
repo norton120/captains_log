@@ -83,6 +83,26 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         ) from e
 
 
+def get_db_session_context():
+    """Get database session as an async context manager (for use in non-FastAPI contexts)."""
+    from contextlib import asynccontextmanager
+    
+    @asynccontextmanager
+    async def _context():
+        session_maker = await get_async_session_maker()
+        async with session_maker() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+            finally:
+                await session.close()
+    
+    return _context()
+
+
 def get_sync_db_engine():
     """Get synchronous database engine for template routes."""
     global _sync_db_engine

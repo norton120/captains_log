@@ -1,4 +1,5 @@
 """Tests for Fitbit service."""
+
 from datetime import datetime, timedelta, UTC
 from unittest.mock import Mock, AsyncMock, patch
 import uuid
@@ -67,9 +68,7 @@ class TestFitbitOAuthFlow:
             return_value="https://www.fitbit.com/oauth2/authorize?client_id=test&scope=activity+heartrate+sleep+oxygen_saturation+profile&redirect_uri=http://localhost/callback"
         )
 
-        url = fitbit_service.get_authorization_url(
-            redirect_uri="http://localhost/callback"
-        )
+        url = fitbit_service.get_authorization_url(redirect_uri="http://localhost/callback")
 
         assert "https://www.fitbit.com/oauth2/authorize" in url
         assert "client_id=test" in url
@@ -207,9 +206,7 @@ class TestFitbitHealthData:
             }
         )
 
-        result = await fitbit_service.get_current_heart_rate(
-            user_fitbit_settings.access_token
-        )
+        result = await fitbit_service.get_current_heart_rate(user_fitbit_settings.access_token)
 
         assert result["heart_rate_bpm"] == 72
         assert result["resting_heart_rate_bpm"] == 58
@@ -220,15 +217,9 @@ class TestFitbitHealthData:
         user_fitbit_settings: UserFitbitSettings,
     ):
         """Test fetching heart rate when no recent data available."""
-        fitbit_service.client.intraday_time_series = Mock(
-            return_value={
-                "activities-heart-intraday": {"dataset": []}
-            }
-        )
+        fitbit_service.client.intraday_time_series = Mock(return_value={"activities-heart-intraday": {"dataset": []}})
 
-        result = await fitbit_service.get_current_heart_rate(
-            user_fitbit_settings.access_token
-        )
+        result = await fitbit_service.get_current_heart_rate(user_fitbit_settings.access_token)
 
         assert result["heart_rate_bpm"] is None
 
@@ -286,9 +277,7 @@ class TestFitbitHealthData:
             }
         )
 
-        result = await fitbit_service.get_activity_summary(
-            user_fitbit_settings.access_token
-        )
+        result = await fitbit_service.get_activity_summary(user_fitbit_settings.access_token)
 
         assert result["steps_today"] == 8432
         assert result["calories_burned_today"] == 2145
@@ -335,19 +324,13 @@ class TestFitbitHealthData:
         fitbit_service.get_current_heart_rate = AsyncMock(
             return_value={"heart_rate_bpm": 72, "resting_heart_rate_bpm": 58}
         )
-        fitbit_service.get_sleep_data = AsyncMock(
-            return_value={"sleep_score": 85, "sleep_duration_minutes": 450}
-        )
+        fitbit_service.get_sleep_data = AsyncMock(return_value={"sleep_score": 85, "sleep_duration_minutes": 450})
         fitbit_service.get_activity_summary = AsyncMock(
             return_value={"steps_today": 8432, "calories_burned_today": 2145}
         )
-        fitbit_service.get_spo2_data = AsyncMock(
-            return_value={"blood_oxygen_pct": 98.5}
-        )
+        fitbit_service.get_spo2_data = AsyncMock(return_value={"blood_oxygen_pct": 98.5})
 
-        result = await fitbit_service.get_comprehensive_health_snapshot(
-            user_fitbit_settings.access_token
-        )
+        result = await fitbit_service.get_comprehensive_health_snapshot(user_fitbit_settings.access_token)
 
         assert result["heart_rate_bpm"] == 72
         assert result["sleep_score"] == 85
@@ -361,18 +344,12 @@ class TestFitbitHealthData:
     ):
         """Test comprehensive snapshot handles partial API failures gracefully."""
         # Mock some endpoints to succeed, some to fail
-        fitbit_service.get_current_heart_rate = AsyncMock(
-            return_value={"heart_rate_bpm": 72}
-        )
+        fitbit_service.get_current_heart_rate = AsyncMock(return_value={"heart_rate_bpm": 72})
         fitbit_service.get_sleep_data = AsyncMock(side_effect=FitbitAPIError("Sleep API failed"))
-        fitbit_service.get_activity_summary = AsyncMock(
-            return_value={"steps_today": 8432}
-        )
+        fitbit_service.get_activity_summary = AsyncMock(return_value={"steps_today": 8432})
         fitbit_service.get_spo2_data = AsyncMock(side_effect=FitbitAPIError("SpO2 unavailable"))
 
-        result = await fitbit_service.get_comprehensive_health_snapshot(
-            user_fitbit_settings.access_token
-        )
+        result = await fitbit_service.get_comprehensive_health_snapshot(user_fitbit_settings.access_token)
 
         # Should have data that succeeded
         assert result["heart_rate_bpm"] == 72
@@ -395,9 +372,7 @@ class TestFitbitErrorHandling:
 
         response = Mock()
         response.status_code = 401
-        fitbit_service.client.get_devices = Mock(
-            side_effect=HTTPError(response=response)
-        )
+        fitbit_service.client.get_devices = Mock(side_effect=HTTPError(response=response))
 
         with pytest.raises(FitbitTokenExpiredError):
             await fitbit_service.get_user_devices(user_fitbit_settings.access_token)
@@ -412,9 +387,7 @@ class TestFitbitErrorHandling:
 
         response = Mock()
         response.status_code = 429
-        fitbit_service.client.get_devices = Mock(
-            side_effect=HTTPError(response=response)
-        )
+        fitbit_service.client.get_devices = Mock(side_effect=HTTPError(response=response))
 
         with pytest.raises(FitbitAPIError) as exc_info:
             await fitbit_service.get_user_devices(user_fitbit_settings.access_token)
@@ -431,9 +404,7 @@ class TestFitbitErrorHandling:
 
         response = Mock()
         response.status_code = 500
-        fitbit_service.client.get_devices = Mock(
-            side_effect=HTTPError(response=response)
-        )
+        fitbit_service.client.get_devices = Mock(side_effect=HTTPError(response=response))
 
         with pytest.raises(FitbitAPIError):
             await fitbit_service.get_user_devices(user_fitbit_settings.access_token)
@@ -456,9 +427,7 @@ class TestFitbitErrorHandling:
         fitbit_service.client.get_devices = Mock(return_value=[])
 
         # This should trigger auto-refresh
-        await fitbit_service.get_user_devices_with_refresh(
-            test_user.id, async_db_session
-        )
+        await fitbit_service.get_user_devices_with_refresh(test_user.id, async_db_session)
 
         # Verify refresh was called
         fitbit_service.refresh_access_token.assert_called_once()

@@ -301,9 +301,7 @@ class CaptureFitbitDataStep(BaseWorkflowStep):
                 await self.db_session.refresh(user_settings)
 
             # Get health snapshot
-            health_data = await fitbit_service.get_comprehensive_health_snapshot(
-                user_settings.access_token
-            )
+            health_data = await fitbit_service.get_comprehensive_health_snapshot(user_settings.access_token)
 
             # Create FitbitData record
             fitbit_data = FitbitData(
@@ -606,9 +604,7 @@ class AudioProcessingWorkflow:
                 from sqlalchemy import select
                 from app.models.log_entry import LogEntry
 
-                log_result = await self.db_session.execute(
-                    select(LogEntry).where(LogEntry.id == log_entry_id)
-                )
+                log_result = await self.db_session.execute(select(LogEntry).where(LogEntry.id == log_entry_id))
                 log_entry = log_result.scalar_one()
 
                 fitbit_result = await self.fitbit_step.execute(log_entry_id, log_entry.user_id)

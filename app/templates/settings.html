@@ -519,7 +519,7 @@
                         <strong>OAuth 2.0 Application Type:</strong> Personal<br>
                         <strong>Callback URL:</strong> <code id="fitbit-callback-url" style="background: rgba(0, 0, 0, 0.3); padding: 4px 8px; border-radius: 4px; color: var(--lcars-orange); font-family: monospace;">https://your-domain.com/api/fitbit/callback</code>
                         <button onclick="copyFitbitCallbackUrl()" style="background: var(--lcars-orange); border: none; color: var(--lcars-black); padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; margin-left: 10px; font-weight: bold;">COPY</button>
-                        <br><strong>Required Scopes:</strong> activity, heartrate, sleep, oxygen_saturation, profile
+                        <br><strong>Required Scopes:</strong> activity, heartrate, sleep, oxygen_saturation, profile, settings
                     </div>
                 </div>
             </div>
@@ -620,6 +620,20 @@
 
         <div id="failed-jobs-list" style="max-height: 500px; overflow-y: auto;">
             Loading...
+        </div>
+    </div>
+</div>
+
+<!-- Fitbit Device Selector Modal -->
+<div id="fitbit-device-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 2000; overflow-y: auto;">
+    <div style="max-width: 600px; margin: 50px auto; background: var(--lcars-bg); border: 3px solid var(--lcars-blue); border-radius: 15px; padding: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <h2 style="color: var(--lcars-blue); margin: 0;">SELECT FITBIT DEVICE</h2>
+            <button onclick="closeDeviceSelector()" style="background: var(--lcars-red); border: none; color: white; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: bold;">CLOSE</button>
+        </div>
+
+        <div id="fitbit-device-list" style="max-height: 400px; overflow-y: auto;">
+            Loading devices...
         </div>
     </div>
 </div>
@@ -1175,11 +1189,16 @@
                         User ID: <span style="color: var(--lcars-orange);">${status.fitbit_user_id || 'N/A'}</span>
                     </p>
                     <p style="color: var(--lcars-text); margin: 5px 0;">
-                        Device: <span style="color: var(--lcars-orange);">${status.device_id || 'Not selected'}</span>
+                        Device: <span id="fitbit-device-name" style="color: var(--lcars-orange);">${status.device_id || 'Not selected'}</span>
                     </p>
-                    <button onclick="disconnectFitbit()" style="background: var(--lcars-red); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-top: 10px; font-weight: bold;">
-                        Disconnect Fitbit
-                    </button>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button onclick="showDeviceSelector()" style="background: var(--lcars-blue); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                            Select Device
+                        </button>
+                        <button onclick="disconnectFitbit()" style="background: var(--lcars-red); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                            Disconnect Fitbit
+                        </button>
+                    </div>
                 `;
             } else {
                 statusDiv.innerHTML = `
@@ -1225,6 +1244,172 @@
         } catch (error) {
             console.error('Failed to disconnect Fitbit:', error);
             showStatus('Error disconnecting Fitbit', 'error');
+        }
+    }
+
+    // Fitbit Device Selection Functions
+    async function showDeviceSelector() {
+        const modal = document.getElementById('fitbit-device-modal');
+        const listDiv = document.getElementById('fitbit-device-list');
+        
+        modal.style.display = 'block';
+        listDiv.innerHTML = 'Loading devices...';
+        
+        try {
+            const response = await fetch('/api/fitbit/devices');
+            if (!response.ok) {
+                throw new Error('Failed to load devices');
+            }
+            
+            const devices = await response.json();
+            
+            if (devices.length === 0) {
+                listDiv.innerHTML = '<p style="color: var(--lcars-orange); text-align: center; padding: 40px;">No Fitbit devices found. Make sure your device is synced with the Fitbit app.</p>';
+                return;
+            }
+            
+            let html = '<div style="display: flex; flex-direction: column; gap: 15px;">';
+            
+            devices.forEach(device => {
+                const deviceType = device.deviceVersion || 'Unknown Device';
+                const battery = device.battery || 'Unknown';
+                const lastSync = device.lastSyncTime ? new Date(device.lastSyncTime).toLocaleString() : 'Never';
+                const isSelected = device.id === currentDeviceId;
+                
+                html += `
+                    <div style="background: rgba(153, 153, 204, 0.1); border: 2px solid ${isSelected ? 'var(--lcars-green)' : 'var(--lcars-blue)'}; border-radius: 10px; padding: 20px; cursor: pointer; transition: all 0.3s ease;"
+                         onclick="selectDevice('${device.id}', '${deviceType}')"
+                         onmouseover="this.style.borderColor='var(--lcars-orange)'"
+                         onmouseout="this.style.borderColor='${isSelected ? 'var(--lcars-green)' : 'var(--lcars-blue)'}'">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <h3 style="color: var(--lcars-orange); margin: 0;">${deviceType}</h3>
+                            ${isSelected ? '<span style="color: var(--lcars-green); font-weight: bold;">✓ SELECTED</span>' : ''}
+                        </div>
+                        <div style="font-size: 0.9em; color: var(--lcars-gray);">
+                            <p style="margin: 5px 0;">Device ID: <span style="color: var(--lcars-white);">${device.id}</span></p>
+                            <p style="margin: 5px 0;">Battery: <span style="color: var(--lcars-white);">${battery}</span></p>
+                            <p style="margin: 5px 0;">Last Sync: <span style="color: var(--lcars-white);">${lastSync}</span></p>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            listDiv.innerHTML = html;
+            
+        } catch (error) {
+            console.error('Failed to load devices:', error);
+            listDiv.innerHTML = '<p style="color: var(--lcars-red); text-align: center; padding: 40px;">Failed to load devices. Please try again.</p>';
+        }
+    }
+    
+    function closeDeviceSelector() {
+        document.getElementById('fitbit-device-modal').style.display = 'none';
+    }
+    
+    let currentDeviceId = null;
+    
+    async function selectDevice(deviceId, deviceName) {
+        try {
+            showStatus('Selecting device...', 'info');
+            
+            const response = await fetch('/api/fitbit/device/select', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ device_id: deviceId })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to select device');
+            }
+            
+            // Update the display
+            currentDeviceId = deviceId;
+            document.getElementById('fitbit-device-name').textContent = deviceName;
+            
+            showStatus('Device selected successfully!', 'success');
+            closeDeviceSelector();
+            
+            // Reload status to update the display
+            loadFitbitStatus();
+            
+        } catch (error) {
+            console.error('Failed to select device:', error);
+            showStatus('Failed to select device', 'error');
+        }
+    }
+    
+    // Store current device ID when loading status
+    const originalLoadFitbitStatus = loadFitbitStatus;
+    loadFitbitStatus = async function() {
+        try {
+            const response = await fetch('/api/fitbit/status');
+            const status = await response.json();
+            
+            // Store current device ID
+            if (status.is_authorized) {
+                currentDeviceId = status.device_id;
+            }
+            
+            const statusDiv = document.getElementById('fitbit-connection-status');
+
+            if (status.is_authorized) {
+                // First, try to get device info if device is selected
+                let deviceName = status.device_id || 'Not selected';
+                if (status.device_id) {
+                    try {
+                        const devicesResponse = await fetch('/api/fitbit/devices');
+                        if (devicesResponse.ok) {
+                            const devices = await devicesResponse.json();
+                            const selectedDevice = devices.find(d => d.id === status.device_id);
+                            if (selectedDevice) {
+                                deviceName = selectedDevice.deviceVersion || status.device_id;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to get device info:', e);
+                    }
+                }
+                
+                statusDiv.innerHTML = `
+                    <div style="color: var(--lcars-green); font-weight: bold; margin-bottom: 10px;">
+                        ✓ Fitbit Connected
+                    </div>
+                    <p style="color: var(--lcars-text); margin: 5px 0;">
+                        User ID: <span style="color: var(--lcars-orange);">${status.fitbit_user_id || 'N/A'}</span>
+                    </p>
+                    <p style="color: var(--lcars-text); margin: 5px 0;">
+                        Device: <span id="fitbit-device-name" style="color: var(--lcars-orange);">${deviceName}</span>
+                    </p>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button onclick="showDeviceSelector()" style="background: var(--lcars-blue); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                            Select Device
+                        </button>
+                        <button onclick="disconnectFitbit()" style="background: var(--lcars-red); color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                            Disconnect Fitbit
+                        </button>
+                    </div>
+                `;
+            } else {
+                statusDiv.innerHTML = `
+                    <div style="color: var(--lcars-orange); font-weight: bold; margin-bottom: 10px;">
+                        Fitbit Not Connected
+                    </div>
+                    <p style="color: var(--lcars-text); margin-bottom: 15px;">
+                        Connect your Fitbit to automatically capture health data (heart rate, sleep, activity) with your log entries.
+                    </p>
+                    <button onclick="connectFitbit()" style="background: var(--lcars-orange); color: var(--lcars-black); border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                        Connect Fitbit
+                    </button>
+                `;
+            }
+        } catch (error) {
+            console.error('Failed to load Fitbit status:', error);
+            document.getElementById('fitbit-connection-status').innerHTML = `
+                <p style="color: var(--lcars-red);">Error loading Fitbit status</p>
+            `;
         }
     }
 </script>

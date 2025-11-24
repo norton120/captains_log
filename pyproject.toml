@@ -22,6 +22,7 @@ dependencies = [
     "fastapi-users[sqlalchemy]>=13.0.0",
     "passlib[bcrypt]>=1.7.4",
     "httpx-oauth>=0.14.0",
+    "itsdangerous>=2.1.2",
 ]
 
 [project.optional-dependencies]

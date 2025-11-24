@@ -1,4 +1,5 @@
 """Fitbit API integration service."""
+
 import logging
 from datetime import datetime, timedelta, UTC
 from typing import Dict, Any, List, Optional
@@ -19,11 +20,13 @@ logger = logging.getLogger(__name__)
 
 class FitbitAPIError(Exception):
     """Base exception for Fitbit API errors."""
+
     pass
 
 
 class FitbitTokenExpiredError(FitbitAPIError):
     """Exception raised when Fitbit access token is expired."""
+
     pass
 
 
@@ -61,6 +64,7 @@ class FitbitService:
             "sleep",
             "oxygen_saturation",
             "profile",
+            "settings",  # Required for device access
         ]
 
         params = {
@@ -120,9 +124,7 @@ class FitbitService:
             expires_at = datetime.now(UTC) + timedelta(seconds=expires_in)
 
             # Save or update user Fitbit settings
-            result = await db.execute(
-                select(UserFitbitSettings).where(UserFitbitSettings.user_id == user_id)
-            )
+            result = await db.execute(select(UserFitbitSettings).where(UserFitbitSettings.user_id == user_id))
             settings = result.scalar_one_or_none()
 
             if not settings:
@@ -163,9 +165,7 @@ class FitbitService:
             user_id: User ID
             db: Database session
         """
-        result = await db.execute(
-            select(UserFitbitSettings).where(UserFitbitSettings.user_id == user_id)
-        )
+        result = await db.execute(select(UserFitbitSettings).where(UserFitbitSettings.user_id == user_id))
         settings = result.scalar_one_or_none()
 
         if not settings or not settings.refresh_token:
@@ -198,18 +198,12 @@ class FitbitService:
             logger.error(f"Failed to refresh token: {e}")
             raise FitbitAPIError(f"Token refresh failed: {e}")
 
-    async def get_user_settings(
-        self, user_id: uuid.UUID, db: AsyncSession
-    ) -> Optional[UserFitbitSettings]:
+    async def get_user_settings(self, user_id: uuid.UUID, db: AsyncSession) -> Optional[UserFitbitSettings]:
         """Get user's Fitbit settings from database."""
-        result = await db.execute(
-            select(UserFitbitSettings).where(UserFitbitSettings.user_id == user_id)
-        )
+        result = await db.execute(select(UserFitbitSettings).where(UserFitbitSettings.user_id == user_id))
         return result.scalar_one_or_none()
 
-    def _make_api_request(
-        self, access_token: str, endpoint: str, method: str = "GET"
-    ) -> Dict[str, Any]:
+    def _make_api_request(self, access_token: str, endpoint: str, method: str = "GET") -> Dict[str, Any]:
         """
         Make an authenticated request to the Fitbit API.
 
@@ -254,15 +248,21 @@ class FitbitService:
             List of device dicts with id, deviceVersion, type, batteryLevel, etc.
         """
         try:
-            devices = self._make_api_request(access_token, "/1/user/-/devices.json")
-            return devices if isinstance(devices, list) else []
+            response = self._make_api_request(access_token, "/1/user/-/devices.json")
+            # Fitbit returns an array directly at the root
+            if isinstance(response, list):
+                return response
+            # But handle case where it might be wrapped
+            elif isinstance(response, dict) and "devices" in response:
+                return response["devices"]
+            else:
+                logger.warning(f"Unexpected devices response format: {type(response)}")
+                return []
         except Exception as e:
             logger.error(f"Failed to get devices: {e}")
             raise
 
-    async def get_user_devices_with_refresh(
-        self, user_id: uuid.UUID, db: AsyncSession
-    ) -> List[Dict[str, Any]]:
+    async def get_user_devices_with_refresh(self, user_id: uuid.UUID, db: AsyncSession) -> List[Dict[str, Any]]:
         """Get devices with automatic token refresh if needed."""
         settings = await self.get_user_settings(user_id, db)
         if not settings or not settings.is_authorized:
@@ -291,11 +291,23 @@ class FitbitService:
             heart_rate_bpm = None
             resting_heart_rate_bpm = None
 
-            # Get resting heart rate
+            # Get resting heart rate from previous day if today's is not available
             if "activities-heart" in data and data["activities-heart"]:
                 daily_data = data["activities-heart"][0]
                 if "value" in daily_data and "restingHeartRate" in daily_data["value"]:
                     resting_heart_rate_bpm = daily_data["value"]["restingHeartRate"]
+            
+            # If no resting heart rate for today, try yesterday
+            if resting_heart_rate_bpm is None:
+                yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+                yesterday_data = self._make_api_request(
+                    access_token,
+                    f"/1/user/-/activities/heart/date/{yesterday}/1d.json",
+                )
+                if "activities-heart" in yesterday_data and yesterday_data["activities-heart"]:
+                    daily_data = yesterday_data["activities-heart"][0]
+                    if "value" in daily_data and "restingHeartRate" in daily_data["value"]:
+                        resting_heart_rate_bpm = daily_data["value"]["restingHeartRate"]
 
             # Get current/latest heart rate from intraday data
             if "activities-heart-intraday" in data and "dataset" in data["activities-heart-intraday"]:
@@ -321,10 +333,11 @@ class FitbitService:
             Dict with sleep_score, sleep_duration_minutes, sleep_efficiency_pct
         """
         try:
-            today = datetime.now().strftime("%Y-%m-%d")
+            # Get yesterday's date since sleep data is typically from the previous night
+            yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
             data = self._make_api_request(
                 access_token,
-                f"/1.2/user/-/sleep/date/{today}.json",
+                f"/1.2/user/-/sleep/date/{yesterday}.json",
             )
 
             if not data.get("sleep"):
@@ -425,9 +438,7 @@ class FitbitService:
             logger.error(f"Failed to get SpO2 data: {e}")
             return {"blood_oxygen_pct": None}
 
-    async def get_comprehensive_health_snapshot(
-        self, access_token: str
-    ) -> Dict[str, Any]:
+    async def get_comprehensive_health_snapshot(self, access_token: str) -> Dict[str, Any]:
         """
         Get all available health metrics in one call.
 

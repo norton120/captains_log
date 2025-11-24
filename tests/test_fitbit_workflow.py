@@ -1,4 +1,5 @@
 """Tests for Fitbit workflow integration with log processing."""
+
 from datetime import datetime, UTC
 from unittest.mock import AsyncMock, patch
 import uuid
@@ -90,9 +91,7 @@ class TestFitbitDataCaptureOnLogSave:
             await process_audio_workflow(log.id, async_db_session)
 
         # Verify FitbitData was created
-        result = await async_db_session.execute(
-            select(FitbitData).where(FitbitData.log_entry_id == log.id)
-        )
+        result = await async_db_session.execute(select(FitbitData).where(FitbitData.log_entry_id == log.id))
         fitbit_data = result.scalar_one()
 
         assert fitbit_data is not None
@@ -127,9 +126,7 @@ class TestFitbitDataCaptureOnLogSave:
         await process_audio_workflow(log.id, async_db_session)
 
         # Verify NO FitbitData was created
-        result = await async_db_session.execute(
-            select(FitbitData).where(FitbitData.log_entry_id == log.id)
-        )
+        result = await async_db_session.execute(select(FitbitData).where(FitbitData.log_entry_id == log.id))
         fitbit_data = result.scalar_one_or_none()
 
         assert fitbit_data is None
@@ -180,9 +177,7 @@ class TestFitbitDataCaptureOnLogSave:
         assert log.processing_status == ProcessingStatus.COMPLETED
 
         # Verify NO FitbitData was created
-        result = await async_db_session.execute(
-            select(FitbitData).where(FitbitData.log_entry_id == log.id)
-        )
+        result = await async_db_session.execute(select(FitbitData).where(FitbitData.log_entry_id == log.id))
         fitbit_data = result.scalar_one_or_none()
         assert fitbit_data is None
 
@@ -280,9 +275,7 @@ class TestFitbitDataCaptureOnLogSave:
         after_capture = datetime.now(UTC)
 
         # Verify timestamp
-        result = await async_db_session.execute(
-            select(FitbitData).where(FitbitData.log_entry_id == log.id)
-        )
+        result = await async_db_session.execute(select(FitbitData).where(FitbitData.log_entry_id == log.id))
         fitbit_data = result.scalar_one()
 
         assert before_capture <= fitbit_data.captured_at <= after_capture
@@ -333,9 +326,7 @@ class TestFitbitDataWithPartialMetrics:
             await process_audio_workflow(log.id, async_db_session)
 
         # Verify FitbitData created with partial data
-        result = await async_db_session.execute(
-            select(FitbitData).where(FitbitData.log_entry_id == log.id)
-        )
+        result = await async_db_session.execute(select(FitbitData).where(FitbitData.log_entry_id == log.id))
         fitbit_data = result.scalar_one()
 
         assert fitbit_data.heart_rate_bpm == 72

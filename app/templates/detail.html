@@ -721,59 +721,64 @@
         <div class="info-panel" data-testid="medical-data" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-left: 4px solid var(--lcars-orange);">
             <div class="panel-title" style="color: var(--lcars-orange);">MEDICAL DATA</div>
 
-            {% if log.fitbit_data.heart_rate_bpm %}
+            {% if log.fitbit_data.heart_rate_bpm or log.fitbit_data.resting_heart_rate_bpm %}
             <div class="info-item" data-metric="heart-rate">
                 <span class="info-label">Heart Rate</span>
-                <span class="info-value" style="color: var(--lcars-red);">{{ log.fitbit_data.heart_rate_bpm }} BPM</span>
+                <span class="info-value" style="color: var(--lcars-red);">
+                    {% if log.fitbit_data.heart_rate_bpm and log.fitbit_data.resting_heart_rate_bpm %}
+                        {{ log.fitbit_data.heart_rate_bpm }}/{{ log.fitbit_data.resting_heart_rate_bpm }} BPM
+                    {% elif log.fitbit_data.heart_rate_bpm %}
+                        {{ log.fitbit_data.heart_rate_bpm }}/-- BPM
+                    {% elif log.fitbit_data.resting_heart_rate_bpm %}
+                        --/{{ log.fitbit_data.resting_heart_rate_bpm }} BPM
+                    {% endif %}
+                </span>
             </div>
             {% endif %}
 
-            {% if log.fitbit_data.resting_heart_rate_bpm %}
-            <div class="info-item">
-                <span class="info-label">Resting HR</span>
-                <span class="info-value">{{ log.fitbit_data.resting_heart_rate_bpm }} BPM</span>
-            </div>
-            {% endif %}
-
-            {% if log.fitbit_data.sleep_score %}
-            <div class="info-item" data-metric="sleep-score">
-                <span class="info-label">Sleep Score</span>
-                <span class="info-value" style="color: var(--lcars-blue);">{{ log.fitbit_data.sleep_score }}/100</span>
+            {% if log.fitbit_data.sleep_score or log.fitbit_data.sleep_efficiency_pct or log.fitbit_data.sleep_duration_minutes %}
+            <div class="info-item" data-metric="sleep">
+                <span class="info-label">Sleep</span>
+                <span class="info-value" style="color: var(--lcars-blue);">
+                    {% if log.fitbit_data.sleep_score %}{{ log.fitbit_data.sleep_score }}{% else %}--{% endif %} / 
+                    {% if log.fitbit_data.sleep_efficiency_pct %}{{ "%.0f"|format(log.fitbit_data.sleep_efficiency_pct) }}%{% else %}--%{% endif %} / 
+                    {% if log.fitbit_data.sleep_duration_minutes %}
+                        {% set hours = log.fitbit_data.sleep_duration_minutes // 60 %}
+                        {% set mins = log.fitbit_data.sleep_duration_minutes % 60 %}
+                        {{ hours }}h {{ mins }}m
+                    {% else %}
+                        --
+                    {% endif %}
+                </span>
             </div>
             {% endif %}
 
             {% if log.fitbit_data.blood_oxygen_pct %}
             <div class="info-item" data-metric="spo2">
-                <span class="info-label">Blood Oxygen</span>
+                <span class="info-label">Blood O2</span>
                 <span class="info-value">{{ "%.1f"|format(log.fitbit_data.blood_oxygen_pct) }}%</span>
             </div>
             {% endif %}
 
-            {% if log.fitbit_data.steps_today %}
-            <div class="info-item" data-metric="steps">
-                <span class="info-label">Steps Today</span>
-                <span class="info-value">{{ "{:,}".format(log.fitbit_data.steps_today) }}</span>
+            {% if log.fitbit_data.calories_burned_today or log.fitbit_data.active_minutes_today %}
+            <div class="info-item" data-metric="activity">
+                <span class="info-label">Activity</span>
+                <span class="info-value">
+                    {% if log.fitbit_data.calories_burned_today %}{{ "{:,}".format(log.fitbit_data.calories_burned_today) }} cal{% else %}--{% endif %} / 
+                    {% if log.fitbit_data.active_minutes_today %}{{ log.fitbit_data.active_minutes_today }} min{% else %}--{% endif %}
+                </span>
             </div>
             {% endif %}
 
-            {% if log.fitbit_data.active_minutes_today %}
-            <div class="info-item" data-metric="active-minutes">
-                <span class="info-label">Active Minutes</span>
-                <span class="info-value">{{ log.fitbit_data.active_minutes_today }} min</span>
+            {% if log.fitbit_data.cardio_fitness_score or log.fitbit_data.stress_score %}
+            <div class="info-item" data-metric="fitness">
+                <span class="info-label">Fitness/Stress</span>
+                <span class="info-value">
+                    {% if log.fitbit_data.cardio_fitness_score %}{{ log.fitbit_data.cardio_fitness_score }}{% else %}--{% endif %} / 
+                    {% if log.fitbit_data.stress_score %}{{ log.fitbit_data.stress_score }}{% else %}--{% endif %}
+                </span>
             </div>
             {% endif %}
-
-            {% if log.fitbit_data.calories_burned_today %}
-            <div class="info-item" data-metric="calories">
-                <span class="info-label">Calories</span>
-                <span class="info-value">{{ "{:,}".format(log.fitbit_data.calories_burned_today) }}</span>
-            </div>
-            {% endif %}
-
-            <div class="info-item" data-testid="fitbit-timestamp" style="border-top: 1px solid rgba(255,153,0,0.2); margin-top: 10px; padding-top: 10px;">
-                <span class="info-label" style="font-size: 0.85em;">Captured</span>
-                <span class="info-value fitbit-captured-at" style="font-size: 0.85em; color: var(--lcars-grey);">{{ log.fitbit_data.captured_at.strftime('%Y-%m-%d %H:%M') }}</span>
-            </div>
         </div>
         {% endif %}
 

@@ -24,6 +24,7 @@ class TaskType(Enum):
 
     S3_UPLOAD = "s3_upload"
     TRANSCRIPTION = "transcription"
+    FITBIT_CAPTURE = "fitbit_capture"
     EMBEDDING = "embedding"
     SUMMARY = "summary"
 
@@ -221,6 +222,26 @@ class NetworkResilientProcessor:
         logger.info(f"Queued transcription task: {task_id}")
         return task_id
 
+    async def queue_fitbit_capture(
+        self, log_entry_id: str, priority: TaskPriority = TaskPriority.LOW
+    ) -> str:
+        """Queue Fitbit data capture task."""
+        task_id = f"fitbit_capture_{log_entry_id}_{datetime.utcnow().timestamp()}"
+
+        task = NetworkTask(
+            task_id=task_id,
+            task_type=TaskType.FITBIT_CAPTURE,
+            priority=priority,
+            log_entry_id=log_entry_id,
+            payload={},
+        )
+
+        async with self._queue_lock:
+            self.task_queue[task_id] = task
+
+        logger.info(f"Queued Fitbit capture task: {task_id}")
+        return task_id
+
     async def queue_embedding_generation(
         self, log_entry_id: str, transcription: str, priority: TaskPriority = TaskPriority.MEDIUM
     ) -> str:
@@ -309,6 +330,8 @@ class NetworkResilientProcessor:
                 await self._execute_s3_upload(task)
             elif task.task_type == TaskType.TRANSCRIPTION:
                 await self._execute_transcription(task)
+            elif task.task_type == TaskType.FITBIT_CAPTURE:
+                await self._execute_fitbit_capture(task)
             elif task.task_type == TaskType.EMBEDDING:
                 await self._execute_embedding(task)
             elif task.task_type == TaskType.SUMMARY:
@@ -367,9 +390,70 @@ class NetworkResilientProcessor:
             task.log_entry_id, {"transcription": transcription, "processing_status": ProcessingStatus.VECTORIZING}
         )
 
-        # Queue embedding and summary generation
+        # Queue Fitbit capture, embedding and summary generation
+        await self.queue_fitbit_capture(task.log_entry_id)
         await self.queue_embedding_generation(task.log_entry_id, transcription)
         await self.queue_summary_generation(task.log_entry_id, transcription)
+
+    async def _execute_fitbit_capture(self, task: NetworkTask) -> None:
+        """Execute Fitbit data capture task."""
+        try:
+            from app.services.fitbit_service import FitbitService, FitbitAPIError
+            from app.models.fitbit import UserFitbitSettings, FitbitData
+            from app.models.log_entry import LogEntry
+            from sqlalchemy import select
+            from sqlalchemy.ext.asyncio import AsyncSession
+            from datetime import datetime, UTC
+            import uuid
+            from app.dependencies import get_db_session_context
+
+            # Create a new database session for this task to avoid connection conflicts
+            async with get_db_session_context() as db_session:
+                # Get log entry to retrieve user_id
+                log_result = await db_session.execute(
+                    select(LogEntry).where(LogEntry.id == task.log_entry_id)
+                )
+                log_entry = log_result.scalar_one()
+
+                # Check if user has Fitbit authorized
+                result = await db_session.execute(
+                    select(UserFitbitSettings).where(UserFitbitSettings.user_id == log_entry.user_id)
+                )
+                user_settings = result.scalar_one_or_none()
+
+                if not user_settings or not user_settings.is_authorized:
+                    logger.info("User does not have Fitbit authorized, skipping")
+                    return
+
+                # Initialize Fitbit service
+                fitbit_service = FitbitService(self.settings)
+
+                # Refresh token if needed
+                if user_settings.is_token_expired():
+                    logger.info("Fitbit token expired, refreshing")
+                    await fitbit_service.refresh_access_token(log_entry.user_id, db_session)
+                    await db_session.refresh(user_settings)
+
+                # Get health snapshot
+                health_data = await fitbit_service.get_comprehensive_health_snapshot(user_settings.access_token)
+
+                # Create FitbitData record
+                fitbit_data = FitbitData(
+                    id=uuid.uuid4(),
+                    log_entry_id=task.log_entry_id,
+                    user_id=log_entry.user_id,
+                    captured_at=datetime.now(UTC),
+                    **health_data,
+                )
+
+                db_session.add(fitbit_data)
+                await db_session.commit()
+
+            logger.info(f"Successfully captured Fitbit data for log {task.log_entry_id}")
+        except Exception as e:
+            # Fitbit capture failures should NOT fail the entire workflow
+            logger.warning(f"Fitbit data capture failed (non-critical): {e}")
+            # Don't raise the exception - let the task complete successfully
 
     async def _execute_embedding(self, task: NetworkTask) -> None:
         """Execute embedding generation task."""

@@ -94,5 +94,8 @@ class LogEntry(Base):
     weather_precipitation_probability_pct = Column(Float, nullable=True)  # Probability of precipitation percentage
     weather_precipitation_amount_in = Column(Float, nullable=True)  # Quantitative precipitation in inches
 
+    # Relationships
+    fitbit_data = relationship("FitbitData", back_populates="log_entry", uselist=False)
+
     def __repr__(self):
         return f"<LogEntry(id={self.id}, created_at={self.created_at}, status={self.processing_status.value})>"

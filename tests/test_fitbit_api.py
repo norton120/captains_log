@@ -1,4 +1,5 @@
 """Tests for Fitbit API endpoints."""
+
 from datetime import datetime, timedelta, UTC
 from unittest.mock import AsyncMock, patch
 import uuid
@@ -29,9 +30,7 @@ class TestFitbitCallbackUrlEndpoint:
 class TestFitbitAuthorizeEndpoint:
     """Test /api/fitbit/authorize endpoint."""
 
-    async def test_fitbit_authorize_endpoint_redirects(
-        self, api_client: AsyncClient, test_user: User
-    ):
+    async def test_fitbit_authorize_endpoint_redirects(self, api_client: AsyncClient, test_user: User):
         """Test that /api/fitbit/authorize redirects to Fitbit OAuth URL."""
         with patch("app.api.fitbit.FitbitService") as mock_service:
             mock_service.return_value.get_authorization_url.return_value = (
@@ -46,9 +45,7 @@ class TestFitbitAuthorizeEndpoint:
             assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
             assert "fitbit.com" in response.headers["location"]
 
-    async def test_fitbit_authorize_requires_authentication(
-        self, api_client: AsyncClient
-    ):
+    async def test_fitbit_authorize_requires_authentication(self, api_client: AsyncClient):
         """Test that authorize endpoint requires authentication."""
         # Create a new client without authentication
         from app.main import app
@@ -70,9 +67,7 @@ class TestFitbitAuthorizeEndpoint:
 class TestFitbitCallbackEndpoint:
     """Test /api/fitbit/callback endpoint."""
 
-    async def test_fitbit_callback_endpoint_success(
-        self, api_client: AsyncClient, test_user: User, async_db_session
-    ):
+    async def test_fitbit_callback_endpoint_success(self, api_client: AsyncClient, test_user: User, async_db_session):
         """Test /api/fitbit/callback with valid authorization code."""
         with patch("app.api.fitbit.FitbitService") as mock_service:
             mock_service.return_value.exchange_code_for_tokens = AsyncMock(
@@ -92,9 +87,7 @@ class TestFitbitCallbackEndpoint:
             assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
             assert "/settings" in response.headers["location"]
 
-    async def test_fitbit_callback_endpoint_with_error(
-        self, api_client: AsyncClient, test_user: User
-    ):
+    async def test_fitbit_callback_endpoint_with_error(self, api_client: AsyncClient, test_user: User):
         """Test callback with error parameter from Fitbit."""
         response = await api_client.get(
             "/api/fitbit/callback?error=access_denied&error_description=User%20denied",
@@ -105,9 +98,7 @@ class TestFitbitCallbackEndpoint:
         assert "/settings" in response.headers["location"]
         # Error message should be in session or flash message
 
-    async def test_fitbit_callback_missing_code(
-        self, api_client: AsyncClient, test_user: User
-    ):
+    async def test_fitbit_callback_missing_code(self, api_client: AsyncClient, test_user: User):
         """Test callback without code or error parameter."""
         response = await api_client.get(
             "/api/fitbit/callback",
@@ -124,9 +115,7 @@ class TestFitbitCallbackEndpoint:
 class TestFitbitDevicesEndpoint:
     """Test /api/fitbit/devices endpoint."""
 
-    async def test_get_fitbit_devices_endpoint(
-        self, api_client: AsyncClient, test_user: User, async_db_session
-    ):
+    async def test_get_fitbit_devices_endpoint(self, api_client: AsyncClient, test_user: User, async_db_session):
         """Test fetching user's Fitbit devices."""
         # Create user Fitbit settings
         settings = UserFitbitSettings(
@@ -157,9 +146,7 @@ class TestFitbitDevicesEndpoint:
             assert len(data) == 1
             assert data[0]["id"] == "DEVICE123"
 
-    async def test_get_fitbit_devices_not_authorized(
-        self, api_client: AsyncClient, test_user: User
-    ):
+    async def test_get_fitbit_devices_not_authorized(self, api_client: AsyncClient, test_user: User):
         """Test devices endpoint when user hasn't authorized Fitbit."""
         response = await api_client.get("/api/fitbit/devices")
 
@@ -183,9 +170,7 @@ class TestFitbitDevicesEndpoint:
 class TestSelectFitbitDeviceEndpoint:
     """Test /api/fitbit/device/select endpoint."""
 
-    async def test_select_fitbit_device_endpoint(
-        self, api_client: AsyncClient, test_user: User, async_db_session
-    ):
+    async def test_select_fitbit_device_endpoint(self, api_client: AsyncClient, test_user: User, async_db_session):
         """Test selecting a Fitbit device."""
         # Create user Fitbit settings
         settings = UserFitbitSettings(
@@ -234,9 +219,7 @@ class TestSelectFitbitDeviceEndpoint:
 class TestDisconnectFitbitEndpoint:
     """Test /api/fitbit/disconnect endpoint."""
 
-    async def test_disconnect_fitbit_endpoint(
-        self, api_client: AsyncClient, test_user: User, async_db_session
-    ):
+    async def test_disconnect_fitbit_endpoint(self, api_client: AsyncClient, test_user: User, async_db_session):
         """Test disconnecting Fitbit integration."""
         # Create authorized settings
         settings = UserFitbitSettings(
@@ -263,9 +246,7 @@ class TestDisconnectFitbitEndpoint:
         assert settings.fitbit_user_id is None
         assert settings.fitbit_device_id is None
 
-    async def test_disconnect_fitbit_when_not_connected(
-        self, api_client: AsyncClient, test_user: User
-    ):
+    async def test_disconnect_fitbit_when_not_connected(self, api_client: AsyncClient, test_user: User):
         """Test disconnect when user doesn't have Fitbit connected."""
         response = await api_client.post("/api/fitbit/disconnect")
 
@@ -299,9 +280,7 @@ class TestFitbitStatusEndpoint:
         assert data["fitbit_user_id"] == "FITBIT123"
         assert data["device_id"] == "DEVICE456"
 
-    async def test_get_fitbit_status_endpoint_not_authorized(
-        self, api_client: AsyncClient, test_user: User
-    ):
+    async def test_get_fitbit_status_endpoint_not_authorized(self, api_client: AsyncClient, test_user: User):
         """Test status endpoint for user without Fitbit."""
         response = await api_client.get("/api/fitbit/status")
 
@@ -361,9 +340,7 @@ class TestFitbitHistoricalDataEndpoint:
                 }
             )
 
-            response = await api_client.post(
-                f"/api/fitbit/capture-historical/{log.id}"
-            )
+            response = await api_client.post(f"/api/fitbit/capture-historical/{log.id}")
 
             assert response.status_code == status.HTTP_200_OK
             data = response.json()
@@ -395,9 +372,7 @@ class TestFitbitHistoricalDataEndpoint:
         async_db_session.add(fitbit_data)
         await async_db_session.commit()
 
-        response = await api_client.post(
-            f"/api/fitbit/capture-historical/{log.id}"
-        )
+        response = await api_client.post(f"/api/fitbit/capture-historical/{log.id}")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "already has" in response.json()["detail"].lower()
@@ -417,9 +392,7 @@ class TestFitbitHistoricalDataEndpoint:
         async_db_session.add(log)
         await async_db_session.commit()
 
-        response = await api_client.post(
-            f"/api/fitbit/capture-historical/{log.id}"
-        )
+        response = await api_client.post(f"/api/fitbit/capture-historical/{log.id}")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "not authorized" in response.json()["detail"].lower()

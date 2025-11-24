@@ -1,73 +1,84 @@
 # Captain's Log
 
-Voice-based ship's log for SV Defiant with automatic transcription, semantic search, and AI summaries.
+All ships need to keep a log, both Starships and Sailing Vessels alike. This library allows you to and your crew to keep robust, detailed logs of your voyages and adventures.
 
-![picard log](picard.webp)
 
-## Quick Start
+## Recording Logs
 
-```bash
-# Run the application
-docker compose up
+The core functionality of this library is to record logs. Crew can record either personal or ship's logs (designate which type by starting your log with "Personal Log" or a crew position like "First Mate's Log" and the library will correctly label the log). Ship's logs are considered canonical vessel records and are available to read and review by all of the crew. Personal logs are restricted to the user recording the log.
 
-# Run tests
-docker compose run --rm test
+Log recordings come in two flavors:
 
-# Access at http://captains-log.localhost
-```
+**Audio Recordings:**
+![audio waveform](assets/audio.png)
 
-## What It Does
+The primary interface for recording logs is audio recording.
 
-Record voice logs that are automatically:
-- Transcribed using OpenAI Whisper
-- Vectorized for semantic search with pgvector
-- Summarized using AI
-- Stored with audio playback capability
+**Video Recordings:**
+![video recording](assets/video_recording.png)
+You can also record video and it is stored and processed in exactly the same way as the audio.
 
-## Development
+**Transcription**
+![index page](assets/index.png)
+Once your log is recorded it will be processed. This processing includes:
+- transcription to a text log
+- summarization to a quick to read, episode-like description
+- vectorization for related searching
 
-This project follows **Test-Driven Development (TDD)**:
+## Telemetry
+Good logs provide context, the more the better. By default `Captain's Log` captures the following data at the time of log recording:
+**Always Captured**
+- Date & time
+- Geolocation data (latitude/longitude, nearest city, nearest port/body of water)
+- Weather data:
+    - Natural Language Conditions (ie "cloudy")
+    - Air Temp
+    - Wind Speed
+    - Visibility
+    - Humidity
+    - 46.0°F
 
-```bash
-# Run tests during development
-docker compose run --rm test
+**Optional**
+- fitbit: if a crew member pairs a fitbit device to their account (option is in settings), `Captain's Log` will capture health data from that user and display it in the "medical" card on log detail pages. What data is available will vary based on device, but can include:
+    - current/resting heartrate
+    - blood o2
+    - sleep score
+    - sleep hours
+    - activity score
+    - cals burned that day
 
-# Run specific tests
-docker compose run --rm test pytest tests/test_specific.py -v
+## Storage
+Since most of us are not stowing 10TB of extra disk onboard, `Captain's Log` is designed to use S3 as the primary storage backend for the original log video/audio files. You can optionally configure local storage.
 
-# Run tests with coverage
-docker compose run --rm test pytest --cov=app tests/
+As internet is not a constant on the open water (or in the Gamma Quadrant) `Captain's Log` uses a durable eventually-consistent retry strategy; while connection is lost, logs are held in local storage and can be played in the detail page. As soon as you connect again, logs are moved to S3, transcribed and instrumented, and the local cache is purged.
 
-# Live reload development
-docker compose up app  # Auto-reloads on file changes
-```
+## Additional Features
 
-## Required Environment Variables
+### Map View
+![map](assets/map.png)
+As your crew records logs, your voyage is charted automatically. This makes it easy to find a specific log (and it looks super cool displayed on your wall).
 
-Create `.env` file:
-```bash
-OPENAI_API_KEY=your_openai_key
-AWS_ACCESS_KEY_ID=your_aws_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret
-AWS_REGION=us-east-2
-```
+### Semantic Search
+![search](assets/search.png)
+You can search not just for text but related phrases, like "seasick" and "Romulans"
 
-## Tech Stack
+### Settings
+![settings](assets/settings.png)
+All settings can be set either by envars or in the settings panel, making it easy to configure your system without needing shell access.
 
-- **FastAPI** + SQLAlchemy + PostgreSQL with pgvector
-- **HTMX** + Jinja2 templates with LCARS styling
-- **DBOS** for async audio processing workflows
-- **OpenAI** Whisper API + embeddings
-- **AWS S3** for audio storage
+### Status Page
+![status](assets/status.png)
+When internet is flakey (like on a boat at sea) it helps to know if you have connection. This also lets you manually restart any processing jobs that have been "stuck" for long periods without a connection for them to complete.
 
-## Project Structure
+## Auth
+Initial auth must be done using user/password for at least one crew member. That crew member may then go into settings and enable SSO for any of:
+- github
+- facebook
+- google
 
-```
-app/
-├── api/           # FastAPI routes
-├── models/        # Database models
-├── workflows/     # DBOS background tasks
-├── static/        # CSS/JS assets
-└── templates/     # HTML templates
-tests/             # Test suite
-```
+To secure your `Captain's Log`, set `allow_new_user_registration` to `False` and the "sign up" routes will be disabled.
+
+## Where are we boldy going next?
+1. **Signal K integration**: the holy grail, allowing a much wider and more dynamic range of ship's data to be attached to the logs.
+2. **Granular Log Type Parsing**: it would be great to tag logs by the rank/role of the recorder and search by that later.
+3. **Code Cleanup**: lots and lots of de-vibing and refactoring is overdue.

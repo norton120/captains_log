@@ -1,4 +1,5 @@
 """Fitbit API endpoints."""
+
 import logging
 from typing import Optional
 import uuid
@@ -10,12 +11,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import current_active_user
-from app.dependencies import get_db_session
+from app.dependencies import get_db_session, get_enhanced_settings
 from app.models.user import User
 from app.models.fitbit import UserFitbitSettings, FitbitData
 from app.models.log_entry import LogEntry
 from app.services.fitbit_service import FitbitService, FitbitAPIError
-from app.config import settings
+from app.services.settings_service import SettingsAdapter
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/fitbit", tags=["fitbit"])
@@ -23,11 +24,13 @@ router = APIRouter(prefix="/api/fitbit", tags=["fitbit"])
 
 class SelectDeviceRequest(BaseModel):
     """Request model for selecting a Fitbit device."""
+
     device_id: str
 
 
 class FitbitStatusResponse(BaseModel):
     """Response model for Fitbit connection status."""
+
     is_authorized: bool
     fitbit_user_id: Optional[str] = None
     device_id: Optional[str] = None
@@ -47,12 +50,11 @@ async def get_callback_url(request: Request):
 async def authorize_fitbit(
     request: Request,
     user: User = Depends(current_active_user),
+    settings: SettingsAdapter = Depends(get_enhanced_settings),
 ):
     """
     Redirect to Fitbit OAuth authorization page.
     """
-    fitbit_settings = settings
-
     if not settings.fitbit_oauth_client_id:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -81,13 +83,12 @@ async def fitbit_callback(
     state: Optional[str] = None,
     error: Optional[str] = None,
     error_description: Optional[str] = None,
-    user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_db_session),
+    settings: SettingsAdapter = Depends(get_enhanced_settings),
 ):
     """
     Handle Fitbit OAuth callback.
     """
-    fitbit_settings = settings
 
     # Check for error from Fitbit
     if error:
@@ -101,6 +102,47 @@ async def fitbit_callback(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing authorization code",
         )
+
+    # Get the current user from the session/cookie
+    from app.middleware import UserContextMiddleware
+    from app.config import settings as env_settings
+    from jwt import decode as jwt_decode
+    from jwt.exceptions import PyJWTError
+    from sqlalchemy import select
+    from app.models.user import User as UserModel
+
+    user = None
+    try:
+        # Try to extract the token from the cookie
+        token = request.cookies.get(env_settings.session_cookie_name)
+
+        if token:
+            # Decode the JWT token directly
+            try:
+                payload = jwt_decode(
+                    token,
+                    env_settings.secret_key,
+                    algorithms=["HS256"],
+                    audience=["fastapi-users:auth"],
+                )
+                user_id = payload.get("sub")
+
+                if user_id:
+                    # Get user from database
+                    from uuid import UUID
+
+                    result = await db.execute(select(UserModel).where(UserModel.id == UUID(user_id)))
+                    user = result.scalar_one_or_none()
+            except PyJWTError as jwt_error:
+                logger.debug(f"JWT validation failed during Fitbit callback: {jwt_error}")
+    except Exception as e:
+        logger.error(f"Failed to get current user during Fitbit callback: {e}")
+
+    if not user:
+        # Store the OAuth state and code in session to complete after login
+        request.session["fitbit_pending_code"] = code
+        request.session["fitbit_pending_state"] = state
+        return RedirectResponse(url="/login?next=/api/fitbit/authorize", status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
     # Verify state (CSRF protection)
     session_state = request.session.get("fitbit_oauth_state")
@@ -135,17 +177,15 @@ async def fitbit_callback(
 async def get_fitbit_devices(
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_db_session),
+    settings: SettingsAdapter = Depends(get_enhanced_settings),
 ):
     """
     Get list of user's Fitbit devices.
     """
-    fitbit_settings = settings
     fitbit_service = FitbitService(settings)
 
     # Get user settings
-    result = await db.execute(
-        select(UserFitbitSettings).where(UserFitbitSettings.user_id == user.id)
-    )
+    result = await db.execute(select(UserFitbitSettings).where(UserFitbitSettings.user_id == user.id))
     user_settings = result.scalar_one_or_none()
 
     if not user_settings or not user_settings.is_authorized:
@@ -174,9 +214,7 @@ async def select_fitbit_device(
     """
     Select a Fitbit device for the user.
     """
-    result = await db.execute(
-        select(UserFitbitSettings).where(UserFitbitSettings.user_id == user.id)
-    )
+    result = await db.execute(select(UserFitbitSettings).where(UserFitbitSettings.user_id == user.id))
     user_settings = result.scalar_one_or_none()
 
     if not user_settings:
@@ -199,9 +237,7 @@ async def disconnect_fitbit(
     """
     Disconnect Fitbit integration for the user.
     """
-    result = await db.execute(
-        select(UserFitbitSettings).where(UserFitbitSettings.user_id == user.id)
-    )
+    result = await db.execute(select(UserFitbitSettings).where(UserFitbitSettings.user_id == user.id))
     user_settings = result.scalar_one_or_none()
 
     if user_settings:
@@ -219,9 +255,7 @@ async def get_fitbit_status(
     """
     Get Fitbit connection status for the user.
     """
-    result = await db.execute(
-        select(UserFitbitSettings).where(UserFitbitSettings.user_id == user.id)
-    )
+    result = await db.execute(select(UserFitbitSettings).where(UserFitbitSettings.user_id == user.id))
     user_settings = result.scalar_one_or_none()
 
     if not user_settings or not user_settings.is_authorized:
@@ -239,16 +273,14 @@ async def capture_historical_fitbit_data(
     log_id: uuid.UUID,
     user: User = Depends(current_active_user),
     db: AsyncSession = Depends(get_db_session),
+    settings: SettingsAdapter = Depends(get_enhanced_settings),
 ):
     """
     Capture Fitbit data for an existing log entry (historical capture).
     """
-    fitbit_settings = settings
 
     # Check if user has Fitbit authorized
-    result = await db.execute(
-        select(UserFitbitSettings).where(UserFitbitSettings.user_id == user.id)
-    )
+    result = await db.execute(select(UserFitbitSettings).where(UserFitbitSettings.user_id == user.id))
     user_settings = result.scalar_one_or_none()
 
     if not user_settings or not user_settings.is_authorized:
@@ -258,9 +290,7 @@ async def capture_historical_fitbit_data(
         )
 
     # Get the log entry
-    log_result = await db.execute(
-        select(LogEntry).where(LogEntry.id == log_id, LogEntry.user_id == user.id)
-    )
+    log_result = await db.execute(select(LogEntry).where(LogEntry.id == log_id, LogEntry.user_id == user.id))
     log = log_result.scalar_one_or_none()
 
     if not log:
@@ -270,9 +300,7 @@ async def capture_historical_fitbit_data(
         )
 
     # Check if Fitbit data already exists
-    fitbit_result = await db.execute(
-        select(FitbitData).where(FitbitData.log_entry_id == log_id)
-    )
+    fitbit_result = await db.execute(select(FitbitData).where(FitbitData.log_entry_id == log_id))
     existing_fitbit_data = fitbit_result.scalar_one_or_none()
 
     if existing_fitbit_data:
@@ -291,9 +319,7 @@ async def capture_historical_fitbit_data(
             await db.refresh(user_settings)
 
         # Get health snapshot
-        health_data = await fitbit_service.get_comprehensive_health_snapshot(
-            user_settings.access_token
-        )
+        health_data = await fitbit_service.get_comprehensive_health_snapshot(user_settings.access_token)
 
         # Create FitbitData record
         from datetime import datetime, UTC

@@ -99,6 +99,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
     WHITELISTED_PATHS = [
         "/api/auth/",  # Authentication routes (login, register, OAuth)
         "/api/fitbit/callback-url",  # Fitbit callback URL info (needed for setup)
+        "/api/fitbit/callback",  # Fitbit OAuth callback (needs to work without auth)
         "/login",  # Login page
         "/signup",  # Signup page
         "/health",  # Health check

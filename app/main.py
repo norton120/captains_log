@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -68,6 +69,12 @@ async def lifespan(app: FastAPI):
                     logger.info("Loaded Facebook OAuth credentials from database")
                     credentials_loaded = True
 
+                if not settings.fitbit_oauth_client_id and preferences.fitbit_oauth_client_id:
+                    settings.fitbit_oauth_client_id = preferences.fitbit_oauth_client_id
+                    settings.fitbit_oauth_client_secret = preferences.fitbit_oauth_client_secret
+                    logger.info("Loaded Fitbit OAuth credentials from database")
+                    credentials_loaded = True
+
                 # Re-register OAuth routes with updated credentials
                 if credentials_loaded:
                     logger.info("Re-registering OAuth routes with database credentials")
@@ -117,6 +124,18 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Add SessionMiddleware for session support (required for OAuth state)
+from app.config import settings
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    session_cookie=settings.session_cookie_name + "_oauth_state",  # Different cookie name to avoid conflict with JWT
+    max_age=3600,  # 1 hour for OAuth state is plenty
+    same_site="lax",
+    https_only=False,  # Set to True in production with HTTPS
 )
 
 # Add middlewares
@@ -425,16 +444,16 @@ async def login_page(request: Request, db_session: AsyncSession = Depends(get_db
 
     # Check which OAuth providers are configured (check both env and database)
     google_oauth_enabled = bool(
-        (preferences.google_oauth_client_id and preferences.google_oauth_client_secret) or
-        (settings.google_oauth_client_id and settings.google_oauth_client_secret)
+        (preferences.google_oauth_client_id and preferences.google_oauth_client_secret)
+        or (settings.google_oauth_client_id and settings.google_oauth_client_secret)
     )
     github_oauth_enabled = bool(
-        (preferences.github_oauth_client_id and preferences.github_oauth_client_secret) or
-        (settings.github_oauth_client_id and settings.github_oauth_client_secret)
+        (preferences.github_oauth_client_id and preferences.github_oauth_client_secret)
+        or (settings.github_oauth_client_id and settings.github_oauth_client_secret)
     )
     facebook_oauth_enabled = bool(
-        (preferences.facebook_oauth_client_id and preferences.facebook_oauth_client_secret) or
-        (settings.facebook_oauth_client_id and settings.facebook_oauth_client_secret)
+        (preferences.facebook_oauth_client_id and preferences.facebook_oauth_client_secret)
+        or (settings.facebook_oauth_client_id and settings.facebook_oauth_client_secret)
     )
 
     return templates.TemplateResponse(
@@ -471,16 +490,16 @@ async def signup_page(request: Request, db_session: AsyncSession = Depends(get_d
 
     # Check which OAuth providers are configured (check both env and database)
     google_oauth_enabled = bool(
-        (preferences.google_oauth_client_id and preferences.google_oauth_client_secret) or
-        (settings.google_oauth_client_id and settings.google_oauth_client_secret)
+        (preferences.google_oauth_client_id and preferences.google_oauth_client_secret)
+        or (settings.google_oauth_client_id and settings.google_oauth_client_secret)
     )
     github_oauth_enabled = bool(
-        (preferences.github_oauth_client_id and preferences.github_oauth_client_secret) or
-        (settings.github_oauth_client_id and settings.github_oauth_client_secret)
+        (preferences.github_oauth_client_id and preferences.github_oauth_client_secret)
+        or (settings.github_oauth_client_id and settings.github_oauth_client_secret)
     )
     facebook_oauth_enabled = bool(
-        (preferences.facebook_oauth_client_id and preferences.facebook_oauth_client_secret) or
-        (settings.facebook_oauth_client_id and settings.facebook_oauth_client_secret)
+        (preferences.facebook_oauth_client_id and preferences.facebook_oauth_client_secret)
+        or (settings.facebook_oauth_client_id and settings.facebook_oauth_client_secret)
     )
 
     return templates.TemplateResponse(

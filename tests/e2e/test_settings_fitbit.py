@@ -1,4 +1,5 @@
 """End-to-end tests for Fitbit integration in settings page."""
+
 from playwright.sync_api import Page, expect
 
 
@@ -14,9 +15,7 @@ class TestFitbitSettingsSection:
         fitbit_heading = page.locator('h2:has-text("FITBIT INTEGRATION")')
         expect(fitbit_heading).to_be_visible()
 
-    def test_connect_fitbit_button_visible_when_not_connected(
-        self, page: Page, base_url: str
-    ):
+    def test_connect_fitbit_button_visible_when_not_connected(self, page: Page, base_url: str):
         """Test 'Connect Fitbit' button visible when not connected."""
         page.goto(f"{base_url}/settings")
         page.wait_for_load_state("networkidle")
@@ -43,7 +42,7 @@ class TestFitbitSettingsSection:
         page.wait_for_url(f"**/settings*", timeout=10000)
 
         # Should show success message
-        success_message = page.locator('.alert-success, .success-message')
+        success_message = page.locator(".alert-success, .success-message")
         expect(success_message).to_be_visible(timeout=5000)
 
     def test_fitbit_connection_status_displays(self, page: Page, base_url: str):
@@ -55,7 +54,7 @@ class TestFitbitSettingsSection:
         page.wait_for_load_state("networkidle")
 
         # Check for connection status
-        status_indicator = page.locator('.fitbit-status')
+        status_indicator = page.locator(".fitbit-status")
 
         # Should show either connected or disconnected state
         expect(status_indicator).to_be_visible()
@@ -67,7 +66,7 @@ class TestFitbitSettingsSection:
         page.wait_for_load_state("networkidle")
 
         # Look for device selection dropdown
-        device_select = page.locator('select#fitbit_device_id')
+        device_select = page.locator("select#fitbit_device_id")
 
         if device_select.is_visible():
             # Select a device
@@ -78,7 +77,7 @@ class TestFitbitSettingsSection:
             save_button.click()
 
             # Should show success message
-            page.wait_for_selector('.alert-success, .success-message', timeout=5000)
+            page.wait_for_selector(".alert-success, .success-message", timeout=5000)
 
     def test_disconnect_fitbit(self, page: Page, base_url: str):
         """Test disconnecting Fitbit integration."""
@@ -92,16 +91,12 @@ class TestFitbitSettingsSection:
             disconnect_button.click()
 
             # May show confirmation modal
-            confirm_button = page.locator(
-                'button:has-text("Confirm"), button:has-text("Yes")'
-            )
+            confirm_button = page.locator('button:has-text("Confirm"), button:has-text("Yes")')
             if confirm_button.is_visible():
                 confirm_button.click()
 
             # Should show Connect button again after disconnect
-            page.wait_for_selector(
-                'button:has-text("Connect Fitbit")', timeout=5000
-            )
+            page.wait_for_selector('button:has-text("Connect Fitbit")', timeout=5000)
 
     def test_fitbit_device_list_displays(self, page: Page, base_url: str):
         """Test that device list displays after authorization."""
@@ -110,11 +105,11 @@ class TestFitbitSettingsSection:
         page.wait_for_load_state("networkidle")
 
         # Check if device dropdown exists
-        device_select = page.locator('select#fitbit_device_id')
+        device_select = page.locator("select#fitbit_device_id")
 
         if device_select.is_visible():
             # Should have at least one option
-            options = device_select.locator('option')
+            options = device_select.locator("option")
             count = options.count()
             assert count > 0, "Device dropdown should have options"
 
@@ -147,15 +142,13 @@ class TestFitbitSettingsSection:
 class TestFitbitSettingsValidation:
     """Test validation in Fitbit settings."""
 
-    def test_cannot_select_device_without_authorization(
-        self, page: Page, base_url: str
-    ):
+    def test_cannot_select_device_without_authorization(self, page: Page, base_url: str):
         """Test that device selection is disabled without authorization."""
         page.goto(f"{base_url}/settings")
         page.wait_for_load_state("networkidle")
 
         # Device select should be disabled or hidden if not authorized
-        device_select = page.locator('select#fitbit_device_id')
+        device_select = page.locator("select#fitbit_device_id")
 
         if device_select.is_visible():
             # Should be disabled
@@ -164,15 +157,13 @@ class TestFitbitSettingsValidation:
     def test_fitbit_error_displays_on_failed_auth(self, page: Page, base_url: str):
         """Test error message displays if OAuth fails."""
         # Simulate OAuth error callback
-        page.goto(
-            f"{base_url}/api/fitbit/callback?error=access_denied&error_description=User+denied"
-        )
+        page.goto(f"{base_url}/api/fitbit/callback?error=access_denied&error_description=User+denied")
 
         # Should redirect to settings
         page.wait_for_url(f"**/settings*", timeout=10000)
 
         # Should show error message
-        error_message = page.locator('.alert-error, .error-message')
+        error_message = page.locator(".alert-error, .error-message")
         expect(error_message).to_be_visible()
         expect(error_message).to_contain_text("denied")
 

@@ -1,4 +1,5 @@
 """End-to-end tests for Fitbit data widget on log detail page."""
+
 from playwright.sync_api import Page, expect
 
 
@@ -22,9 +23,7 @@ class TestFitbitWidgetDisplay:
             page.wait_for_load_state("networkidle")
 
             # Check if Medical Data widget exists
-            medical_widget = page.locator(
-                'h3:has-text("MEDICAL DATA"), [data-testid="medical-data"]'
-            )
+            medical_widget = page.locator('h3:has-text("MEDICAL DATA"), [data-testid="medical-data"]')
 
             # Widget may or may not be present depending on whether log has Fitbit data
             # This test just checks the structure
@@ -35,15 +34,13 @@ class TestFitbitWidgetDisplay:
         page.goto(f"{base_url}/logs")
         page.wait_for_load_state("networkidle")
 
-        first_log = page.locator('a.log-entry').first
+        first_log = page.locator("a.log-entry").first
         if first_log.is_visible():
             first_log.click()
             page.wait_for_load_state("networkidle")
 
             # Look for heart rate display
-            heart_rate = page.locator(
-                '[data-metric="heart-rate"], .heart-rate-value'
-            )
+            heart_rate = page.locator('[data-metric="heart-rate"], .heart-rate-value')
 
             if heart_rate.is_visible():
                 # Should show BPM value
@@ -55,15 +52,13 @@ class TestFitbitWidgetDisplay:
         page.goto(f"{base_url}/logs")
         page.wait_for_load_state("networkidle")
 
-        first_log = page.locator('a.log-entry').first
+        first_log = page.locator("a.log-entry").first
         if first_log.is_visible():
             first_log.click()
             page.wait_for_load_state("networkidle")
 
             # Look for sleep score
-            sleep_score = page.locator(
-                '[data-metric="sleep-score"], .sleep-score-value'
-            )
+            sleep_score = page.locator('[data-metric="sleep-score"], .sleep-score-value')
 
             if sleep_score.is_visible():
                 # Should show score out of 100
@@ -75,7 +70,7 @@ class TestFitbitWidgetDisplay:
         page.goto(f"{base_url}/logs")
         page.wait_for_load_state("networkidle")
 
-        first_log = page.locator('a.log-entry').first
+        first_log = page.locator("a.log-entry").first
         if first_log.is_visible():
             first_log.click()
             page.wait_for_load_state("networkidle")
@@ -83,9 +78,7 @@ class TestFitbitWidgetDisplay:
             # Look for activity metrics
             steps = page.locator('[data-metric="steps"], .steps-value')
             calories = page.locator('[data-metric="calories"], .calories-value')
-            active_minutes = page.locator(
-                '[data-metric="active-minutes"], .active-minutes-value'
-            )
+            active_minutes = page.locator('[data-metric="active-minutes"], .active-minutes-value')
 
             # At least one activity metric should be visible if Fitbit data exists
             if steps.is_visible() or calories.is_visible() or active_minutes.is_visible():
@@ -97,7 +90,7 @@ class TestFitbitWidgetDisplay:
         page.goto(f"{base_url}/logs")
         page.wait_for_load_state("networkidle")
 
-        first_log = page.locator('a.log-entry').first
+        first_log = page.locator("a.log-entry").first
         if first_log.is_visible():
             first_log.click()
             page.wait_for_load_state("networkidle")
@@ -125,7 +118,7 @@ class TestFitbitWidgetDisplay:
         page.goto(f"{base_url}/logs")
         page.wait_for_load_state("networkidle")
 
-        first_log = page.locator('a.log-entry').first
+        first_log = page.locator("a.log-entry").first
         if first_log.is_visible():
             first_log.click()
             page.wait_for_load_state("networkidle")
@@ -140,15 +133,13 @@ class TestFitbitWidgetDisplay:
         page.goto(f"{base_url}/logs")
         page.wait_for_load_state("networkidle")
 
-        first_log = page.locator('a.log-entry').first
+        first_log = page.locator("a.log-entry").first
         if first_log.is_visible():
             first_log.click()
             page.wait_for_load_state("networkidle")
 
             # Look for timestamp
-            timestamp = page.locator(
-                '[data-testid="fitbit-timestamp"], .fitbit-captured-at'
-            )
+            timestamp = page.locator('[data-testid="fitbit-timestamp"], .fitbit-captured-at')
 
             if timestamp.is_visible():
                 # Should have a date/time value
@@ -164,7 +155,7 @@ class TestFitbitWidgetLayout:
         page.goto(f"{base_url}/logs")
         page.wait_for_load_state("networkidle")
 
-        first_log = page.locator('a.log-entry').first
+        first_log = page.locator("a.log-entry").first
         if first_log.is_visible():
             first_log.click()
             page.wait_for_load_state("networkidle")
@@ -188,7 +179,7 @@ class TestFitbitWidgetLayout:
         page.goto(f"{base_url}/logs")
         page.wait_for_load_state("networkidle")
 
-        first_log = page.locator('a.log-entry').first
+        first_log = page.locator("a.log-entry").first
         if first_log.is_visible():
             first_log.click()
             page.wait_for_load_state("networkidle")
@@ -206,7 +197,7 @@ class TestFitbitWidgetLayout:
         page.goto(f"{base_url}/logs")
         page.wait_for_load_state("networkidle")
 
-        first_log = page.locator('a.log-entry').first
+        first_log = page.locator("a.log-entry").first
         if first_log.is_visible():
             first_log.click()
             page.wait_for_load_state("networkidle")
@@ -220,14 +211,12 @@ class TestFitbitWidgetLayout:
 class TestFitbitWidgetInteraction:
     """Test interactive features of Fitbit widget."""
 
-    def test_fitbit_widget_has_tooltip_explanations(
-        self, page: Page, base_url: str
-    ):
+    def test_fitbit_widget_has_tooltip_explanations(self, page: Page, base_url: str):
         """Test that metrics have tooltip explanations."""
         page.goto(f"{base_url}/logs")
         page.wait_for_load_state("networkidle")
 
-        first_log = page.locator('a.log-entry').first
+        first_log = page.locator("a.log-entry").first
         if first_log.is_visible():
             first_log.click()
             page.wait_for_load_state("networkidle")
@@ -245,15 +234,13 @@ class TestFitbitWidgetInteraction:
         page.goto(f"{base_url}/logs")
         page.wait_for_load_state("networkidle")
 
-        first_log = page.locator('a.log-entry').first
+        first_log = page.locator("a.log-entry").first
         if first_log.is_visible():
             first_log.click()
             page.wait_for_load_state("networkidle")
 
             # Look for collapse/expand toggle
-            toggle = page.locator(
-                '[data-testid="medical-data"] .toggle, .collapse-btn'
-            )
+            toggle = page.locator('[data-testid="medical-data"] .toggle, .collapse-btn')
 
             if toggle.is_visible():
                 # Click to collapse
@@ -283,7 +270,7 @@ class TestFitbitDataAccuracy:
 
         page.route("**/api/logs/*", handle_route)
 
-        first_log = page.locator('a.log-entry').first
+        first_log = page.locator("a.log-entry").first
         if first_log.is_visible():
             first_log.click()
             page.wait_for_load_state("networkidle")
@@ -296,7 +283,7 @@ class TestFitbitDataAccuracy:
         page.goto(f"{base_url}/logs")
         page.wait_for_load_state("networkidle")
 
-        first_log = page.locator('a.log-entry').first
+        first_log = page.locator("a.log-entry").first
         if first_log.is_visible():
             first_log.click()
             page.wait_for_load_state("networkidle")
